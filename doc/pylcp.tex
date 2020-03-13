@@ -1,0 +1,440 @@
+%% This template can be used to write a paper for
+%% Computer Physics Communications using LaTeX.
+%% For authors who want to write a computer program description,
+%% an example Program Summary is included that only has to be
+%% completed and which will give the correct layout in the
+%% preprint and the journal.
+%% The `elsarticle' style is used and more information on this style
+%% can be found at
+%% http://www.elsevier.com/wps/find/authorsview.authors/elsarticle.
+%%
+%%
+%%\documentclass[preprint,12pt]{elsarticle}
+
+%% Use the option review to obtain double line spacing
+%% \documentclass[preprint,review,12pt]{elsarticle}
+
+%% Use the options 1p,twocolumn; 3p; 3p,twocolumn; 5p; or 5p,twocolumn
+%% for a journal layout:
+%% \documentclass[final,1p,times]{elsarticle}
+%% \documentclass[final,1p,times,twocolumn]{elsarticle}
+%% \documentclass[final,3p,times]{elsarticle}
+%% \documentclass[final,3p,times,twocolumn]{elsarticle}
+%% \documentclass[final,5p,times]{elsarticle}
+\documentclass[final,5p,times,twocolumn]{elsarticle}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{braket}
+
+%% natbib.sty is loaded by default. However, natbib options can be
+%% provided with \biboptions{...} command. Following options are
+%% valid:
+
+%%   round  -  round parentheses are used (default)
+%%   square -  square brackets are used   [option]
+%%   curly  -  curly braces are used      {option}
+%%   angle  -  angle brackets are used    <option>
+%%   semicolon  -  multiple citations separated by semi-colon
+%%   colon  - same as semicolon, an earlier confusion
+%%   comma  -  separated by comma
+%%   numbers-  selects numerical citations
+%%   super  -  numerical citations as superscripts
+%%   sort   -  sorts multiple citations according to order in ref. list
+%%   sort&compress   -  like sort, but also compresses numerical citations
+%%   compress - compresses without sorting
+%%
+%% \biboptions{comma,round}
+
+% \biboptions{}
+
+%% This list environment is used for the references in the
+%% Program Summary
+%%
+\newcounter{bla}
+\newenvironment{refnummer}{%
+\list{[\arabic{bla}]}%
+{\usecounter{bla}%
+ \setlength{\itemindent}{0pt}%
+ \setlength{\topsep}{0pt}%
+ \setlength{\itemsep}{0pt}%
+ \setlength{\labelsep}{2pt}%
+ \setlength{\listparindent}{0pt}%
+ \settowidth{\labelwidth}{[9]}%
+ \setlength{\leftmargin}{\labelwidth}%
+ \addtolength{\leftmargin}{\labelsep}%
+ \setlength{\rightmargin}{0pt}}}
+ {\endlist}
+
+
+\journal{Computer Physics Communications}
+
+\begin{document}
+
+\begin{frontmatter}
+
+%% Title, authors and addresses
+
+%% use the tnoteref command within \title for footnotes;
+%% use the tnotetext command for the associated footnote;
+%% use the fnref command within \author or \address for footnotes;
+%% use the fntext command for the associated footnote;
+%% use the corref command within \author for corresponding author footnotes;
+%% use the cortext command for the associated footnote;
+%% use the ead command for the email address,
+%% and the form \ead[url] for the home page:
+%%
+%% \title{Title\tnoteref{label1}}
+%% \tnotetext[label1]{}
+%% \author{Name\corref{cor1}\fnref{label2}}
+%% \ead{email address}
+%% \ead[url]{home page}
+%% \fntext[label2]{}
+%% \cortext[cor1]{}
+%% \address{Address\fnref{label3}}
+%% \fntext[label3]{}
+
+\title{PyLCP: A package for computing complicated laser cooling physics}
+
+%% use optional labels to link authors explicitly to addresses:
+%% \author[label1,label2]{<author name>}
+%% \address[label1]{<address>}
+%% \address[label2]{<address>}
+
+\author[a]{Stephen Eckel\corref{author}}
+\author[a]{Daniel Barker}
+\author[a]{Eric Norrgard}
+
+\cortext[author] {Corresponding author.\\\textit{E-mail address:} stephen.eckel@nist.gov}
+\address[a]{National Institute of Standards and Technology, Sensor Sciences Division, 100 Bureau Dr., Gaithersburg, MD 20899}
+
+\begin{abstract}
+%% Text of abstract
+A submitted program is expected to be of benefit to other physicists or physical chemists, or be an exemplar of good programming practice, or illustrate new or novel programming techniques which are of importance to some branch of computational physics or physical chemistry.
+
+Acceptable program descriptions can take different forms. The following Long Write-Up structure is a suggested structure but it is not obligatory. Actual structure will depend on the length of the program, the extent to which the algorithms or software have already been described in literature, and the detail provided in the user manual.
+
+Your manuscript and figure sources should be submitted through the Elsevier Editorial System (EES) by using the online submission tool at \\
+http://www.ees.elsevier.com/cpc.
+
+In addition to the manuscript you must supply: the program source code; job control scripts, where applicable; a README file giving the names and a brief description of all the files that make up the package and clear instructions on the installation and execution of the program; sample input and output data for at least one comprehensive test run; and, where appropriate, a user manual. These should be sent, via email as a compressed archive file, to the CPC Program Librarian at cpc@qub.ac.uk.
+
+\end{abstract}
+
+\begin{keyword}
+%% keywords here, in the form: keyword \sep keyword
+keyword1; keyword2; keyword3; etc.
+
+\end{keyword}
+
+\end{frontmatter}
+
+%%
+%% Start line numbering here if you want
+%%
+% \linenumbers
+
+% Computer program descriptions should contain the following
+% PROGRAM SUMMARY.
+
+{\bf PROGRAM SUMMARY}
+  %Delete as appropriate.
+
+\begin{small}
+\noindent
+{\em Program Title: PyLCP}                                          \\
+{\em Licensing provisions(please choose one): GPLv3}                                   \\
+{\em Programming language: Python}                                   \\
+
+{\em Nature of problem(approx. 50-250 words):}\\
+  %Describe the nature of the problem here. \\
+{\em Solution method(approx. 50-250 words):}\\
+  %Describe the method solution here.
+{\em Additional comments including Restrictions and Unusual features (approx. 50-250 words):}\\
+  %Provide any additional comments here.
+   \\
+
+\begin{thebibliography}{0}
+\bibitem{1}Reference 1         % This list should only contain those items referenced in the
+\bibitem{2}Reference 2         % Program Summary section.
+\bibitem{3}Reference 3         % Type references in text as [1], [2], etc.
+                               % This list is different from the bibliography at the end of
+                               % the Long Write-Up.
+\end{thebibliography}
+* Items marked with an asterisk are only required for new versions
+of programs previously published in the CPC Program Library.\\
+\end{small}
+
+
+%% main text
+\section{Introduction}
+\label{sec:intro}
+The calculation of various quantities in laser cooling is hard.
+
+Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary laser fields, magnetic fields.  The program is broken down
+
+\section{Relevant Physics}
+Here, we consider the generic problem of coupling multiple ground states to
+multiple excited states, as first outlined in Ref.~\cite{Gordon1980} and then
+further expanded in Refs.~\cite{Ungar1989,Tarbutt2015,Devlin2016,Devlin2018}.  We label an individual state $\ket{i_j}$, where $i$ is the index of the manifold to which that state belongs and $j$ is the index of the state within that manifold.
+
+The Hamiltonian is given by
+\begin{equation}
+    \label{eq:obe:generic_hamiltonian}
+    \hat{H} = \hat{H}_\text{atom} + \hat{H}_\text{field} -
+    \hat{\boldsymbol{d}}\cdot\hat{\mathbf{E}} -
+    \hat{\mathbf{\mu}}\cdot\hat{\mathbf{B}}.
+\end{equation}
+The field component of the Hamiltonian is given by
+\begin{equation}
+    \label{eq:obe:field}
+    \hat{H}_\text{field} = \int \left(\epsilon_0 \hat{\mathbf{E}} +
+    \frac{\hat{\mathbf{B}}}{2}\right)\ dV
+\end{equation}
+where $\hat{\mathbf{E}}$ is the electric field operator, $\hat{\mathbf{B}}$ is
+the magnetic field operator.  Next, we consider the atomic Hamiltonian,
+\begin{equation}
+    \hat{H}_\text{atom} = \frac{P^2}{2M} + \hat{H}_\text{internal}
+\end{equation}
+where $\hat{H}_\text{internal}$ describes the internal structure of the atom.
+
+\subsection{Representation of the Hamiltonian}
+In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
+\begin{equation}
+    \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{g_1} \\ \vdots \\ \ket{g_{n_g}} \end{array} \\ \begin{array}{c} \ket{e_1} \\ \vdots \\ \ket{e_{n_e}} \end{array} \end{array}\right)\ ,
+\end{equation}
+where $\ket{g_i}$ are the eigenstates of the ground manifold and $\ket{e_j}$ are
+the eigenstates of the excited manifold.  With this basis vector, the term $\boldsymbol{\mu}_l\cdot\mathbf{B}$ is the field dependent term that mixes states within a given manifold $l$ and $\vec{d}_{lm}\cdot\mathbf{E}_{lm}$ is the field dependent term that couples states of different manifolds.  Using labels $i=g,e$ for the two extreme manifolds, the Hamiltonian blocks look like
+\begin{equation}
+    \label{eq:ham_matrix_form}
+    H_\text{atom} = \left(
+    \begin{array}{ccc}
+    (H_g - \boldsymbol{\mu}_g\cdot \mathbf{B}) & \cdots & (\boldsymbol{d}_{ge}\cdot\mathbf{E}_{ge}) \\
+    \vdots & \ddots & \vdots  \\
+    (\boldsymbol{d}_{ge}^\dagger\cdot\mathbf{E}_{ge}^*) & \cdots & (H_e+\boldsymbol{\mu}_e\cdot \mathbf{B})
+    \end{array}\right),
+\end{equation}
+where each element in the matrix $H_g$, $H_e$, etc. is itself a matrix.  In general, the the electric fields driving transitions between manifolds are distinct, which is why the electric field gains a specific label in Eq.~\ref{eq:ham_matrix_form}.
+
+To specify the problem, the user defines a Hamiltonian like Eq. (5) by providing the requisite $H_0$, $\boldsymbol{\mu}_l$, and $\boldsymbol{d}_{lm}$ and combining them in the {\tt hamiltonian} class.  The class creates and stores the block structure of the Hamiltonian, and also contains methods that are useful for its manipulation.  The vectors $\boldsymbol{\mu}$ and $\boldsymbol{d}$ are represented in spherical polar coordinates, allowing for translation into $\sigma^{\pm}$ circular polarization and $\pi$ polarizations.  For these vectors, we denote the component $q$ as $d^q$.
+
+In its construction, {\tt pylcp} assumes a that the Hamiltonian is written in a co-rotating frame with a frequency close to that of the laser light, with the number of rotating frames equal to $N_m-1$.  The electric field has the form
+\begin{equation}
+	\mathbf{E}_{lm} = \frac{1}{2}\hat{\boldsymbol{\epsilon}}(r, t) E_{lm}(r, t)e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
+\end{equation}
+where the complex conjugate term is neglected by the rotating wave approximation.  The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
+
+Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.  With all of these components, the optical Bloch equations and/or rate equations can be constructed for a given set of parameters.
+
+\subsection{The optical Bloch equations}
+The optical Bloch equations are equations that govern the evolution of the density matrix with the requisite decays.  They are equations that consider the evolution of a given density operator $\rho_{l_im_j} = \ket{l_i}\Bra{m_j}$.  The master equation for their evolution, in the Heisenburg picture, is
+\begin{equation}
+	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H] + \rho\mathcal{L}\rho
+\end{equation}
+where the $\rho\mathcal{L}\rho$ superoperator takes into account decays.
+
+The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.  
+
+The decay is calculated in terms of the radiation-reaction approximation.  In practice, this means that the decay rate out of a state $\ket{l_i}$ is
+\begin{equation}
+    \Gamma_{\ket{l_i}} = \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m<l}\sum_{j=1}^{n_l}\sum_q \left|\Braket{m_j|d_{lm}^{q}|l_i}\right|^2,
+\end{equation}
+where $n_m$ is the number of states in the $m$ manifold.  The real component of coherences between manifolds decay as 
+\begin{equation}
+	Re[\dot{\rho}_{l_im_j}] = -\frac{\Gamma_{l_i}+\Gamma_{m_j}}{2}\rho_{l_im_j}\ .
+\end{equation}
+Likewise, the population operators evolution with decay is given by
+\begin{equation}
+	\dot{\rho}_{l_il_i} = -\Gamma_l\rho_{l_il_i} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{j=1}^{n_m}\sum_q \left|\Braket{l_i|d_{lm}^{q}|m_j}\right|^2 \rho_{m_jm_j}
+\end{equation} 
+Finally, the coherences within a given manifold obey
+\begin{equation}
+	\dot{\rho}_{l_il_j} = -\Gamma_l\rho_{l_il_j} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{n>l}\sum_{k=1}^{n_m}\sum_{l=1}^{n_m}\sum_q \Braket{l_i|d_{lm}^{q}|m_m}\Braket{n_k|d_{lm}^{q}|l_j}\rho_{m_jn_k}
+\end{equation} 
+[FIX indecies]
+
+The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
+
+The force exerted by the optical field is given by the derivative of the 
+\begin{equation}
+	f = \frac{d\mathbf{p}}{dt} = -\{\nabla H\} = \sum_{l_i,m_j} \rho_{l_im_j}\left[\nabla(\boldsymbol{d}_{lm}\cdot \mathbf{E}_{lm})\right] + c.c.
+\end{equation}
+Provided that there is no spatial dependence in the $\boldsymbol{\epsilon}$, this expression can be simplified 
+\begin{eqnarray}
+	f = \frac{1}{2}\sum_{l_i,m_j} \rho_{l_im_j}\left(\boldsymbol{d}_{lm}\cdot \boldsymbol{\epsilon}\right) \nabla \left(E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}\right) + c.c.
+\end{eqnarray}
+where now the derivative produces three terms, 
+\begin{equation}
+	\left(\frac{\nabla E_{lm}(r,t)}{E_{lm}} + i \nabla (\mathbf{k}(r,t)\cdot \mathbf{r})\right)E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
+\end{equation}
+Likewise, the magnetic field produces a force [...]
+
+Of importance in almost any is the momentum diffusion tensor of $\mathcal{D}$.
+
+For the lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
+\begin{equation}
+    I_\text{sat} = \frac{\pi h c \Gamma}{3\lambda^3} = \frac{2\pi^2 \hbar \omega^3 c \Gamma}{3(2\pi)^3 c^3} = \frac{\hbar \omega^3 \Gamma}{12 \pi c^2}
+\end{equation}
+the result being that the electric field $E_{lm}(r,t) = \sqrt{I/2I_\text{sat}} = \sqrt{\beta/2}$.  [Show more of the derivation]?
+
+\subsection{The Rate Equations}
+In order to do a rate equation model, we first consider that we have a set of
+eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal.  We
+follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and,
+to a lesser extent, the Ref.~\cite{Tollett1995}.
+In the rate equation model, we consider three things.  The first is the
+excitation rate caused by laser $l$
+\begin{equation}
+    \label{eq:lcp:scattering_rate}
+    R^l_{ij} = \Gamma \left(\frac{\Omega^l_{ij}}{\Gamma}\right)^2\frac{1}{1 + 4(\Delta - k\cdot v)^2/\Gamma^2},
+\end{equation}
+and the decay rate out of the excited state $\Gamma$, and the branching ratio,
+\begin{equation}
+    \Gamma_{e_j,g_i} = \Gamma \frac{\left|d^{(q)}_{ij}\right|^2}{\left(\sum_i \left|d^{(q)}_{ij}\right|^2\right)}.
+\end{equation}
+In general, we want to solve for $\dot{N}_{g/e,i}$.  We will do this in units of
+$\Gamma$.  For the ground states,
+\begin{equation}
+    \dot{N}_i = -\sum_{jl} R^l_{ij} (N_i - N_j) + \sum \Gamma_{ij}N_j
+\end{equation}
+and for the excited states,
+\begin{equation}
+    \dot{N}_j = - \Gamma N_j + \sum_{jl} R^l_{ij} (N_i - N_j)
+\end{equation}
+We represent the rate equations as a matrix $R$ such that
+\begin{equation}
+    \dot{N} = R N
+\end{equation}
+where $N = (N_{g_1},\dots, N_{g_n}, N_{e_1}, \dots, N_{g_n})$.
+
+
+
+\subsection{Random Forces}
+
+\subsection{A word about units}
+
+\section{Additional details}
+
+\subsection{A word about polarization}
+We have thusfar considered the polarization to be contained $E^l_q$.  However,
+computing this quantity is not necessarily trivial.  First, one takes the
+magnitude out realizing that is related to the intensity, i.e., $E^l_q =
+|E|^l\hat{\epsilon}^l_q$.  Second, $\hat{\epsilon}^l_q$ is defined in the
+rotational basis of the quantization axis, whereas for an actual laser beam,
+the polarization is defined via some other means.
+
+In general, the polarization is a complex-three space vector, which therefore
+has 5 independent parameters.  However, because light is a transverse wave and
+$\hat{k}$ is defined (with two parameters), that reduces the number of
+parameters to three.  We often think about the Poincare sphere or polarization
+ellipse at this stage which is defined by only two parameters, but there is a
+hidden parameter which is the orientation of the coordinate system in which
+the sphere or ellipse is defined.
+
+For the purposes of computation of $\hat{\epsilon}_q\cdot\hat{\epsilon}_l$,
+there seems to be multiple ways to define the coordinate system.  Consider, for
+example, defining the polarization in terms of right $\epsilon^+$ and left
+$\epsilon^-$ polarized light.  Then the most general polarization vector is
+$\epsilon_l = a \epsilon^+_l + b \epsilon^-_l$, where $a$ and $b$ are complex
+constants and $|a|^2+|b|^2=1$.  There are thus three independent parameters that
+specify this polarization.  Note that the phase between $a$ and $b$ determines
+the angle in the plane that a linear projection will point and that
+$\epsilon^+_l=\sigma^+$ and $\epsilon^-_l=\sigma^-$ if the magnetic field is
+parallel to $\hat{k}$.
+
+If $\hat{k}$ is not parallel to the quantization axis, then we need to rotate
+one coordinate system (the laser and polarization) into the other (where the
+quantization is done).  Imagine that the Euler angles doing the wrapping are
+$\alpha$-$\beta$-$\gamma$ in the z-y-z reference.  In this case, the vector is
+rotated through a Wigner rotation matrix, whose elements are given by
+\begin{equation}
+  \mathcal{D}^j_{m'm}(\alpha,\beta,\gamma)
+    = \Braket{jm'|\mathcal{R}(\alpha,\beta,\gamma)|jm}
+    = e^{i m'\alpha} d^j_{m' m}(\beta)e^{-im\gamma}
+\end{equation}
+where $d^j_{m'm}$ is the small Wigner rotation matrix.  At first glance, the
+diagonal nature of matrix for $\alpha$ and $\gamma$ seems to imply that those
+angle do not play an important role; all of the relevant physics is simply
+related to $\beta$.  Alternatively, this would imply that the phase angle
+between the $\sigma^+$ and $\sigma^-$ components of the unrotated light basis.
+We can explicitly construct the matrix element, using $d^j_{m'm}$ from Wikipedia
+and the relationship $d^j_{m'm} = (-1)^{m-m'}d^j_{mm'} = d^j_{m,m'}$.
+\begin{equation}
+  \mathcal{D} = \left(\begin{array}{ccc}
+  \frac{1+\cos\beta}{2}e^{-i\alpha+i\gamma} & \frac{\sin\beta}{\sqrt{2}}e^{-i\alpha} & \frac{1-\cos\beta}{2}e^{-i\alpha-i\gamma} \\
+  -\frac{\sin\beta}{\sqrt{2}}e^{i\gamma} & \cos\beta & -\frac{\sin\beta}{\sqrt{2}}e^{-i\gamma} \\
+  \frac{1-\cos\beta}{2}e^{i\alpha+i\gamma} & \frac{\sin\beta}{\sqrt{2}} & \frac{1+\cos\beta}{2}e^{i\alpha-i\gamma}
+  \end{array}\right)
+\end{equation}
+This clearly tells a more complicated story.  The simplest observation might  be
+that one of the Euler angles does not matter, at least for the rate equation
+model.  In that case, we will square each component and the common phase $e^{\pm
+i \alpha}$ will drop out.  This makes sense, as the rotation into the quantization
+axis should only have two angles, the third being degenerate because it is an
+axis not a full 3-D coordinate system.
+
+Consider the final $\pi$ ($m'=0$) component.  An input beam with equal amounts
+of $\sigma^+$ and $\sigma^-$  defines linear polarization, and the relative
+phase between the two components defines where that points relative to some
+other axis, defined by the overall  phase.  If this differential phase is
+$\chi$, then the $\pi$ component would be given by
+\begin{equation}
+  \hat{\epsilon}_l\cdot\hat{\epsilon_0} = -\frac{\sin\beta}{\sqrt{2}}
+  \cos(\gamma+\chi).
+\end{equation}
+This dependence on the phase angle makes intuitive sense.  Consider a
+linearly-polarized wave moving in $+\hat{x}$ and magnetic field along $\hat{z}$.
+If the phase angle was such that the two circular components added to produce
+linear polarization along $\hat{z}$, the polarization would be completely $\pi$.
+On the other hand, if the phase angle was such that the linear polarization was
+along $\hat{y}$, then in the spherical basis we would have equal amounts of
+$\sigma^+$ and $\sigma^-$ light (with a phase angle in between).
+
+None of this gets us closer to the final result, but it is interesting.
+
+\section{Examples}
+Optical pumping.
+
+
+%% The Appendices part is started with the command \appendix;
+%% appendix sections are then done as normal sections
+%% \appendix
+
+%% \section{}
+%% \label{}
+
+%% References
+%%
+%% Following citation commands can be used in the body text:
+%% Usage of \cite is as follows:
+%%   \cite{key}         ==>>  [#]
+%%   \cite[chap. 2]{key} ==>> [#, chap. 2]
+%%
+
+%% References with bibTeX database:
+
+\bibliographystyle{elsarticle-num}
+\bibliography{<your-bib-database>}
+
+%% Authors are advised to submit their bibtex database files. They are
+%% requested to list a bibtex style file in the manuscript if they do
+%% not want to use elsarticle-num.bst.
+
+%% References without bibTeX database:
+
+% \begin{thebibliography}{00}
+
+%% \bibitem must have the following form:
+%%   \bibitem{key}...
+%%
+
+% \bibitem{}
+
+% \end{thebibliography}
+
+
+\end{document}
+
+%%
+%% End of file
