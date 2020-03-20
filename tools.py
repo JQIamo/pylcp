@@ -114,7 +114,8 @@ def grating_MOT_beams(delta, s, nr, thd,
                       reflected_pol=np.array([np.pi, 0]),
                       reflected_pol_basis='poincare',
                       eta=None,
-                      return_basis_vectors=False):
+                      return_basis_vectors=False,
+                      grating_angle=0):
     """
     Creates beams that would be made from a grating.  Parmeters:
         delta: detuning of the laser beams
@@ -147,6 +148,8 @@ def grating_MOT_beams(delta, s, nr, thd,
             delay.
 
         eta: diffraction efficiency of each of the reflected beams
+
+        grating_angle: overall azimuthal rotation of the grating
     """
     if not eta:
         eta = 1/nr
@@ -170,14 +173,14 @@ def grating_MOT_beams(delta, s, nr, thd,
     pvec = np.zeros((3, nr))
 
     for ii in range(nr):  # Reflected beams
-        kvec = np.array([-np.sin(thd)*np.cos(2*np.pi*ii/nr),
-                         -np.sin(thd)*np.sin(2*np.pi*ii/nr),
+        kvec = np.array([-np.sin(thd)*np.cos(2*np.pi*ii/nr+grating_angle),
+                         -np.sin(thd)*np.sin(2*np.pi*ii/nr+grating_angle),
                          -np.cos(thd)])
-        svec[:, ii] = np.array([-np.sin(2*np.pi*ii/nr),
-                                np.cos(2*np.pi*ii/nr),
+        svec[:, ii] = np.array([-np.sin(2*np.pi*ii/nr+grating_angle),
+                                np.cos(2*np.pi*ii/nr+grating_angle),
                                 0.])
-        pvec[:, ii] = np.array([np.cos(thd)*np.cos(2*np.pi*ii/nr),
-                                np.cos(thd)*np.sin(2*np.pi*ii/nr),
+        pvec[:, ii] = np.array([np.cos(thd)*np.cos(2*np.pi*ii/nr+grating_angle),
+                                np.cos(thd)*np.sin(2*np.pi*ii/nr+grating_angle),
                                 -np.sin(thd)])
 
 
@@ -193,8 +196,8 @@ def grating_MOT_beams(delta, s, nr, thd,
             raise NotImplementedError("Stokes parameters not yet implemented.")
         elif reflected_pol_basis == 'waveplate':
             svec_inp = -svec[:, ii]
-            pvec_inp = np.array([np.cos(2*np.pi*ii/nr),
-                                 np.sin(2*np.pi*ii/nr),
+            pvec_inp = np.array([np.cos(2*np.pi*ii/nr+grating_angle),
+                                 np.sin(2*np.pi*ii/nr+grating_angle),
                                  0.])
 
             """
@@ -229,8 +232,8 @@ def grating_MOT_beams(delta, s, nr, thd,
         #print(kvec, pol_ref, np.dot(kvec, pol_ref))
 
         beams.append(laserBeam(
-            np.array([-np.sin(thd)*np.cos(2*np.pi*ii/nr),
-                      -np.sin(thd)*np.sin(2*np.pi*ii/nr),
+            np.array([-np.sin(thd)*np.cos(2*np.pi*ii/nr+grating_angle),
+                      -np.sin(thd)*np.sin(2*np.pi*ii/nr+grating_angle),
                       -np.cos(thd)]),
             beta=eta*s/np.cos(thd), pol=pol_ref, delta=delta))
 
