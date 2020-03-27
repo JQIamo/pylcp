@@ -137,12 +137,12 @@ class laserBeam():
         if isinstance(t, list) and not isinstance(t, np.ndarray):
             t = np.array(t)
 
-        if isinstance(R, list) and not isinstance(t, np.ndarray):
+        if isinstance(R, list) and not isinstance(R, np.ndarray):
             R = np.array(R)
 
         if isinstance(t, np.ndarray) and t.size>1:
             if R.shape[1::] != t.shape:
-                raise StandardError(
+                raise TypeError(
                     'Cannot broadcast R with shape %s' % (R.shape,) +
                     'and t with shape %s together.' % (t.shape,)
                 )
@@ -151,7 +151,7 @@ class laserBeam():
         elif R.shape == (3,):
             return (1,)
         else:
-            raise StandardError(
+            raise TypeError(
                     'Cannot broadcast R with shape %s' % (R.shape,) +
                     'and t with type %s together.' % type(t)
                 )
@@ -160,7 +160,7 @@ class laserBeam():
         return_shape = self.check_return_inputs(R, t)
         if self.kvec_sig is None:
             if return_shape != (1,):
-                return np.outer(self.kvec, np.ones(return_shape))
+                return np.multiply.outer(self.kvec, np.ones(return_shape))
             else:
                 return self.kvec
         elif ('(R)' in self.kvec_sig or '(r)' in self.kvec_sig or
