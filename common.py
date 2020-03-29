@@ -31,6 +31,35 @@ def printProgressBar(iteration, total, prefix = '', suffix = '', decimals = 1,
     if iteration == total:
         print()
 
+class progressBar(object):
+    def __init__(self, decimals=1, fill='█', prefix='Progress:',
+                 suffix='complete', length=40):
+        self.tic = time.time()
+        self.decimals = decimals
+        self.fill = fill
+        self.length = length
+        self.prefix = prefix
+        self.suffix = suffix
+
+    def update(self, percentage):
+        toc = time.time()
+        percent = ("{0:." + str(self.decimals) + "f}").format(100*percentage)
+        filledLength = int(self.length*percentage)
+        bar = self.fill*filledLength + '-'*(self.length - filledLength)
+        remaining_time = np.round((1-percentage)*((toc-self.tic)/percentage))
+        if remaining_time>0 and percentage>0:
+            time_str = "%2d:%02d:%02d" % (min(remaining_time/3600.0, 99),
+                                          (remaining_time/60.0)%60.0,
+                                          remaining_time%60.0)
+            print('\r%s |%s| %s%% %s; est. time remaining: %s' %
+                  (self.prefix, bar, percent, self.suffix, time_str), end='\r')
+        else:
+            print('\r%s |%s| %s%% %s' % (self.prefix, bar, percent, self.suffix), end='\r')
+
+        # Print New Line on Complete
+        if percentage >= 1:
+            print()
+
 def random_vector():
     a, b = np.random.rand(2)
     th = np.arccos(2*b-1)
