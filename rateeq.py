@@ -271,12 +271,12 @@ class rateeq():
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
-        self.set_inital_velocity(v0)
+        self.set_initial_velocity(v0)
 
     def set_initial_position(self, r0):
         self.r0 = r0
 
-    def set_inital_velocity(self, v0):
+    def set_initial_velocity(self, v0):
         self.v0 = v0
 
     def set_initial_pop(self, N0):
