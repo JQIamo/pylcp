@@ -9,6 +9,8 @@ from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .lasers import laserBeams
+from .common import random_vector
+from .integration_tools import solve_ivp_random
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -306,25 +308,87 @@ class rateeq():
         This method evolves the rate equations and atomic motion while in both
         changing laser fields and magnetic fields.
         """
-        hold_axis = kwargs.pop('freeze_axis', [False, False, False])
-        mass_ratio = kwargs.pop('mass_ratio', 1e-3)
+        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
+        random_recoil_flag = kwargs.pop('random_recoil', False)
+        random_force_flag = kwargs.pop('random_recoil', False)
+        recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
+        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
+
         def motion(t, y):
             N = y[:-6]
             v = y[-6:-3]
             r = y[-3:]
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
-            F, f_laser = self.force(Rijl, N)
-            F[hold_axis] = 0.
+            if not random_force_flag:
+                F, f_laser = self.force(r, t, Rijl, N)
 
-            dydt = np.concatenate((Rev @ N, mass_ratio*F, v))
+                dydt = np.concatenate((Rev @ N, recoil_velocity*F*free_axes, v))
+            else:
+                dydt = np.concatenate((Rev @ N, np.zeros((3,)), v))
+
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
 
             return dydt
 
+        def random_force(t, y, dt):
+            scatter_dt_max = 1e11
+
+            # Grab self.Rijl and sum over all ij to get
+            for key in self.laserBeams:
+                # Extract the pumping rate from each laser:
+                Rl = np.sum(np.sum(self.Rijl[key],axis=2), axis=1)
+
+                # Calculate the probability to scatter a photon from the laser:
+                P = Rl*dt
+
+                # Roll the dice N times, where $N=\sum(lasers)
+                dice = np.random.rand(len(P))
+
+                # Give them kicks!
+                for ii, (P_i, dice_i) in enumerate(zip(P, dice)):
+                    if dice_i<P_i:
+                        y[-6:-3] += \
+                        recoil_velocity*self.laserBeams[key].beam_vector[ii].kvec
+
+                scatter_dt_max = min(new_dt_max, np.amax(max_scatter_probability/Rl))
+
+            recoil_dt_max = random_recoil(t, y, dt)
+
+            return min(recoil_dt_max, scatter_dt_max)
+
+
+        def random_recoil(t, y, dt):
+            # Calculate the probability that all excited states can decay.
+            # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
+            P = np.abs(y[:-6]*np.diag(self.Rev_decay)*dt)
+
+            # Roll the dice N times, where $N=\sum(n_i)
+            dice = np.random.rand(len(P))
+
+            # For any random number that is lower than P_i, add a recoil velocity.
+            # TODO: There are potential problems in the way the kvector is defined.
+            # The first is the k-vector is defined in the laser beam (not in the
+            # Hamiltonian).  The second is that we should break this out according
+            # to laser beam in case they do have different k-vectors.
+            num_of_scatters = np.sum(dice<P)
+            for ii in range(num_of_scatters):
+                y[-6:-3] += recoil_velocity*random_vector()*free_axes
+
+            new_dt_max = (max_scatter_probability/np.sum(P))*dt
+            return (num_of_scatters, new_dt_max)
+
         y0 = np.concatenate((self.N0, self.v0, self.r0))
-        self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+        if random_force_flag:
+            self.sol = solve_ivp_random(motion, random_force, t_span, y0,
+                                        max_step=0.01, **kwargs)
+        elif random_recoil_flag:
+            self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
+                                        max_step=0.01, **kwargs)
+        else:
+            self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+
 
     def find_equilibrium_force(self, **kwargs):
         """
