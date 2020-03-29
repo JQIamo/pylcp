@@ -60,13 +60,29 @@ class progressBar(object):
         if percentage >= 1:
             print()
 
-def random_vector():
-    a, b = np.random.rand(2)
-    th = np.arccos(2*b-1)
-    phi = 2*np.pi*a
+def random_vector(free_axes=[True, True, True]):
+    """
+    This function returns a random vector with magnitude 1, in either 1D, 2D
+    or 3D, depending on which axes are free to move (defined by the argument
+    free_axes)
+    """
+    if np.sum(free_axes)==1:
+        return (np.sign(np.random.rand(1)-0.5)*free_axes).astype('float64')
+    elif np.sum(free_axes)==2:
+        phi = 2*np.pi*np.random.rand(1)[0]
+        x = np.array([np.cos(phi), np.sin(phi)])
+        y =np.zeros((3,))
+        y[free_axes] = x
+        return y
+    elif np.sum(free_axes)==3:
+        a, b = np.random.rand(2)
+        th = np.arccos(2*b-1)
+        phi = 2*np.pi*a
 
-    return np.array([np.sin(th)*np.cos(phi), np.sin(th)*np.sin(phi),
-                     np.cos(th)])
+        return np.array([np.sin(th)*np.cos(phi), np.sin(th)*np.sin(phi),
+                         np.cos(th)])
+    else:
+        raise StandardError('free_axes must be a boolean array of length 3.')
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -74,7 +90,7 @@ if __name__ == '__main__':
 
     vectors = []
     for n in range(500):
-        vectors.append(random_vector())
+        vectors.append(random_vector([True, True, True]))
 
     vectors = np.array(vectors)
     fig = plt.figure()

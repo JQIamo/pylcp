@@ -373,7 +373,7 @@ class rateeq():
             # to laser beam in case they do have different k-vectors.
             num_of_scatters = np.sum(dice<P)
             for ii in range(num_of_scatters):
-                y[-6:-3] += recoil_velocity*random_vector()*free_axes
+                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+random_vector(free_axes))
 
             new_dt_max = (max_scatter_probability/np.sum(P))*dt
             return (num_of_scatters, new_dt_max)
