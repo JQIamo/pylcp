@@ -283,8 +283,7 @@ class rateeq():
         self.N0 = N0
 
     def set_initial_pop_from_equilibrium(self):
-        Rev, Rijl = self.construct_evolution_matrix(self.r0, self.v0, t=0)
-        self.N0 = self.equilibrium_populations(Rev)
+        self.N0 = self.equilibrium_populations(self.r0, self.v0, t=0)
 
 
     def evolve_populations(self, t_span, **kwargs):
