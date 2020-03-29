@@ -361,7 +361,8 @@ class rateeq():
         def random_recoil(t, y, dt):
             # Calculate the probability that all excited states can decay.
             # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
-            P = np.abs(y[:-6]*np.diag(self.Rev_decay)*dt)
+            # TODO: currently gamma is considered to be unity:
+            P = np.abs(y[self.hamiltonian.ns[0]:-6]*dt)
 
             # Roll the dice N times, where $N=\sum(n_i)
             dice = np.random.rand(len(P))
