@@ -117,39 +117,7 @@ class rateeq():
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
-    def construct_evolution_matrix_decay(self, rotated_ham):
-        Rev_decay = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-
-        # Go through each of the blocks and calculate the decay rate
-        # contributions to the rate equations.  This would be simpler with
-        # rotated_ham.make_full_matrices(), but I would imagine it would
-        # be significantly slower.
-        for ll, block in enumerate(np.diagonal(rotated_ham.blocks)):
-            n = sum(rotated_ham.ns[:ll])
-
-            # Calculate the decays first, provided we are not in the lowest
-            # manifold:
-            if ll>0:
-                for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
-                    if not other_block is None:
-                        for jj in range(block.n):
-                            Rev_decay[n+jj, n+jj] -= np.sum(np.sum(abs2(
-                                other_block.matrix[:, :, jj]
-                                )))
-
-            # Calculate the decays into of the manifold, provided we are not
-            # in the most excited one:
-            if ll<len(rotated_ham.ns)-1:
-                for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
-                    if not other_block is None:
-                        m = sum(rotated_ham.ns[:ll+1+mm])
-                        Rev_decay[n:n+block.n, m:m+other_block.m] += \
-                        np.sum(abs2(other_block.matrix), axis=0)
-
-        return Rev_decay
-
-
-    def construct_evolution_matrix(self, r, v, t=0.):
+    def construct_evolution_matrix(self, r, v, t=0):
         """
         Method to generate the rate equation evolution matrix.  Expects
         several arguments:
@@ -172,43 +140,61 @@ class rateeq():
             Bhat = np.zeros(B.shape)
             Bhat[-1] = 1.0
 
-        # Diagonalize at Bmag.  This is required if the Hamiltonian has any
-        # non-diagonal elements of the Hamiltonian that are dependent on Bz.
-        # This occurs, for example, with atoms in the large
-        rotated_ham, already_diagonal = self.hamiltonian.diag_static_field(Bmag)
-        if not already_diagonal:
-            # Reconstruct the decay matrix to
-            self.Rev_decay = self.construct_evolution_matrix_decay(rotated_ham)
-        else:
-            if not hasattr(self, 'Rev_decay'):
-                self.Rev_decay = self.construct_evolution_matrix_decay(rotated_ham)
+        # Diagonalize at Bmag.  This function returns several d_q
+        rotated_ham = self.hamiltonian.diag_static_field(Bmag)
 
-        # Now add in the lasers
-        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-        self.Rev += self.Rev_decay
-        self.Rijl = {}
+        # Initialize Rev:
+        Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+
+        # Go through each of the blocks and calculate the decay rate
+        # contributions to the rate equations.  This would be simpler with
+        # rotated_ham.make_full_matrices(), but I would imagine it would
+        # be significantly slower.
+        for ll, block in enumerate(np.diagonal(rotated_ham.blocks)):
+            n = sum(rotated_ham.ns[:ll])
+
+            # Calculate the decays first, provided we are not in the lowest
+            # manifold:
+            if ll>0:
+                for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
+                    if not other_block is None:
+                        for jj in range(block.n):
+                            Rev[n+jj, n+jj] -= np.sum(np.sum(abs2(
+                                other_block.matrix[:, :, jj]
+                                )))
+
+            # Calculate the decays into of the manifold, provided we are not
+            # in the most excited one:
+            if ll<len(rotated_ham.ns)-1:
+                for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
+                    if not other_block is None:
+                        m = sum(rotated_ham.ns[:ll+1+mm])
+                        Rev[n:n+block.n, m:m+other_block.m] += \
+                        np.sum(abs2(other_block.matrix), axis=0)
+
+        Rijl = {}
 
         for key in self.laserBeams:
             # Extract the relevant dijq matrix:
             ind = rotated_ham.laser_keys[key]
             dijq = rotated_ham.blocks[ind].matrix
 
-            # Extract the energies:
-            E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
-            E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
-
-            # Initialize the pumping matrix:
-            self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
+            # Initialize the
+            Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
                                       dijq.shape[1:])
 
-            # Grab the laser parameters:
-            (kvecs, betas, pols, deltas) = self.laserBeams[key].return_parameters(r, t)
-            projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
-
             # Loop through each laser beam driving this transition:
-            for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
+            for ll, beam in enumerate(self.laserBeams[key].beam_vector):
+                # Get the kvector:
+                kvec = beam.return_kvec(r, t)
+
+                # Project the polarization onto the appropriate basis:
+                proj = beam.project_pol(Bhat, R=r, t=t)
+
                 for ii in range(dijq.shape[1]):
+                    E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
                     for jj in range(dijq.shape[2]):
+                        E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
                         fijq = np.abs(np.dot(dijq[:, ii, jj], proj))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
@@ -216,21 +202,21 @@ class rateeq():
                             """Rijl[ll, ii, jj] = beam.beta(r)/2*fijq/\
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
-                            self.Rijl[key][ll, ii, jj] = beta/2*\
-                                fijq/(1 + 4*((E2[jj] - E1[ii]) + delta -
-                                             np.dot(kvec, v))**2)
+                            Rijl[key][ll, ii, jj] = beam.return_beta(r)/2*\
+                            fijq/(1 + 4*((E2[jj] - E1[ii]) + beam.delta -
+                                          np.dot(kvec, v))**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:
             n = sum(rotated_ham.ns[:ind[0]])
             m = sum(rotated_ham.ns[:ind[1]])
-            for ii in range(self.Rijl[key].shape[1]):
-                for jj in range(self.Rijl[key].shape[2]):
-                    self.Rev[n+ii, n+ii] += -np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[n+ii, m+jj] += np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[m+jj, n+ii] += np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[m+jj, m+jj] += -np.sum(self.Rijl[key][:, ii, jj])
+            for ii in range(Rijl[key].shape[1]):
+                for jj in range(Rijl[key].shape[2]):
+                    Rev[n+ii, n+ii] += -np.sum(Rijl[key][:, ii, jj])
+                    Rev[n+ii, m+jj] += np.sum(Rijl[key][:, ii, jj])
+                    Rev[m+jj, n+ii] += np.sum(Rijl[key][:, ii, jj])
+                    Rev[m+jj, m+jj] += -np.sum(Rijl[key][:, ii, jj])
 
-        return self.Rev, self.Rijl
+        return Rev, Rijl
 
 
     def equilibrium_populations(self, r, v, t, return_details=False):
@@ -276,9 +262,8 @@ class rateeq():
 
                 for ii in range(Rijl[key].shape[1]):
                     for jj in range(Rijl[key].shape[2]):
-                        if Rijl[key][ll, ii, jj]>0:
-                            f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
-                                (Npop[n+ii] - Npop[m+jj])
+                        f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
+                            (Npop[n+ii] - Npop[m+jj])
 
             F += np.sum(f[key], axis=1)
 
