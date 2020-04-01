@@ -288,6 +288,8 @@ class hamiltonian():
         for the static magnetic field, and rotates d_q accordingly.  This is
         necessary for the rate equations.
         """
+        already_diagonal = True
+
         # If it does not already exist, make an empty Hamiltonian that has
         # the same dimensions as this one.
         if not hasattr(self, 'rotated_hamiltonian'):
@@ -303,7 +305,7 @@ class hamiltonian():
                         if not block is None:
                             self.rotated_hamiltonian.add_d_q_block(
                                 self.state_labels[ii], self.state_labels[jj],
-                                np.zeros((3, block.n, block.m), dtype='complex128')
+                                block.matrix,
                                 )
 
         # Now we get to the meat of it:
@@ -349,6 +351,8 @@ class hamiltonian():
 
                 Es = np.diag(Es)
 
+                already_diagonal=False
+
             # Check to make sure the diganolization resulted in only real
             # components:
             if np.allclose(np.imag(np.diagonal(Es)), 0.):
@@ -357,21 +361,22 @@ class hamiltonian():
                 raise ValueError('You broke the Hamiltonian!')
 
         # Now, rotate the d_q:
-        for ii in range(self.blocks.shape[0]):
-            for jj in range(ii+1, self.blocks.shape[1]):
-                if not self.blocks[ii, jj] is None:
-                    for kk in range(3):
-                        self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
-                        U[ii].T @ self.blocks[ii,jj].matrix[kk] @ U[jj]
+        if not already_diagonal:
+            for ii in range(self.blocks.shape[0]):
+                for jj in range(ii+1, self.blocks.shape[1]):
+                    if not self.blocks[ii, jj] is None:
+                        for kk in range(3):
+                            self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
+                            U[ii].T @ self.blocks[ii,jj].matrix[kk] @ U[jj]
 
-                        self.rotated_hamiltonian.blocks[jj, ii].matrix[kk] = \
-                        np.conjugate(self.rotated_hamiltonian.blocks[ii, jj].matrix[kk].T)
+                            self.rotated_hamiltonian.blocks[jj, ii].matrix[kk] = \
+                            np.conjugate(self.rotated_hamiltonian.blocks[ii, jj].matrix[kk].T)
 
-                    if (self.rotated_hamiltonian.blocks[ii, jj].matrix.shape !=
-                        self.blocks[ii,jj].matrix.shape):
-                       raise ValueError("Rotataed d_q not the same size as original.")
+                            if (self.rotated_hamiltonian.blocks[ii, jj].matrix.shape !=
+                                self.blocks[ii,jj].matrix.shape):
+                               raise ValueError("Rotataed d_q not the same size as original.")
 
-        return self.rotated_hamiltonian
+        return self.rotated_hamiltonian, already_diagonal
 
 
     def diag_H_0(self, B0):
