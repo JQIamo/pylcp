@@ -284,7 +284,7 @@ def chip_masked_beam(R, k, nr, s, wb, rs,
     """
     # Check that k is aligned with z axis:
     if np.any(np.arccos(k[2]) != 0):
-        raise ValueError('chip_Masked_Beam must be aligned with z axis')
+        raise ValueError('chip_masked_beam must be aligned with z axis')
     # Determine the center angle of this section:
     th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
     # Initialize mask:
@@ -301,6 +301,59 @@ def chip_masked_beam(R, k, nr, s, wb, rs,
 
     # Next, calculate the BETA function:
     BETA = s*clipped_gaussian_beam(R,k,wb,rs)*MASK.astype(float)
+
+    return BETA
+
+# Helper Functions for grating_MOT_beams:
+def chip_masked_reflected_beam(R, k, nr, s, wb, rs,
+                               eta,
+                               center_hole=0.0,
+                               zgrating=1.0,
+                               grating_angle=0):
+    """Masks the intensity profile of the input beam after it
+    goes through the chip.
+    R: x,y,z coordinates at which to calculate intensity.
+
+    k: normalized k vector of the laser beam.
+    Assumed to be along the z axis!
+
+    s: peak intensity of the laser beam.
+
+    wb: 1/e^2 radius of the input gaussian beam.
+
+    rs: radius of the input beam stop.
+
+    eta: diffraction efficiency for the 0th order beam.
+
+    nr: number of reflected beams.
+
+    center_hole: inscribed radius of center hole.
+
+    zgrating: z position of the diffraction grating chip.
+
+    grating_angle: overall azimuthal rotation of the grating.
+    """
+    # Check that k is aligned with z axis:
+    if np.any(np.arccos(k[2]) != np.pi):
+        raise ValueError('chip_masked_reflected_beam must be aligned opposite the z axis')
+    # Determine the center angle of this section:
+    th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
+    # Initialize mask:
+    if isinstance(R[0], np.ndarray):
+        MASK = np.ones(R[0].shape, dtype=bool)
+    else:
+        MASK = True
+    # Add in the center hole:
+    for th_center_i in th_center:
+        MASK = np.bitwise_and(MASK, (R[0]*np.cos(th_center_i) +
+                                     R[1]*np.sin(th_center_i)) <= center_hole)
+    # Negate the MASK:
+    MASK = np.bitwise_not(MASK)
+    # remove the beam after the chip.
+    MASK = np.bitwise_and(MASK, R[2] <= zgrating)
+
+    # Next, calculate the BETA function:
+    BETA = s*eta*clipped_gaussian_beam(R,k,wb,rs)*MASK.astype(float)
 
     return BETA
 
@@ -379,6 +432,7 @@ def grating_MOT_beams_adv(delta, s, nr, thd,
                       reflected_pol=np.array([np.pi, 0]),
                       reflected_pol_basis='poincare',
                       eta=None,
+                      eta0=None,
                       wb=100.0,
                       rs=100.0,
                       return_basis_vectors=False,
@@ -451,6 +505,26 @@ def grating_MOT_beams_adv(delta, s, nr, thd,
                                                              grating_angle),
                            pol=pol,
                            delta=delta))  # Incident beam
+    if eta0 is not None:
+        # Should be free to choose s and p directions for normal incidence.
+        # Make choice to match convention for 1st order beams.
+        svec0=np.array([0.,1.,0.])
+        pvec0=np.array([1.,0.,0.])
+        if reflected_pol_basis == 'poincare':
+            pol_0 = np.sin(reflected_pol[0]/2)*np.exp(1j*reflected_pol[1]/2)*\
+                      (svec0/np.sqrt(2) + 1j/np.sqrt(2)*pvec0) +\
+                      np.cos(reflected_pol[0]/2)*np.exp(-1j*reflected_pol[1]/2)*\
+                      (svec0/np.sqrt(2) - 1j/np.sqrt(2)*pvec0)
+        else:
+            raise NotImplementedError("Only Poincare basis is implemented for the zeroth order beam.")
+        beams.append(laserBeam(-k_in,
+                               beta=lambda R,k: chip_masked_reflected_beam(R,k,
+                                                               nr,s,wb,rs,eta0,
+                                                               center_hole,
+                                                               zgrating,
+                                                               grating_angle),
+                               pol=pol_0,
+                               delta=delta))  # Zeroth order reflected beam
 
     def factory(ii):
         return lambda R, k: grating_reflected_beam(R, k, ii, nr, s, eta, thd,
