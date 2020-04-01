@@ -570,7 +570,45 @@ class laserBeams(laserBeam):
             beam.phase = 2*np.pi*np.random.random((1,))
 
     def project_pol(self, quant_axis, R=np.array([0., 0., 0.]), t=0, **kwargs):
-        return [beam.project_pol(quant_axis, R, t, **kwargs) for beam in self.beam_vector]
+        """
+        To project the full three-vector, we want to determine the Euler
+        angles alpha, beta, and gamma that rotate the z-axis into the
+        quantization axis.  The final Euler angle, gamma, only sets the
+        phase of the -1 to +1 component, so it does not have any physical
+        meaning for the rate equations (where we expect this method to
+        mostly be used.)  Thus, we just set that angle equal to zero here.
+        """
+        cosbeta = quant_axis[2]
+        sinbeta = np.sqrt(1-cosbeta**2)
+        if isinstance(cosbeta, float):
+            if np.abs(cosbeta)<1:
+                gamma = np.arctan2(quant_axis[1], quant_axis[0])
+            else:
+                gamma = 0
+            alpha = 0
+        else:
+            gamma = np.zeros(cosbeta.shape)
+            inds = np.abs(quant_axis[2])<1
+            gamma[inds] = np.arctan2(quant_axis[1][inds],
+                                         quant_axis[0][inds])
+            alpha = np.zeros(cosbeta.shape)
+
+        quant_axis = quant_axis.astype('float64')
+
+        D = np.array([
+            [(1+cosbeta)/2*np.exp(-1j*alpha + 1j*gamma),
+             -sinbeta/np.sqrt(2)*np.exp(-1j*alpha),
+             (1-cosbeta)/2*np.exp(-1j*alpha - 1j*gamma)],
+            [sinbeta/np.sqrt(2)*np.exp(1j*gamma),
+             cosbeta,
+             -sinbeta/np.sqrt(2)*np.exp(-1j*gamma)],
+            [(1-cosbeta)/2*np.exp(1j*alpha+1j*gamma),
+             sinbeta/np.sqrt(2),
+             (1+cosbeta)/2*np.exp(1j*alpha-1j*gamma)]
+             ])
+
+        return [np.tensordot(D, beam.return_pol(R, t), ([1],[0]))
+                for beam in self.beam_vector]
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
         return [beam.cartesian_pol(R, t) for beam in self.beam_vector]
