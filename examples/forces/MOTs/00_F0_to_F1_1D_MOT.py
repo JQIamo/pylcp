@@ -15,7 +15,7 @@ plt.style.use('paper')
 #%%
 """
 Let's start this example by considering the simplest of all forces, two
-idenitcal polarization beams (relative to their k vectors), coming in from
+identical polarization beams (relative to their k vectors), coming in from
 either side.
 """
 def dimForce(x, v, delta, beta, alpha, totbeta):
