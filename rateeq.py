@@ -196,22 +196,22 @@ class rateeq():
             ind = rotated_ham.laser_keys[key]
             dijq = rotated_ham.blocks[ind].matrix
 
-            # Initialize the
-            Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
+            # Extract the energies:
+            E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
+            E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
+
+            # Initialize the pumping matrix:
+            self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
                                       dijq.shape[1:])
 
+            # Grab the laser parameters:
+            (kvecs, betas, pols, deltas) = self.laserBeams[key].return_parameters(r, t)
+            projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
+
             # Loop through each laser beam driving this transition:
-            for ll, beam in enumerate(self.laserBeams[key].beam_vector):
-                # Get the kvector:
-                kvec = beam.return_kvec(r, t)
-
-                # Project the polarization onto the appropriate basis:
-                proj = beam.project_pol(Bhat, R=r, t=t)
-
+            for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
                 for ii in range(dijq.shape[1]):
-                    E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
                     for jj in range(dijq.shape[2]):
-                        E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
                         fijq = np.abs(np.dot(dijq[:, ii, jj], proj))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
@@ -219,21 +219,21 @@ class rateeq():
                             """Rijl[ll, ii, jj] = beam.beta(r)/2*fijq/\
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
-                            Rijl[key][ll, ii, jj] = beam.return_beta(r)/2*\
-                            fijq/(1 + 4*((E2[jj] - E1[ii]) + beam.delta -
-                                          np.dot(kvec, v))**2)
+                            self.Rijl[key][ll, ii, jj] = beta/2*\
+                                fijq/(1 + 4*((E2[jj] - E1[ii]) + delta -
+                                             np.dot(kvec, v))**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:
             n = sum(rotated_ham.ns[:ind[0]])
             m = sum(rotated_ham.ns[:ind[1]])
-            for ii in range(Rijl[key].shape[1]):
-                for jj in range(Rijl[key].shape[2]):
-                    Rev[n+ii, n+ii] += -np.sum(Rijl[key][:, ii, jj])
-                    Rev[n+ii, m+jj] += np.sum(Rijl[key][:, ii, jj])
-                    Rev[m+jj, n+ii] += np.sum(Rijl[key][:, ii, jj])
-                    Rev[m+jj, m+jj] += -np.sum(Rijl[key][:, ii, jj])
+            for ii in range(self.Rijl[key].shape[1]):
+                for jj in range(self.Rijl[key].shape[2]):
+                    self.Rev[n+ii, n+ii] += -np.sum(self.Rijl[key][:, ii, jj])
+                    self.Rev[n+ii, m+jj] += np.sum(self.Rijl[key][:, ii, jj])
+                    self.Rev[m+jj, n+ii] += np.sum(self.Rijl[key][:, ii, jj])
+                    self.Rev[m+jj, m+jj] += -np.sum(self.Rijl[key][:, ii, jj])
 
-        return Rev, Rijl
+        return self.Rev, self.Rijl
 
 
     def equilibrium_populations(self, r, v, t, return_details=False):
@@ -279,8 +279,9 @@ class rateeq():
 
                 for ii in range(Rijl[key].shape[1]):
                     for jj in range(Rijl[key].shape[2]):
-                        f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
-                            (Npop[n+ii] - Npop[m+jj])
+                        if Rijl[key][ll, ii, jj]>0:
+                            f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
+                                (Npop[n+ii] - Npop[m+jj])
 
             F += np.sum(f[key], axis=1)
 
@@ -300,8 +301,7 @@ class rateeq():
         self.N0 = N0
 
     def set_initial_pop_from_equilibrium(self):
-        Rev, Rijl = self.construct_evolution_matrix(self.r0, self.v0, t=0)
-        self.N0 = self.equilibrium_populations(Rev)
+        self.N0 = self.equilibrium_populations(self.r0, self.v0, t=0)
 
 
     def evolve_populations(self, t_span, **kwargs):
