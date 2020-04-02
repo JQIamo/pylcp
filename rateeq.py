@@ -111,13 +111,51 @@ class rateeq():
                 if not beam.beta_sig is None and 't' in beam.beta_sig:
                     self.tdepend['beta'] = True"""
 
-        # Reset the current solution to None
+        # If the matrix is diagonal, we get to do something cheeky.  Let's just
+        # construct the decay part of the evolution once:
+        if np.all(self.hamiltonian.diagonal):
+            self.construct_evolution_matrix_decay(self.hamiltonian)
+
+        # Reset the current solution to
         self.set_initial_position_and_velocity(r, v)
 
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
-    def construct_evolution_matrix(self, r, v, t=0):
+    def construct_evolution_matrix_decay(self, rotated_ham):
+        self.Rev_decay = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+
+        # Go through each of the blocks and calculate the decay rate
+        # contributions to the rate equations.  This would be simpler with
+        # rotated_ham.make_full_matrices(), but I would imagine it would
+        # be significantly slower.
+        for ll, block in enumerate(np.diagonal(rotated_ham.blocks)):
+            n = sum(rotated_ham.ns[:ll])
+
+            # Calculate the decays first, provided we are not in the lowest
+            # manifold:
+            if ll>0:
+                for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
+                    if not other_block is None:
+                        for jj in range(rotated_ham.ns[ll]):
+                            self.Rev_decay[n+jj, n+jj] -= np.sum(np.sum(abs2(
+                                other_block.matrix[:, :, jj]
+                                )))
+
+            # Calculate the decays into of the manifold, provided we are not
+            # in the most excited one:
+            if ll<len(rotated_ham.ns)-1:
+                for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
+                    if not other_block is None:
+                        m = sum(rotated_ham.ns[:ll+1+mm])
+                        self.Rev_decay[n:n+rotated_ham.ns[ll],
+                                       m:m+other_block.m] += \
+                        np.sum(abs2(other_block.matrix), axis=0)
+
+        return self.Rev_decay
+
+
+    def construct_evolution_matrix(self, r, v, t=0.):
         """
         Method to generate the rate equation evolution matrix.  Expects
         several arguments:
@@ -140,39 +178,18 @@ class rateeq():
             Bhat = np.zeros(B.shape)
             Bhat[-1] = 1.0
 
-        # Diagonalize at Bmag.  This function returns several d_q
+        # Diagonalize at Bmag.  This is required if the Hamiltonian has any
+        # non-diagonal elements of the Hamiltonian that are dependent on Bz.
+        # This occurs, for example, with atoms in the large
         rotated_ham = self.hamiltonian.diag_static_field(Bmag)
+        if not np.all(self.hamiltonian.diagonal):
+            # Reconstruct the decay matrix to match this new field.
+            self.Rev_decay = self.construct_evolution_matrix_decay(rotated_ham)
 
-        # Initialize Rev:
-        Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-
-        # Go through each of the blocks and calculate the decay rate
-        # contributions to the rate equations.  This would be simpler with
-        # rotated_ham.make_full_matrices(), but I would imagine it would
-        # be significantly slower.
-        for ll, block in enumerate(np.diagonal(rotated_ham.blocks)):
-            n = sum(rotated_ham.ns[:ll])
-
-            # Calculate the decays first, provided we are not in the lowest
-            # manifold:
-            if ll>0:
-                for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
-                    if not other_block is None:
-                        for jj in range(block.n):
-                            Rev[n+jj, n+jj] -= np.sum(np.sum(abs2(
-                                other_block.matrix[:, :, jj]
-                                )))
-
-            # Calculate the decays into of the manifold, provided we are not
-            # in the most excited one:
-            if ll<len(rotated_ham.ns)-1:
-                for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
-                    if not other_block is None:
-                        m = sum(rotated_ham.ns[:ll+1+mm])
-                        Rev[n:n+block.n, m:m+other_block.m] += \
-                        np.sum(abs2(other_block.matrix), axis=0)
-
-        Rijl = {}
+        # Now add in the lasers
+        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+        self.Rev += self.Rev_decay
+        self.Rijl = {}
 
         for key in self.laserBeams:
             # Extract the relevant dijq matrix:
@@ -472,7 +489,7 @@ class trap(rateeq):
                 F = np.zeros((2,))
                 for jj in range(2):
                     self.set_initial_position_and_velocity(rpmdri[:, jj],
-                                                      np.zeros((3,1)))
+                                                           np.zeros((3,)))
                     f = self.find_equilibrium_force()
 
                     F[jj] = f[axis]

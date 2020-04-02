@@ -10,10 +10,17 @@ class hamiltonian():
     class block():
         def __init__(self, label, M):
             self.label = label
+            self.diagonal = self.check_diagonality(M)
             self.matrix = M
 
             self.n = M.shape[0]
             self.m = M.shape[1]
+
+        def check_diagonality(self, M):
+            if M.shape[0] == M.shape[1]:
+                return np.count_nonzero(M - np.diag(np.diagonal(M))) == 0
+            else:
+                return False # Cannot be diagonal, cause not square.
 
         def return_block_in_place(self, i, j, N):
             super_M = np.zeros((N, N), dtype='complex128')
@@ -34,6 +41,12 @@ class hamiltonian():
 
             self.n = M.shape[1]
             self.m = M.shape[2]
+
+        def check_diagonality(self, M):
+            if M.shape[1] == M.shape[2]:
+                return np.count_nonzero(M[1] - np.diag(np.diagonal(M[1]))) == 0
+            else:
+                return False # Cannot be diagonal, cause not square.
 
         def return_block_in_place(self, i, j, N):
             super_M = np.zeros((3, N, N), dtype='complex128')
@@ -136,6 +149,7 @@ class hamiltonian():
             raise ValueError('H_0 already added.')
 
         self.recompute_number_of_states()
+        self.check_diagonal_submatrices_are_themselves_diagonal()
 
 
     def add_mu_q_block(self, state_label, mu_q):
@@ -160,6 +174,7 @@ class hamiltonian():
             raise ValueError('mu_q already added.')
 
         self.recompute_number_of_states()
+        self.check_diagonal_submatrices_are_themselves_diagonal()
 
 
     def add_d_q_block(self, label1, label2, d_q):
@@ -282,12 +297,31 @@ class hamiltonian():
         return H
 
 
+    def check_diagonal_submatrices_are_themselves_diagonal(self):
+        self.diagonal = np.zeros((self.blocks.shape[0],), dtype='bool')
+
+        for ii, diag_block in enumerate(np.diag(self.blocks)):
+            if isinstance(diag_block, tuple):
+                self.diagonal[ii] = (diag_block[0].diagonal and diag_block[1].diagonal)
+            else:
+                self.diagonal[ii] = diag_block.diagonal
+
+
     def diag_static_field(self, B):
         """
         This function diagonalizes the H_0 blocks separately based on the values
         for the static magnetic field, and rotates d_q accordingly.  This is
-        necessary for the rate equations.
+        necessary for the rate equations.  The rate equations always assume that
+        B sets the quantization axis, and they rotate the coordinate system
+        appropriately, so we only ever need to consider the z-component of the
+        field.
         """
+        # Now we get to the meat of it:
+        if not (isinstance(B, float) or isinstance(B, int)):
+            raise StandardError('diag_static_field: the field should be given '+
+                                'by a single number, the magnitude (assumed '+
+                                'to be along z).')
+
         # If it does not already exist, make an empty Hamiltonian that has
         # the same dimensions as this one.
         if not hasattr(self, 'rotated_hamiltonian'):
@@ -303,73 +337,84 @@ class hamiltonian():
                         if not block is None:
                             self.rotated_hamiltonian.add_d_q_block(
                                 self.state_labels[ii], self.state_labels[jj],
-                                np.zeros((3, block.n, block.m), dtype='complex128')
+                                block.matrix,
                                 )
 
-        # Now we get to the meat of it:
-        if isinstance(B, float) or isinstance(B, int):
-            Bq = np.array([0, B, 0], dtype=float) # Assume B is along z
-        elif isinstance(B, np.ndarray) and B.size == 1:
-            Bq = np.array([0, B[0], 0]) # Assume B is along z
-        elif isinstance(B, np.ndarray) and B.shape[0] == 3:
-            Bq = np.zeros((3,), dtype='complex128')
+        # Have we previously generated a set of transformation matrices?
+        if not hasattr(self, 'U'):
+            self.U = np.empty((self.blocks.shape[0],), dtype=object)
+            # Now, go through all of the diagonal elements:
+            for ii, diag_block in enumerate(np.diag(self.blocks)):
+                # Make a transformation matrix that is boring.  We'll overwrite
+                # it later if it gets interesting.
+                self.U[ii] = np.eye(self.ns[ii])
 
-            Bq[0] = -B[0]/np.sqrt(2)+1j*B[1]/np.sqrt(2)
-            Bq[1] = B[2]
-            Bq[2] = B[0]/np.sqrt(2)-1j*B[1]/np.sqrt(2)
+        # Now, are any of the diagonal submatrices not diagonal?
+        if not np.all(self.diagonal):
+            # If so, go through all of the diagonal elements:
+            for ii, diag_block in enumerate(np.diag(self.blocks)):
+                # It isn't? Diagonalize it:
+                if not self.diagonal[ii]:
+                    if isinstance(diag_block, tuple):
+                        H = (diag_block[0].matrix + B*diag_block[1].matrix[1])
+                    elif isinstance(diag_block, self.vector_block):
+                        H = B*diag_block.matrix[1]
+                    else:
+                        H = diag_block.matrix
 
-        U = np.empty((self.blocks.shape[0],), dtype=object)
+                    # Diagonalize at this field:
+                    Es, self.U[ii] = np.linalg.eig(H)
 
-        for ii, diag_block in enumerate(np.diag(self.blocks)):
-            if isinstance(diag_block, tuple):
-                H = (diag_block[0].matrix +
-                     np.tensordot(np.array([-1, 1, -1])*Bq[::-1],
-                                  diag_block[1].matrix, axes=(0, 0))
-                     )
-            elif isinstance(diag_block, self.vector_block):
-                H = np.tensordot(np.array([-1, 1, -1])*Bq[::-1],
-                                 diag_block.matrix, axes=(0, 0))
-            else:
-                H = diag_block.matrix
+                    # Sort the  output, store the transformation matrix.
+                    ind_e = np.argsort(Es)
+                    Es = Es[ind_e]
+                    self.U[ii] = self.U[ii][:, ind_e]
 
-            # Check to see if it even needs to be diagnalized:
-            if np.count_nonzero(H - np.diag(np.diagonal(H))) == 0:
-                Es = H
+                    # Check to make sure the diganolization resulted in only real
+                    # components, then build the matrix with the eigenvalues and
+                    # go
+                    if np.allclose(np.imag(Es), 0.):
+                        self.rotated_hamiltonian.blocks[ii, ii].matrix = np.diag(np.real(Es))
+                    else:
+                        raise ValueError('You broke the Hamiltonian!')
+                else: # It is diagonal:
+                    if isinstance(diag_block, tuple):
+                        self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                            diag_block[0].matrix + B*diag_block[1].matrix[1]
+                    elif isinstance(diag_block, self.vector_block):
+                        self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                            B*diag_block.matrix[1]
+                    else:
+                        self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                            diag_block.matrix
+
+            # Now, rotate the d_q:
+            for ii in range(self.blocks.shape[0]):
+                for jj in range(ii+1, self.blocks.shape[1]):
+                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj]):
+                        for kk in range(3):
+                            self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
+                                self.U[ii].T @ self.blocks[ii,jj].matrix[kk] @ self.U[jj]
+
+                            self.rotated_hamiltonian.blocks[jj, ii].matrix[kk] = \
+                                np.conjugate(self.rotated_hamiltonian.blocks[ii, jj].matrix[kk].T)
+
+                            if (self.rotated_hamiltonian.blocks[ii, jj].matrix.shape !=
+                                self.blocks[ii,jj].matrix.shape):
+                                raise ValueError("Rotataed d_q not the same size as original.")
+        else:
+            # We are already diagonal, so all we have to do is change the
+            # eigenvalues.
+            for ii, diag_block in enumerate(np.diag(self.blocks)):
                 if isinstance(diag_block, tuple):
-                    U[ii] = np.eye(diag_block[0].n)
+                    self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                        np.real(diag_block[0].matrix + B*diag_block[1].matrix[1])
+                elif isinstance(diag_block, self.vector_block):
+                    self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                        np.real(B*diag_block.matrix[1])
                 else:
-                    U[ii] = np.eye(diag_block.n)
-            else:
-                Es, U[ii] = np.linalg.eig(H)
-
-                # Sort the  output:
-                ind_e = np.argsort(Es)
-                Es = Es[ind_e]
-                U[ii] = U[ii][:, ind_e]
-
-                Es = np.diag(Es)
-
-            # Check to make sure the diganolization resulted in only real
-            # components:
-            if np.allclose(np.imag(np.diagonal(Es)), 0.):
-                self.rotated_hamiltonian.blocks[ii, ii].matrix = np.real(Es)
-            else:
-                raise ValueError('You broke the Hamiltonian!')
-
-        # Now, rotate the d_q:
-        for ii in range(self.blocks.shape[0]):
-            for jj in range(ii+1, self.blocks.shape[1]):
-                if not self.blocks[ii, jj] is None:
-                    for kk in range(3):
-                        self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
-                        U[ii].T @ self.blocks[ii,jj].matrix[kk] @ U[jj]
-
-                        self.rotated_hamiltonian.blocks[jj, ii].matrix[kk] = \
-                        np.conjugate(self.rotated_hamiltonian.blocks[ii, jj].matrix[kk].T)
-
-                    if (self.rotated_hamiltonian.blocks[ii, jj].matrix.shape !=
-                        self.blocks[ii,jj].matrix.shape):
-                       raise ValueError("Rotataed d_q not the same size as original.")
+                    self.rotated_hamiltonian.blocks[ii, ii].matrix = \
+                        np.real(diag_block.matrix)
 
         return self.rotated_hamiltonian
 
