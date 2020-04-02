@@ -11,6 +11,7 @@ from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .lasers import laserBeams
 from .common import printProgressBar
+from .fields import magField
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -66,7 +67,7 @@ class obe():
     def __init__(self, lasers, magField, hamiltonian,
                  r=np.array([0., 0., 0.]), v=np.array([0., 0., 0.]),
                  mean_detuning=None, transform_into_re_im=True,
-                 use_sparse_matrices=None):
+                 use_sparse_matrices=None, include_mag_forces=False):
         """
         construct_optical_bloch_eqns: this function takes in a hamiltonian, a
         set of laserBeams, and a magField function and an internal hamiltonian
@@ -114,7 +115,15 @@ class obe():
                                  'does not have a corresponding key the '+
                                  'Hamiltonian d_q.')
 
-        self.magField = copy.copy(magField)
+        if iscallable(mag_field):
+            self.magField = magField(mag_field)
+        elif isinstance(mag_field, magField):
+            self.magField = copy.copy(mag_field)
+        else:
+            raise TypeError('mag_field must be either a lambda function or a' +
+                            'magField object.')
+        self.include_mag_forces = include_mag_forces
+
         self.transform_into_re_im = transform_into_re_im
         if use_sparse_matrices is None:
             if self.hamiltonian.n>10: # Generally offers a performance increase
@@ -391,7 +400,7 @@ class obe():
 
 
     def return_magnetic_field(self, t, r):
-        B = self.magField(r)
+        B = self.magField.Field(r)
 
         if self.transform_into_re_im:
             return B
@@ -579,6 +588,9 @@ class obe():
         f = np.zeros((3,))
 
         for key in self.laserBeams:
+            # total_electric_field_gradient returns 3x3 matrix, with the form:
+            # [[dE_-/dx, dE_0/dx, dE_+/dx],[dE_-/dy, dE_0/dy, dE_+/dy],
+            #  [dE_-/dz, dE_0/dz, dE_+/dz]]
             if not self.transform_into_re_im:
                 delE = self.laserBeams[key].total_electric_field_gradient(
                     np.real(r), t
@@ -604,6 +616,41 @@ class obe():
                                     self.hamiltonian.d_q_bare[key][:, ii, jj])
 
                     f += 2*np.real(ddotdelE*rho_ji)
+
+        if self.include_mag_forces:
+            # This function returns a matrix that (3, 3) with the format:
+            # [dBx/dx, dBy/dx, dBz/dx; dBx/dy, dBy/dy, dBz/dy], and so on.
+            # We need to dot, and su
+            delB = self.magField.gradField(r, t)
+
+            # Need to reshape it to properly dot with the
+            delBq = np.zeros(delB.shape, dtype='complex128')
+
+            delBq[:, 0] = delB[:, 0]/np.sqrt(2)+1j*delB[:, 1]/np.sqrt(2)
+            delBq[:, 1] = delB[:, 2]
+            delBq[:, 2] = -delB[:, 0]/np.sqrt(2)+1j*delB[:, 1]/np.sqrt(2)
+
+            # Go through each diagonal block.
+            for ll, block in enumerate(np.diag(self.hamiltonian)):
+                if isinstance(block, tuple):
+                    muBq = block.matrix[1]
+                elif isinstance(block, self.hamiltonian.vector_block):
+                    muBq = block.matrix
+                else:
+                    muBq = None
+
+                if not delB_muBq is None:
+                    n = sum(self.hamiltonian.ns[:ll])
+                    for ii in range(n, n+self.hamiltonian.ns[ll]):
+                        for jj in range(n, n+self.hamiltonian.ns[ll]):
+                            # This array has the same shape as (t.size):
+                            if self.transform_into_re_im:
+                                rho_ji = rho[self.density_index(ii, jj)] -\
+                                          1j*rho[self.density_index(jj, ii)]
+                            else:
+                                rho_ji = rho[self.density_index(jj, ii)]
+
+                            f += 0.5*(np.conjugate(delBq) @ muBq[:, ii-n, jj-n])*rho_ji
 
         return f
 
