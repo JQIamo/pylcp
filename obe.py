@@ -64,7 +64,7 @@ class obe():
     for a given position and velocity and provides methods for
     solving them appropriately.
     """
-    def __init__(self, lasers, magField, hamiltonian,
+    def __init__(self, lasers, mag_field, hamiltonian,
                  r=np.array([0., 0., 0.]), v=np.array([0., 0., 0.]),
                  mean_detuning=None, transform_into_re_im=True,
                  use_sparse_matrices=None, include_mag_forces=False):
@@ -115,7 +115,7 @@ class obe():
                                  'does not have a corresponding key the '+
                                  'Hamiltonian d_q.')
 
-        if iscallable(mag_field):
+        if callable(mag_field):
             self.magField = magField(mag_field)
         elif isinstance(mag_field, magField):
             self.magField = copy.copy(mag_field)
@@ -134,7 +134,7 @@ class obe():
             self.use_sparse_matrices = use_sparse_matrices
 
         # Make a rate equation model too:
-        self.rateeq = rateeq(self.laserBeams, magField, hamiltonian)
+        self.rateeq = rateeq(self.laserBeams, self.magField, hamiltonian)
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
@@ -569,7 +569,7 @@ class obe():
                              **kwargs)
 
 
-    def evolve_motion(self, **kwargs):
+    def evolve_motion(self, t_span, **kwargs):
         """
         This function evolves the optical bloch equations for some period of
         time, with all their potential glory!
@@ -617,11 +617,12 @@ class obe():
 
                     f += 2*np.real(ddotdelE*rho_ji)
 
+        # Are we including magnetic forces?
         if self.include_mag_forces:
             # This function returns a matrix that (3, 3) with the format:
             # [dBx/dx, dBy/dx, dBz/dx; dBx/dy, dBy/dy, dBz/dy], and so on.
             # We need to dot, and su
-            delB = self.magField.gradField(r, t)
+            delB = self.magField.gradField(r)
 
             # Need to reshape it to properly dot with the
             delBq = np.zeros(delB.shape, dtype='complex128')
@@ -631,26 +632,26 @@ class obe():
             delBq[:, 2] = -delB[:, 0]/np.sqrt(2)+1j*delB[:, 1]/np.sqrt(2)
 
             # Go through each diagonal block.
-            for ll, block in enumerate(np.diag(self.hamiltonian)):
+            for ll, block in enumerate(np.diag(self.hamiltonian.blocks)):
                 if isinstance(block, tuple):
-                    muBq = block.matrix[1]
+                    muBq = block[1].matrix
                 elif isinstance(block, self.hamiltonian.vector_block):
                     muBq = block.matrix
                 else:
                     muBq = None
 
-                if not delB_muBq is None:
+                if not muBq is None:
                     n = sum(self.hamiltonian.ns[:ll])
+                    # There must be a better way than this loop:
                     for ii in range(n, n+self.hamiltonian.ns[ll]):
-                        for jj in range(n, n+self.hamiltonian.ns[ll]):
-                            # This array has the same shape as (t.size):
+                        for jj in range(n+ii, n+self.hamiltonian.ns[ll]):
                             if self.transform_into_re_im:
                                 rho_ji = rho[self.density_index(ii, jj)] -\
                                           1j*rho[self.density_index(jj, ii)]
                             else:
                                 rho_ji = rho[self.density_index(jj, ii)]
 
-                            f += 0.5*(np.conjugate(delBq) @ muBq[:, ii-n, jj-n])*rho_ji
+                            f -= 2*np.real((np.conjugate(delBq) @ muBq[:, ii-n, jj-n])*rho_ji)
 
         return f
 

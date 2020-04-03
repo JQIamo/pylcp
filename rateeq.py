@@ -90,7 +90,7 @@ class rateeq():
                                  'a corresponding key the Hamiltonian d_q.' %
                                  laser_key)
 
-        if iscallable(mag_field):
+        if callable(mag_field):
             self.magField = magField(mag_field)
         elif isinstance(mag_field, magField):
             self.magField = copy.copy(mag_field)
@@ -109,9 +109,9 @@ class rateeq():
         self.tdepend['det'] = False
         self.tdepend['beta'] = False"""
 
-        if 't' in str(signature(self.magField)):
+        """if 't' in str(signature(self.magField)):
             self.tdepend['B'] = True
-        """for key in self.laserBeams:
+        for key in self.laserBeams:
             for beam in self.laserBeams[key]:
                 if not beam.pol_sig is None and 't' in beam.pol_sig:
                     self.tdepend['pol'] = True
@@ -274,7 +274,7 @@ class rateeq():
             return Neq
 
 
-    def force(self, r, t, Rijl, Npop):
+    def force(self, r, t, Npop):
         F = np.zeros((3,))
         f = {}
 
@@ -288,8 +288,8 @@ class rateeq():
                 # If kvec is callable, evaluate kvec:
                 kvec = beam.return_kvec(r, t)
 
-                for ii in range(Rijl[key].shape[1]):
-                    for jj in range(Rijl[key].shape[2]):
+                for ii in range(self.Rijl[key].shape[1]):
+                    for jj in range(self.Rijl[key].shape[2]):
                         if Rijl[key][ll, ii, jj]>0:
                             f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
                                 (Npop[n+ii] - Npop[m+jj])
@@ -298,15 +298,29 @@ class rateeq():
 
         fmag=0
         if self.include_mag_forces:
-            gradBmag = self.magField.gradFieldMag(r, t)
+            gradBmag = self.magField.gradFieldMag(r)
 
-            for ii, block in np.diag(self.rotated_ham.blocks):
-                ind1 = np.sum(rotated_ham.ns[:ii])
-                ind2 = np.sum(rotated_ham.ns[:ii+1])
-                if isinstance(block, tuple):
-                    fmag -= np.sum(block[1].matrix[1]@Npop[ind1:ind2])*gradBmag
-                elif isinstance(block, self.hamiltonian.vector_block):
-                    fmag -= np.sum(block.matrix[1]@Npop[ind1:ind2])*gradBmag
+            for ii, block in enumerate(np.diag(self.hamiltonian.blocks)):
+                ind1 = int(np.sum(self.hamiltonian.ns[:ii]))
+                ind2 = int(np.sum(self.hamiltonian.ns[:ii+1]))
+                if self.hamiltonian.diagonal:
+                    if isinstance(block, tuple):
+                        fmag -= np.sum(np.real(
+                            block[1].matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag -= np.sum(np.real(
+                            block.matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                else:
+                    if isinstance(block, tuple):
+                        fmag -= np.sum((self.hamiltonian.U[ii].T @
+                                        block[1].matrix[1] @ self.hamiltonian.U[ii])
+                                       @ Npop[ind1:ind2])*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag -= np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block.matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
 
             F += fmag
 
@@ -355,11 +369,11 @@ class rateeq():
             v = y[-6:-3]
             r = y[-3:]
 
-            Rev, Rijl = self.construct_evolution_matrix(r, v, t)
-            F, f_laser, f_mag = self.force(Rijl, N)
+            self.construct_evolution_matrix(r, v, t)
+            F, f_laser, f_mag = self.force(r, t, N)
             F[hold_axis] = 0.
 
-            dydt = np.concatenate((Rev @ N, mass_ratio*F, v))
+            dydt = np.concatenate((self.Rev @ N, mass_ratio*F, v))
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
 
