@@ -11,6 +11,7 @@ from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .lasers import laserBeams
 from .common import printProgressBar
+from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -188,20 +189,20 @@ class obe():
             )
         self.ev_mat['B'] = np.array(self.ev_mat['B'])
 
-        self.ev_mat['E'] = {}
-        self.ev_mat['E*'] = {}
+        self.ev_mat['d_q'] = {}
+        self.ev_mat['d_q*'] = {}
         for key in self.laserBeams.keys():
-            self.ev_mat['E'][key] = [None]*3
-            self.ev_mat['E*'][key] = [None]*3
+            self.ev_mat['d_q'][key] = [None]*3
+            self.ev_mat['d_q*'][key] = [None]*3
             for q in range(3):
-                self.ev_mat['E'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q'][key][q] = self.build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_bare[key][q]
                 )
-                self.ev_mat['E*'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q*'][key][q] = self.build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_star[key][q]
                 )
-            self.ev_mat['E'][key] = np.array(self.ev_mat['E'][key])
-            self.ev_mat['E*'][key] = np.array(self.ev_mat['E*'][key])
+            self.ev_mat['d_q'][key] = np.array(self.ev_mat['d_q'][key])
+            self.ev_mat['d_q*'][key] = np.array(self.ev_mat['d_q*'][key])
 
 
     def build_decay_ev(self):
@@ -329,30 +330,23 @@ class obe():
 
         self.ev_mat['reE'] = {}
         self.ev_mat['imE'] = {}
-        for key in self.ev_mat['E'].keys():
+        for key in self.ev_mat['d_q'].keys():
             self.ev_mat['reE'][key] = np.array([self.transform_ev_matrix(
-                self.ev_mat['E'][key][jj] + self.ev_mat['E*'][key][jj]
+                self.ev_mat['d_q'][key][jj] + self.ev_mat['d_q*'][key][jj]
                 ) for jj in range(3)])
             self.ev_mat['imE'][key] = np.array([self.transform_ev_matrix(
-                -1j*(self.ev_mat['E'][key][jj] - self.ev_mat['E*'][key][jj])
+                -1j*(self.ev_mat['d_q'][key][jj] - self.ev_mat['d_q*'][key][jj])
                 ) for jj in range(3)])
 
         # Transform Bq back into Bx, By, and Bz (making it real):
-        ev_mat_Bx = self.transform_ev_matrix(
-            1/np.sqrt(2)*(self.ev_mat['B'][0] - self.ev_mat['B'][2])
-            )
-        ev_mat_By = self.transform_ev_matrix(
-            1j/np.sqrt(2)*(self.ev_mat['B'][0] + self.ev_mat['B'][2])
-            )
-        ev_mat_Bz = self.transform_ev_matrix(
-            self.ev_mat['B'][1]
-            )
+        self.ev_mat['B'] = spherical2cart(self.ev_mat['B'][0])
 
-        del self.ev_mat['B']
-        self.ev_mat['B'] = np.array([ev_mat_Bx, ev_mat_By, ev_mat_Bz])
+        for jj in range(3):
+            self.ev_mat['B'][jj] = self.transform_ev_matrix(self.ev_mat['B'][jj])
 
-        del self.ev_mat['E']
-        del self.ev_mat['E*']
+        del self.ev_mat['d_q']
+        del self.ev_mat['d_q*']
+
 
     def convert_to_sparse(self):
         def convert_based_on_shape(matrix):
@@ -396,11 +390,7 @@ class obe():
         if self.transform_into_re_im:
             return B
         else:
-            Bq = np.zeros((3,), dtype='complex128')
-
-            Bq[0] = B[0]/np.sqrt(2)+1j*B[1]/np.sqrt(2)
-            Bq[1] = B[2]
-            Bq[2] = -B[0]/np.sqrt(2)+1j*B[1]/np.sqrt(2)
+            Bq = cart2spherical(B)
 
             return Bq
 
@@ -491,17 +481,16 @@ class obe():
                         ev_mat -= 0.5*np.real(Eq[ii])*self.ev_mat['reE'][key][ii]
                         ev_mat -= 0.5*np.imag(Eq[ii])*self.ev_mat['imE'][key][ii]
             else:
-                Eq = self.laserBeams[key].total_electric_field(t, np.real(r))
+                Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
                 for ii in range(3):
                     if np.abs(Eq[ii])>1e-10:
-                        ev_mat -= 0.5*np.conjugate(Eq[ii])*self.ev_mat['E'][key][ii]
-                        ev_mat -= 0.5*Eq[ii]*self.ev_mat['E*'][key][ii]
+                        ev_mat -= 0.5*np.conjugate(Eq[ii])*self.ev_mat['d_q'][key][ii]
+                        ev_mat -= 0.5*Eq[ii]*self.ev_mat['d_q*'][key][ii]
 
         # Add in magnetic fields:
         Bq = self.return_magnetic_field(r, t)
         for ii in range(3):
-            if np.abs(Bq[ii])>1e-10:
-                ev_mat += Bq[ii]*self.ev_mat['B'][ii]
+            ev_mat -= spherical_dot(self.ev_mat['B'], Bq)
 
         return ev_mat
 
@@ -520,21 +509,21 @@ class obe():
             if self.transform_into_re_im:
                 Eq = self.laserBeams[key].total_electric_field(r, t)
                 for ii in range(3):
-                    if np.abs(Eq[ii])>1e-10:
-                        drhodt -= 0.5*np.real(Eq[ii])*(self.ev_mat['reE'][key][ii] @ rho)
-                        drhodt -= 0.5*np.imag(Eq[ii])*(self.ev_mat['imE'][key][ii] @ rho)
+                    drhodt -= 0.5*np.real(Eq[ii])*(self.ev_mat['reE'][key][ii] @ rho)
+                    drhodt -= 0.5*np.imag(Eq[ii])*(self.ev_mat['imE'][key][ii] @ rho)
             else:
                 Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
-                for ii in range(3):
-                    if np.abs(Eq[ii])>1e-10:
-                        drhodt -= 0.5*np.conjugate(Eq[ii])*(self.ev_mat['E'][key][ii] @ rho)
-                        drhodt -= 0.5*Eq[ii]*(self.ev_mat['E*'][key][ii] @ rho)
+                for ii, q in enumerate(np.arange(-1., 2., 1)):
+                    drhodt -= 0.5*(-1.)**q*Eq[2-ii]*(self.ev_mat['d_q'][key][ii] @ rho)
+                    drhodt -= 0.5*(-1.)**q*np.conjugate(Eq[2-ii])*(self.ev_mat['d_q*'][key][ii] @ rho)
 
         # Add in magnetic fields:
         Bq = self.return_magnetic_field(t, r)
-        for ii in range(3):
-            if np.abs(Bq[ii])>1e-10:
-                drhodt += Bq[ii]*(self.ev_mat['B'][ii] @ rho)
+        for ii, q in enumerate(range(-1, 2)):
+            if self.transform_into_re_im:
+                drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
+            else:
+                drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
         return drhodt
 
@@ -808,19 +797,23 @@ class obe():
         """
         Reshape the solution to have all the proper parts.
         """
-        # This should just do it:
-        rho = self.sol.y[:-6].reshape(self.hamiltonian.n, self.hamiltonian.n,
-                                      self.sol.t.size)
+        rho = self.sol.y[:-6].astype('complex128')
 
-        # If not:
+        if self.transform_into_re_im:
+            for jj in range(rho.shape[1]):
+                rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape(self.hamiltonian.n, self.hamiltonian.n,
+                          self.sol.t.size)
+        """# If not:
         if self.transform_into_re_im:
             new_rho = np.zeros(rho.shape, dtype='complex128')
             for jj in range(new_rho.shape[2]):
                 new_rho[:, :, jj] = (np.diag(np.diagonal(rho[:, :, jj])) +
                                      np.triu(rho[:, :, jj], k=1) +
-                                     np.triu(rho[:, :, jj], k=1).T -
-                                     1j*np.tril(rho[:, :, jj], k=-1) +
+                                     np.triu(rho[:, :, jj], k=1).T +
+                                     1j*np.tril(rho[:, :, jj], k=-1) -
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
-            rho = new_rho
+            rho = new_rho"""
 
         return (self.sol.t, rho)

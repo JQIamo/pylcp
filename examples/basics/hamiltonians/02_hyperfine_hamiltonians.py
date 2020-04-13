@@ -53,7 +53,7 @@ def breitrabi(B, gJ, gI, AHFS, J=1/2, I=3/2):
     return E, Es_max
 
 
-def diagnolize_and_sort(B, I, gI, state, method='uncoupled', 
+def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
                         Bhat=np.array([0,0,1]), dosort=True):
     """
     Diagonalize and sort does what you would expect.
@@ -130,10 +130,10 @@ def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
 # 7Li:
 B = np.arange(0.1, 1000, 2)
 
-Es, Vecs = diagnolize_and_sort(B, atom_Li7.I, atom_Li7.gI, 
+Es, Vecs = diagnolize_and_sort(B, atom_Li7.I, atom_Li7.gI,
                                atom_Li7.state[0], method='uncoupled')
 
-Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Li7.I, atom_Li7.gI, 
+Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Li7.I, atom_Li7.gI,
                                    atom_Li7.state[0], method='coupled')
 
 Es_3, Es_max = breitrabi(
@@ -154,10 +154,10 @@ ax.set_ylabel("$E/h$ (GHz)")
 # 6Li:
 B = np.linspace(0.1, 200, 101)
 
-Es, Vecs = diagnolize_and_sort(B, atom_Li6.I, atom_Li6.gI, 
+Es, Vecs = diagnolize_and_sort(B, atom_Li6.I, atom_Li6.gI,
                                atom_Li6.state[0], method='uncoupled')
 
-Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Li6.I, atom_Li6.gI, 
+Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Li6.I, atom_Li6.gI,
                                    atom_Li6.state[0], method='coupled')
 
 Es_3, Es_max = breitrabi(
@@ -178,10 +178,10 @@ ax.set_ylabel("$E/h$ (GHz)")
 nstates = int((2*atom_Rb87.state[2].J+1)*(2*atom_Rb87.I+1))
 B = np.linspace(0, 500, 101)
 
-Es, Vecs = diagnolize_and_sort(B, atom_Rb87.I, atom_Rb87.gI, 
+Es, Vecs = diagnolize_and_sort(B, atom_Rb87.I, atom_Rb87.gI,
                                atom_Rb87.state[2], method='uncoupled')
 
-Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Rb87.I, atom_Rb87.gI, 
+Es_2, Vecs_2 = diagnolize_and_sort(B, atom_Rb87.I, atom_Rb87.gI,
                                    atom_Rb87.state[2], method='coupled')
 
 plt.figure("Rb-87 5P_{3/2} state", figsize=(3.25, 2.75))

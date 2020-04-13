@@ -280,19 +280,16 @@ class hamiltonian():
 
 
     def return_full_H(self, Eq, Bq):
-        if isattr('H_0', self):
+        if not hasattr(self, 'H_0'):
             self.make_full_matrices()
 
-        H = np.zeros((self.n, self.n), dtype='complex128')
+        H = self.H_0 - np.tensordot(self.mu_q, np.conjugate(Bq), axes=(0, 0))
 
-        H += self.H_0 + np.tensordot(np.array([-1, 1, -1])*Bq[::-1],
-                                    self.mu_q, axes=(0, 0))
-
-        for key in self.d_q.keys():
-            H += 0.5*np.tensordot(np.conjugate(Eq[key]),
-                                  self.d_q_bare[key], axes=(0, 0)) -\
-                 0.5*np.tensordot(Eq[key],
-                                  self.d_q_star[key], axes=(0, 0))
+        for key in self.d_q_bare.keys():
+            H -= 0.5*np.tensordot(self.d_q_bare[key], np.conjugate(Eq[key]),
+                                  axes=(0, 0)) -\
+                 0.5*np.tensordot(self.d_q_star[key], Eq[key],
+                                  axes=(0, 0))
 
         return H
 
@@ -356,9 +353,9 @@ class hamiltonian():
                 # It isn't? Diagonalize it:
                 if not self.diagonal[ii]:
                     if isinstance(diag_block, tuple):
-                        H = (diag_block[0].matrix + B*diag_block[1].matrix[1])
+                        H = (diag_block[0].matrix - B*diag_block[1].matrix[1])
                     elif isinstance(diag_block, self.vector_block):
-                        H = B*diag_block.matrix[1]
+                        H = -B*diag_block.matrix[1]
                     else:
                         H = diag_block.matrix
 
@@ -380,10 +377,10 @@ class hamiltonian():
                 else: # It is diagonal:
                     if isinstance(diag_block, tuple):
                         self.rotated_hamiltonian.blocks[ii, ii].matrix = \
-                            diag_block[0].matrix + B*diag_block[1].matrix[1]
+                            diag_block[0].matrix - B*diag_block[1].matrix[1]
                     elif isinstance(diag_block, self.vector_block):
                         self.rotated_hamiltonian.blocks[ii, ii].matrix = \
-                            B*diag_block.matrix[1]
+                            -B*diag_block.matrix[1]
                     else:
                         self.rotated_hamiltonian.blocks[ii, ii].matrix = \
                             diag_block.matrix
@@ -408,10 +405,10 @@ class hamiltonian():
             for ii, diag_block in enumerate(np.diag(self.blocks)):
                 if isinstance(diag_block, tuple):
                     self.rotated_hamiltonian.blocks[ii, ii].matrix = \
-                        np.real(diag_block[0].matrix + B*diag_block[1].matrix[1])
+                        np.real(diag_block[0].matrix - B*diag_block[1].matrix[1])
                 elif isinstance(diag_block, self.vector_block):
                     self.rotated_hamiltonian.blocks[ii, ii].matrix = \
-                        np.real(B*diag_block.matrix[1])
+                        np.real(-B*diag_block.matrix[1])
                 else:
                     self.rotated_hamiltonian.blocks[ii, ii].matrix = \
                         np.real(diag_block.matrix)

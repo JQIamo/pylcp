@@ -1,5 +1,6 @@
 import numpy as np
 from inspect import signature
+from .common import cart2spherical, spherical2cart
 
 import numba
 
@@ -98,19 +99,13 @@ class laserBeam():
                     if np.abs(np.dot(self.kvec, pol)) > 1e-9:
                         raise ValueError("I'm sorry; light is a transverse wave")
 
-                    # Always store in spherical basis:
-                    self.pol = np.array([(+pol[0]-1j*pol[1])/np.sqrt(2),
-                                         pol[2],
-                                         (-pol[0]-1j*pol[1])/np.sqrt(2)])
-
+                    # Always store in spherical basis.  Matches Brown and Carrington.
+                    self.pol = cart2spherical(pol).astype('complex128')
 
                 # The user has specified a single polarization vector in
                 # spherical basis:
                 elif pol_coord=='spherical':
-                    pol_cart = np.array([(-pol[2]+pol[0])/np.sqrt(2),
-                                         1j*(pol[2]+pol[0])/np.sqrt(2),
-                                         pol[1]
-                                         ])
+                    pol_cart = spherical2cart(pol)
 
                     # Check for transverseness:
                     if np.abs(np.dot(self.kvec, pol_cart)) > 1e-9:
@@ -335,10 +330,7 @@ class laserBeam():
         Returns the polarization in Cartesian coordinates.
         """
         pol = self.return_pol(R, t)
-        return np.array([(-pol[2]+pol[0])/np.sqrt(2),
-                         1j*(pol[2]+pol[0])/np.sqrt(2),
-                         pol[1]
-                        ])
+        return spherical2cart(pol)
 
     def jones_vector(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
         """
@@ -449,13 +441,13 @@ class laserBeam():
         amp = np.sqrt(beta/2)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-            Eq = pol*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
-                                -1j*self.phase)
+            Eq = pol*amp*np.exp(1j*np.dot(kvec, R) - 1j*delta*t +
+                                1j*self.phase)
         else:
             Eq = np.multiply(
                 pol.reshape(3, t.size),
-                amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
-                           -1j*self.phase)
+                amp*np.exp(1j*dot2D(kvec, R) - 1j*delta*t +
+                           1j*self.phase)
             )
 
         return Eq
@@ -472,14 +464,14 @@ class laserBeam():
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
             delE = np.multiply(kvec.reshape(3, 1), pol.reshape(1, 3))*\
-                 1j*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
+                 1j*amp*np.exp(1j*np.dot(kvec, R) - 1j*delta*t +
                                           -1j*self.phase)
         else:
             delE = np.multiply(
                 np.multiply(kvec.reshape(3, 1, t.size),
                             pol.reshape(1, 3, t.size)),
-                1j*amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
-                              -1j*self.phase)
+                1j*amp*np.exp(1j*dot2D(kvec, R) - 1j*delta*t +
+                              1j*self.phase)
             )
 
         return delE

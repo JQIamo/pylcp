@@ -47,7 +47,7 @@ class force_profile():
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
 
-        for key in f:
+        for key in f_laser:
             for jj in range(3):
                 self.f[key][(jj,) + ind] = f[key][jj]
 
@@ -220,7 +220,7 @@ class rateeq():
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
                             self.Rijl[key][ll, ii, jj] = beta/2*\
-                                fijq/(1 + 4*((E2[jj] - E1[ii]) + delta -
+                                fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:
