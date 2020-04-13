@@ -286,10 +286,9 @@ class hamiltonian():
         H = self.H_0 - np.tensordot(self.mu_q, np.conjugate(Bq), axes=(0, 0))
 
         for key in self.d_q_bare.keys():
-            H -= 0.5*np.tensordot(self.d_q_bare[key], np.conjugate(Eq[key]),
-                                  axes=(0, 0)) -\
-                 0.5*np.tensordot(self.d_q_star[key], Eq[key],
-                                  axes=(0, 0))
+            for ii, q in enumerate(np.arange(-1., 2., 1.)):
+                H -= (0.5*(-1.)**q*self.d_q_bare[key][ii]*Eq[key][2-ii] + 
+                      0.5*(-1.)**q*self.d_q_star[key][ii]*np.conjugate(Eq[key][2-ii]))
 
         return H
 
