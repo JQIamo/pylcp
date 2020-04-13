@@ -29,7 +29,7 @@ hamiltonian = pylcp.hamiltonian()
 hamiltonian.add_H_0_block('g', H_0)
 hamiltonian.add_mu_q_block('g', mu_q)
 
-magField = pylcp.magField(lambda R: np.array([0., 1., 0.]))
+magField = lambda R: np.array([0., 1., 0.])
 laserBeams = {}
 
 # %%
@@ -58,7 +58,7 @@ fig, ax = plt.subplots(1, 1)
 Take the last value and propogate around z:
 """
 obe.set_initial_rho(obe.sol.y[:-6, -1])
-obe.magField = pylcp.magField(lambda R: np.array([0., 0., 1.]))
+obe.magField = lambda R: np.array([0., 0., 1.])
 obe.evolve_density([0, 2*np.pi], t_eval=np.linspace(0, 2*np.pi, 51))
 (t, rho) = obe.reshape_sol()
 

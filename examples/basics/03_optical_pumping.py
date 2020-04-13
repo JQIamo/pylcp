@@ -12,7 +12,7 @@ There seems to be at least a factor of 2 pi missing in the above paper.
 Note that agreement will only occur with the rate equations in the case of
 a single laser beam.  This is because the rate equations assume that the
 lasers are incoherent (their electric fields do not add to give twice the
-amplitude) whereas the optical bloch equations do.
+amplitude) whereas the optical Bloch equations do.
 """
 import numpy as np
 import matplotlib.pyplot as plt
@@ -21,6 +21,8 @@ from pylcp.common import spherical2cart
 from scipy.integrate import solve_ivp
 import time
 plt.style.use('paper')
+
+transform = False # Change the variable to transform OBEs into re/im components.
 
 # %%
 """
@@ -107,7 +109,7 @@ for ii, key in enumerate(laserBeams):
     ax[ii, 1].plot(sol.t, S_av, '--')
 
     obe[key] = pylcp.obe(laserBeams[key], magField, hamiltonian,
-                         transform_into_re_im=False)
+                         transform_into_re_im=transform)
     rho0 = np.zeros((16,))
     rho0[0] = 1 # Always start in the ground state.
 
@@ -138,16 +140,17 @@ fig.subplots_adjust(left=0.08, bottom=0.05, wspace=0.22)
 Next, let's apply a magnetic field and see if we can tune the lasers into
 resonance.  This will check to make sure that we have the detunings right.
 
-With g_F>0, the shift for +m_F is downwards.
+With g_F>0, the shift for +m_F is upwards, requiring a blue-shift on the
+lasers (or, equivalently, the Hamiltonian) to compensate.
 """
 magField = {}
-magField['x'] = lambda R: np.array([+1., 0., 0.])
-magField['y'] = lambda R: np.array([0., +1., 0.])
-magField['z'] = lambda R: np.array([0., 0., +1.])
+magField['x'] = lambda R: np.array([-1., 0., 0.])
+magField['y'] = lambda R: np.array([0., -1., 0.])
+magField['z'] = lambda R: np.array([0., 0., -1.])
 
 pol=+1
-laser_det=-1
-ham_det=0.
+laser_det=-0.5
+ham_det=-0.5
 laserBeams = {}
 laserBeams['x']= pylcp.laserBeams([
     {'kvec': np.array([1., 0., 0.]), 'pol':pol, 'delta':laser_det, 'beta':2.0}
@@ -159,10 +162,12 @@ laserBeams['z']= pylcp.laserBeams([
     {'kvec': np.array([0., 0., 1.]), 'pol':pol, 'delta':laser_det, 'beta':2.0}
     ])
 
+hamiltonian = pylcp.hamiltonian(Hg, He-ham_det*np.eye(3), mugq, mueq, d_q)
+
 fig, ax = plt.subplots(3, 2, figsize=(6.5, 2.5*2.75))
 for ii, key in enumerate(laserBeams):
     obe[key] = pylcp.obe(laserBeams[key], magField[key], hamiltonian,
-                         transform_into_re_im=False)
+                         transform_into_re_im=transform)
     rho0 = np.zeros((16,))
     rho0[0] = 1 # Always start in the ground state.
 
@@ -173,14 +178,21 @@ for ii, key in enumerate(laserBeams):
     (t, rho) = obe[key].reshape_sol()
 
     for jj in range(4):
-        ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj)
+        ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
+                        label='$|%d,%d\\rangle$'%(basis[jj, 0], basis[jj, 1]))
+    ax[ii, 0].set_ylabel('$\\rho_{ii}$')
 
     S_av = np.zeros(t.shape)
     for jj in range(t.size):
         S_av[jj] = np.real(np.sum(np.sum(S_ex[ii]*rho[1:, 1:, jj])))
 
     ax[ii, 1].plot(t, S_av, linewidth=0.75)
+    ax[ii, 1].set_ylabel('$\\langle S_%s\\rangle$'%key)
+    ax[ii, 1].set_ylim((0, 1))
 
+[ax[-1, jj].set_xlabel('$\Gamma t$') for jj in range(2)]
+ax[0, 0].legend()
+fig.subplots_adjust(left=0.08, bottom=0.05, wspace=0.22)
 
 # %%
 """
@@ -190,16 +202,19 @@ The latter is faster.
 """
 # First the laser beams:
 laserBeams = {}
-laserBeams['x']= pylcp.laserBeams([
+laserBeams['$\\pi_z$']= pylcp.laserBeams([
     {'kvec': np.array([1., 0., 0.]), 'pol':np.array([0., 0., 1.]),
      'delta':-2.73, 'beta':4*0.16}
     ])
-"""laserBeams.append(pylcp.laserBeam(np.array([-1., 0., 0.]),
-                                  pol=np.array([0., 0., 1.]),
-                                  delta=-2.73, beta=lambda k, R: 0.16))"""
-laserBeams['z']= pylcp.laserBeams([
+laserBeams['$\\pi_y$']= pylcp.laserBeams([
     {'kvec': np.array([0., 0., 1.]), 'pol':np.array([0., 1., 0.]),
      'delta':-2.73, 'beta':4*0.16}
+    ])
+laserBeams['$\\pi_x$']= pylcp.laserBeams([
+    {'kvec': np.array([0., 0., 1.]), 'pol':np.array([1., 0., 0.]),
+     'delta':-2.73, 'beta':0.16},
+    {'kvec': np.array([0., 0., -1.]), 'pol':np.array([1., 0., 0.]),
+     'delta':-2.73, 'beta':0.16}
     ])
 
 # Then the magnetic field:
@@ -212,57 +227,51 @@ dijq = pylcp.hamiltonians.dqij_two_bare_hyperfine(2, 3)
 hamiltonian = pylcp.hamiltonian(Hg, He-0.*np.eye(He.shape[0]),
                                 mugq, mueq, dijq)
 hamiltonian.print_structure()
-# 0.16/2*1/(1+4*2.73**2)*dijq[1,0,1]**2
 
-
-# %% Now, let's compute the optical pumping based on the rate equations:
-rateeq = pylcp.rateeq(laserBeams['x'], magField, hamiltonian)
-
-
-
-fig, ax = plt.subplots(1, 1)
-for jj in range(5):
-    ax.plot(rateeq.sol.t/2/np.pi, rateeq.sol.y[jj,:], '-', color='C{0:d}'.format(jj),
-            linewidth=0.5)
-ax.set_xlabel('$t/(2\pi\Gamma)$')
-ax.set_ylabel('$\\rho_{ii}$')
-
-# %%
-"""
-Now try the optical Bloch equations, first with the polarization along z:
-"""
 obe = {}
-obe['z'] = pylcp.obe(laserBeams['x'], magField, hamiltonian,
-                 transform_into_re_im=False)
+obe['$\\pi_z$'] = pylcp.obe(laserBeams['$\\pi_z$'], magField, hamiltonian,
+                             transform_into_re_im=transform)
 
-N0 = np.zeros((obe['z].rateeq.hamiltonian.n,))
+N0 = np.zeros((obe['$\\pi_z$'].rateeq.hamiltonian.n,))
 N0[0] = 1
-obe['z].rateeq.set_initial_pop(N0)
-obe['z].rateeq.evolve_populations([0, 2*np.pi*600])
+obe['$\\pi_z$'].rateeq.set_initial_pop(N0)
+obe['$\\pi_z$'].rateeq.evolve_populations([0, 2*np.pi*600])
 
-rho0 = np.zeros((obe['z'].hamiltonian.n**2,))
+rho0 = np.zeros((obe['$\\pi_z$'].hamiltonian.n**2,))
 rho0[0] = 1.
-obe['z'].set_initial_rho(np.real(rho0))
+obe['$\\pi_z$'].set_initial_rho(np.real(rho0))
 tic = time.time()
-obe['z'].evolve_density(t_span=[0, 2*np.pi*600])
+obe['$\\pi_z$'].evolve_density(t_span=[0, 2*np.pi*600])
 toc = time.time()
 print('Computation time is  %.2f s.' % (toc-tic))
 
-(t, rho1) = obe['z'].reshape_sol()
+# Calculate the equilibrium populations:
+Neq = obe['$\\pi_z$'].rateeq.equilibrium_populations(np.array([0., 0., 0.]),
+                                                     np.array([0., 0., 0.]), 0.)
+
+fig, ax = plt.subplots(1, 1)
+(t, rho1) = obe['$\\pi_z$'].reshape_sol()
 for jj in range(5):
-    ax.plot(t/2/np.pi, np.abs(rho1[jj, jj]), '--',
+    ax.plot(obe['$\\pi_z$'].rateeq.sol.t/2/np.pi,
+            obe['$\\pi_z$'].rateeq.sol.y[jj, :], '--',
+            color='C{0:d}'.format(jj),
+            linewidth=1.0)
+    ax.plot(t/2/np.pi, np.abs(rho1[jj, jj]), '-',
             color='C{0:d}'.format(jj),
             linewidth=0.5)
-fig
+    ax.plot(t[-1]/2/np.pi, Neq[jj], '.', color='C{0:d}'.format(jj),
+            linewidth=0.5)
+
+ax.set_xlabel('$\\Gamma t/2\\pi$')
+
 
 # %%
 """
 Next, we want to check that our rotations are working properly, so we will
-run the same calculation for the z going beam with pi_y polarization.
+run the same calculation for the z going beam with pi_y polarization.  But
+before we even bother working with the OBE, we need to create the initial
+state first.
 """
-obe = {}
-obe['pi_y'] = pylcp.obe(laserBeams['x'], magField, hamiltonian,
-                 transform_into_re_im=False)
 mug = spherical2cart(mugq)
 S = -mug
 
@@ -272,38 +281,72 @@ E, U = np.linalg.eig(S[1])
 inds = np.argsort(E)
 E = E[inds]
 U = U[:, inds]
+Uinv = np.linalg.inv(U)
 
-# Start with the wavefunction U=-E.
-psi = U[:, 4]
+# In a positive magnetic field with g_F>0, I want the lowest eigenvalue. That
+# corresponds to the -m_F state.
+psi = U[:, 0]
 
-rho_g =
+rho0 = np.zeros((hamiltonian.n, hamiltonian.n), dtype='complex128')
 for ii in range(hamiltonian.ns[0]):
     for jj in range(hamiltonian.ns[0]):
-        rho_g[ii, jj] = psi[ii]*np.conjugate(psi[jj])
+        rho0[ii, jj] = psi[ii]*np.conjugate(psi[jj])
 
-# %% Now try the optical Bloch equations, using the obe, transformed into Re/Im.
-obe2 = pylcp.obe(laserBeams, magField, hamiltonian,
-                 transform_into_re_im=True)
-obe2.set_initial_rho(np.real(rho0))
-tic = time.time()
-obe2.evolve_density(t_span=[0, 2*np.pi*600], method='RK45')
-toc = time.time()
-print('Computation time is  %.2f s.' % (toc-tic))
+print(rho0[:5,:5])
+print(Uinv@rho0[:5,:5]@U)
 
-(t, rho2) = obe2.reshape_sol()
+obe['$\\pi_y$'] = pylcp.obe(laserBeams['$\\pi_y$'], magField, hamiltonian,
+                            transform_into_re_im=transform)
+obe['$\\pi_y$'].set_initial_rho(rho0.reshape(hamiltonian.n**2,))
+obe['$\\pi_y$'].evolve_density(t_span=[0, 2*np.pi*600])
+
+(t, rho) = obe['$\\pi_y$'].reshape_sol()
+
+for jj in range(t.size):
+    rho[:5, :5, jj] = Uinv@rho[:5, :5, jj]@U
+
+fig, ax = plt.subplots(1, 1)
 for jj in range(5):
-    ax.plot(t/2/np.pi, np.abs(rho2[jj, jj]), '-.',
+    ax.plot(t/2/np.pi, np.abs(rho[jj, jj]), '-',
             color='C{0:d}'.format(jj),
             linewidth=0.5)
-fig
+ax.set_xlabel('$\\Gamma t/2\\pi$')
 
-# %% Add the end points game:
-Neq = rateeq.equilibrium_populations(np.array([0., 0., 0.]),
-                                     np.array([0., 0., 0.]), 0.)
+# %%
+"""
+Now, let's do the same thing for $\pi_x$, except this time we have two laser
+beams, with 1/4 of the intensity:
+"""
+# What are the eigenstates of 'y'?
+E, U = np.linalg.eig(S[0])
 
+inds = np.argsort(E)
+E = E[inds]
+U = U[:, inds]
+Uinv = np.linalg.inv(U)
+
+# In a positive magnetic field with g_F>0, I want the lowest eigenvalue. That
+# corresponds to the -m_F state.
+psi = U[:, 0]
+
+rho0 = np.zeros((hamiltonian.n, hamiltonian.n), dtype='complex128')
+for ii in range(hamiltonian.ns[0]):
+    for jj in range(hamiltonian.ns[0]):
+        rho0[ii, jj] = psi[ii]*np.conjugate(psi[jj])
+
+obe['$\\pi_x$'] = pylcp.obe(laserBeams['$\\pi_x$'], magField, hamiltonian,
+                            transform_into_re_im=transform)
+obe['$\\pi_x$'].set_initial_rho(rho0.reshape(hamiltonian.n**2,))
+obe['$\\pi_x$'].evolve_density(t_span=[0, 2*np.pi*600])
+
+(t, rho) = obe['$\\pi_x$'].reshape_sol()
+
+for jj in range(t.size):
+    rho[:5, :5, jj] = Uinv@rho[:5, :5, jj]@U
+
+fig, ax = plt.subplots(1, 1)
 for jj in range(5):
-    ax.plot(obe1.sol.t[-1]/2/np.pi,
-            Neq[jj], '.',
+    ax.plot(t/2/np.pi, np.abs(rho[jj, jj]), '-',
             color='C{0:d}'.format(jj),
             linewidth=0.5)
-fig
+ax.set_xlabel('$\\Gamma t/2\\pi$')
