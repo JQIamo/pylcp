@@ -436,18 +436,20 @@ class laserBeam():
     def electric_field(self, R, t, mean_detuning=0):
         """
         Returns the electric field of the laser beam at position R and time t.
+        More specifically, this function returns E^\dagger, or so it would
+        appear.
         """
         (kvec, beta, pol, delta) = self.return_parameters(R, t)
         amp = np.sqrt(beta/2)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-            Eq = pol*amp*np.exp(1j*np.dot(kvec, R) - 1j*delta*t +
-                                1j*self.phase)
+            Eq = pol*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
+                                -1j*self.phase)
         else:
             Eq = np.multiply(
                 pol.reshape(3, t.size),
-                amp*np.exp(1j*dot2D(kvec, R) - 1j*delta*t +
-                           1j*self.phase)
+                amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
+                           -1j*self.phase)
             )
 
         return Eq
