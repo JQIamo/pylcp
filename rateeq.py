@@ -290,13 +290,13 @@ class rateeq():
 
                 for ii in range(self.Rijl[key].shape[1]):
                     for jj in range(self.Rijl[key].shape[2]):
-                        if Rijl[key][ll, ii, jj]>0:
-                            f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
+                        if self.Rijl[key][ll, ii, jj]>0:
+                            f[key][:, ll] += kvec*self.Rijl[key][ll, ii, jj]*\
                                 (Npop[n+ii] - Npop[m+jj])
 
             F += np.sum(f[key], axis=1)
 
-        fmag=0
+        fmag = np.array([0., 0., 0.])
         if self.include_mag_forces:
             gradBmag = self.magField.gradFieldMag(r)
 
@@ -395,7 +395,8 @@ class rateeq():
             N_eq, Rev, Rijl = self.equilibrium_populations(
                 self.r0, self.v0, t=0, return_details=True
                 )
-            F_eq, f_eq, f_mag_eq = self.force(self.r0, 0., Rijl, N_eq)
+
+            F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
 
         if return_details:
             return F_eq, f_eq, N_eq, Rijl, f_mag
@@ -436,7 +437,7 @@ class rateeq():
                     "v=({0:0.2f},{1:0.2f},{2:0.2f})".format(vx, vy, vz)
                     )
 
-            self.profile[name].store_data(it.multi_index, Rijl, Neq, fmag, f, F)
+            self.profile[name].store_data(it.multi_index, Rijl, Neq, f_mag, f, F)
 
 
 class trap(rateeq):

@@ -1,4 +1,27 @@
 import numpy as np
+<<<<<<< Updated upstream
+=======
+from inspect import signature
+
+def promote_to_lambda(val, var_name=None):
+    if not callable(val):
+        val = lambda R, t: val
+        sig = '()'
+    else:
+        sig = str(signature(val))
+        if ('(R)' in sig or '(r)' in sig or '(x)' in sig):
+            val = lambda R, t: val(R)
+            sig = '(R)'
+        elif ('(R, t)' in self.kvec_sig or '(r, t)' in self.kvec_sig or
+              '(x, t)' in self.kvec_sig):
+            val = lambda R, t: val(R)
+            sig = '(R, t)'
+        else:
+            raise StandardError('Signature [%s] of function %s not understood.'% (sig, var_name))
+
+    return val, sig
+
+>>>>>>> Stashed changes
 
 class magField(object):
     """

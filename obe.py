@@ -10,8 +10,16 @@ import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .lasers import laserBeams
+<<<<<<< Updated upstream
 from .common import printProgressBar
+<<<<<<< Updated upstream
 from .fields import magField
+=======
+=======
+from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
+from .fields import magField
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -584,6 +592,11 @@ class obe():
                              **kwargs)
 
 
+    def expectation_value_from_sol(self, O):
+        """
+        Grab the expectation value from the solution of the observable O:
+        """
+
     def force_from_rho(self, r, t, rho):
         f = np.zeros((3,))
 
@@ -612,11 +625,16 @@ class obe():
                     else:
                         rho_ji = rho[self.density_index(jj, ii)]
 
-                    ddotdelE = 0.5*(np.conjugate(delE) @
+                    ddotdelE = 0.5*(np.conjugate(delE[:,::-1]) @
                                     self.hamiltonian.d_q_bare[key][:, ii, jj])
 
                     f += 2*np.real(ddotdelE*rho_ji)
 
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
         # Are we including magnetic forces?
         if self.include_mag_forces:
             # This function returns a matrix that (3, 3) with the format:
@@ -625,11 +643,15 @@ class obe():
             delB = self.magField.gradField(r)
 
             # Need to reshape it to properly dot with the
+<<<<<<< Updated upstream
             delBq = np.zeros(delB.shape, dtype='complex128')
 
             delBq[:, 0] = delB[:, 0]/np.sqrt(2)+1j*delB[:, 1]/np.sqrt(2)
             delBq[:, 1] = delB[:, 2]
             delBq[:, 2] = -delB[:, 0]/np.sqrt(2)+1j*delB[:, 1]/np.sqrt(2)
+=======
+            delBq = cart2pol(delB.T).T
+>>>>>>> Stashed changes
 
             # Go through each diagonal block.
             for ll, block in enumerate(np.diag(self.hamiltonian.blocks)):
@@ -653,6 +675,10 @@ class obe():
 
                             f -= 2*np.real((np.conjugate(delBq) @ muBq[:, ii-n, jj-n])*rho_ji)
 
+<<<<<<< Updated upstream
+=======
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
         return f
 
     def force_from_sol(self, return_q=False, return_laser=False):
