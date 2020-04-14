@@ -68,7 +68,8 @@ basis =np.concatenate((basis_g, basis_e))
 
 # Excited state spin observable.  The spin is not along the
 S_ex = -spherical2cart(mueq)/gF
-
+S = np.zeros((3, hamiltonian.n, hamiltonian.n), dtype='complex128')
+S[:, 1:, 1:] = S_ex
 fig, ax = plt.subplots(3, 2, figsize=(6.5, 2.5*2.75))
 for ii, key in enumerate(laserBeams):
     # In this loop, we will make the
@@ -116,17 +117,13 @@ for ii, key in enumerate(laserBeams):
     obe[key].ev_mat['decay'][:, :] = 0. # Forcibly turn off decay, make it like S.E.
     obe[key].set_initial_rho(rho0)
     obe[key].evolve_density(t_span=[0, 2*np.pi*2], t_eval=np.linspace(0, 4*np.pi, 51))
-
+    obe[key].observable(S)
     (t, rho) = obe[key].reshape_sol()
 
     for jj in range(4):
         ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
                        label='$|%d,%d\\rangle$'%(basis[jj, 0], basis[jj, 1]))
     ax[ii, 0].set_ylabel('$\\rho_{ii}$')
-
-    S_av = np.zeros(t.shape)
-    for jj in range(t.size):
-        S_av[jj] = np.real(np.sum(np.sum(S_ex[ii]*rho[1:, 1:, jj])))
 
     ax[ii, 1].plot(t, S_av, linewidth=0.75)
     ax[ii, 1].set_ylabel('$\\langle S_%s\\rangle$'%key)
@@ -193,6 +190,84 @@ for ii, key in enumerate(laserBeams):
 [ax[-1, jj].set_xlabel('$\Gamma t$') for jj in range(2)]
 ax[0, 0].legend()
 fig.subplots_adjust(left=0.08, bottom=0.05, wspace=0.22)
+
+# %%
+"""
+Finally, let's switch to some different polarization along z:
+"""
+# Which polarization do we want?
+pol = +1
+ham_det = 0.
+
+# First, create the laser beams:
+laserBeams['$\\pi_x$']= pylcp.laserBeams([
+    {'kvec': np.array([0., 0., 1.]), 'pol':np.array([1., 0., 0.]),
+     'pol_coord':'cartesian', 'delta':0., 'beta':2.0}
+    ])
+laserBeams['$\\pi_y$']= pylcp.laserBeams([
+    {'kvec': np.array([0., 0., 1.]), 'pol':np.array([0., 1., 0.]),
+     'pol_coord':'cartesian', 'delta':0., 'beta':2.0}
+    ])
+
+hamiltonian = pylcp.hamiltonian(Hg, He-ham_det*np.eye(3), mugq, mueq, d_q)
+magField = lambda R: np.array([0., 0., 0.])
+
+fig, ax = plt.subplots(2, 2, figsize=(6.5, 1.75*2.75))
+for ii, key in enumerate(['$\\pi_x$', '$\\pi_y$']):
+    d = spherical2cart(d_q)
+    E = spherical2cart(laserBeams[key].beam_vector[0].pol)
+
+    H_sub = -0.5*np.tensordot(d, E, axes=(0, 0))
+
+    H = np.zeros((4, 4)).astype('complex128')
+    H[0, 1:] = H_sub
+    H[1:, 0] = np.conjugate(H_sub)
+
+    H_sub2 = np.zeros(d_q[0].shape).astype('complex128')
+    for kk, q in enumerate(np.arange(-1, 2, 1)):
+        H_sub2 -= 0.5*(-1.)**q*d_q[kk]*laserBeams[key].beam_vector[0].pol[2-kk]
+
+    H2 = np.zeros((4, 4)).astype('complex128')
+    H2[0, 1:] = H_sub2
+    H2[1:, 0] = np.conjugate(H_sub2)
+
+    H3 = hamiltonian.return_full_H({'g->e': laserBeams[key].beam_vector[0].pol},
+                                   np.zeros((3,)).astype('complex128'))
+
+    psi0 = np.zeros((4,)).astype('complex128')
+    psi0[0] = 1.
+    sol = solve_ivp(lambda t, x: -1j*H @ x, [0, 4*np.pi], psi0, t_eval=np.linspace(0, 4*np.pi, 51))
+
+    print(np.allclose(H, H2), np.allclose(H, H3))
+
+    S_av = np.zeros((3,)+ sol.t.shape)
+    for jj in range(3):
+        for kk in range(sol.t.size):
+            S_av[jj, kk] = np.conjugate(sol.y[1:, kk])@S_ex[jj]@sol.y[1:, kk]
+
+    for jj in range(4):
+        ax[ii, 0].plot(sol.t, np.abs(sol.y[jj, :])**2, '--', color='C%d'%jj)
+
+    for jj in range(3):
+        ax[ii, 1].plot(sol.t, S_av[jj], '--', color='C%d'%jj)
+
+    obe[key] = pylcp.obe(laserBeams[key], magField, hamiltonian, transform_into_re_im=transform)
+    rho0 = np.zeros((16,))
+    rho0[0] = 1 # Always start in the ground state.
+
+    obe[key].ev_mat['decay'][:, :] = 0. # Forcibly turn off decay, make it like S.E.
+    obe[key].set_initial_rho(rho0)
+    obe[key].evolve_density(t_span=[0, 2*np.pi*2], t_eval=np.linspace(0, 4*np.pi, 51))
+    S_av = obe[key].observable(S)
+    (t, rho) = obe[key].reshape_sol()
+
+    for jj in range(4):
+        ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
+                       label='$|%d,%d\\rangle$'%(basis[jj, 0], basis[jj, 1]))
+    ax[ii, 0].set_ylabel('$\\rho_{ii}$')
+
+    [ax[ii, 1].plot(t, S_av[jj], linewidth=0.75, color='C%d'%jj) for jj in range(3)]
+    ax[ii, 1].set_ylabel('$\\langle S\\rangle$')
 
 # %%
 """
