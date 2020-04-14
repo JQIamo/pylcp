@@ -41,7 +41,7 @@ class force_profile():
         self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
         self.F = np.zeros(R.shape)
 
-    def store_data(self, ind, Rijl, Neq, f, F):
+    def store_data(self, ind, Rijl, Neq, f_laser, F):
         self.Neq[ind] = Neq
 
         for key in Rijl:
@@ -49,7 +49,7 @@ class force_profile():
 
         for key in f_laser:
             for jj in range(3):
-                self.f[key][(jj,) + ind] = f[key][jj]
+                self.f[key][(jj,) + ind] = f_laser[key][jj]
 
         for jj in range(3):
             self.F[(jj,) + ind] = F[jj]

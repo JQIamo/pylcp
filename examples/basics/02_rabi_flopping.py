@@ -19,7 +19,7 @@ First, define the problem:
 gF = 1 # gF > 0 magnetic moment OPPOSITE F.  If the magnetic moment is
        # opposite the spin, then it will rotate counter clockwise when viewed
        # from the tip of the magnetic field vector
-H_0, mu_q = pylcp.hamiltonians.singleF(5, gF=gF, muB=1)
+H_0, mu_q = pylcp.hamiltonians.singleF(5/2, gF=gF, muB=1)
 
 # Construct operators for calculation of expectation values of spin and mu:
 mu = spherical2cart(mu_q)
@@ -42,16 +42,10 @@ pop[-1] = 1
 
 obe.set_initial_rho_from_populations(pop)
 obe.evolve_density([0, np.pi/2], t_eval=np.linspace(0, np.pi/2, 51))
-
-# Compute expectation values:
-(t, rho) = obe.reshape_sol()
-avS = np.zeros((3,)+ t.shape)
-for jj in range(3):
-    for ii in range(t.size):
-        avS[jj, ii] = np.real(np.sum(S[jj]*rho[:, :, ii]))
+avS = obe.observable(S)
 
 fig, ax = plt.subplots(1, 1)
-[ax.plot(t, avS[ii]) for ii in range(3)]
+[ax.plot(obe.sol.t, avS[ii]) for ii in range(3)]
 
 # %%
 """
@@ -60,14 +54,7 @@ Take the last value and propogate around z:
 obe.set_initial_rho(obe.sol.y[:-6, -1])
 obe.magField = lambda R: np.array([0., 0., 1.])
 obe.evolve_density([0, 2*np.pi], t_eval=np.linspace(0, 2*np.pi, 51))
-(t, rho) = obe.reshape_sol()
-
-# Compute expectation values:
-(t, rho) = obe.reshape_sol()
-avS = np.zeros((3,)+ t.shape)
-for jj in range(3):
-    for ii in range(t.size):
-        avS[jj, ii] = np.real(np.sum(S[jj]*rho[:, :, ii]))
+avS = obe.observable(S)
 
 fig, ax = plt.subplots(1, 1)
-[ax.plot(t, avS[ii]) for ii in range(3)]
+[ax.plot(obe.sol.t, avS[ii]) for ii in range(3)]

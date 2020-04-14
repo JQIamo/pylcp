@@ -56,6 +56,7 @@ laserBeams['$\\pi_x\\pi_y$'] = pylcp.laserBeams([
      'pol_coord':'cartesian', 'delta':laser_det, 'beta':beta},
     ])
 
+laserBeams['$\\sigma^+\\sigma^-$'].total_electric_field_gradient(np.array([0., 0., 0.]), 0.)
 magField = lambda R: np.zeros(R.shape)
 
 # Hamiltonian for F=0->F=1
@@ -73,7 +74,7 @@ First, check to see that the rate equations and OBE agree for F=1 to F=2,
 two-state solution:
 """
 # Define a v axis:
-v = np.arange(-5.0, 5.1, 0.1)
+v = np.arange(-5.0, 5.1, 0.5)
 
 for jj, key in enumerate(laserBeams.keys()):
     obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
