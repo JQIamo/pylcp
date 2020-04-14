@@ -465,18 +465,18 @@ class laserBeam():
         amp = np.sqrt(beta/2)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-            delE = np.multiply(kvec.reshape(3, 1), pol.reshape(1, 3))*\
-                 1j*amp*np.exp(1j*np.dot(kvec, R) - 1j*delta*t +
+            delEq = np.multiply(-kvec.reshape(3, 1), pol.reshape(1, 3))*\
+                 1j*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
                                           -1j*self.phase)
         else:
-            delE = np.multiply(
-                np.multiply(kvec.reshape(3, 1, t.size),
-                            pol.reshape(1, 3, t.size)),
-                1j*amp*np.exp(1j*dot2D(kvec, R) - 1j*delta*t +
-                              1j*self.phase)
+            delEq = np.multiply(
+                np.multiply(-kvec.reshape(3, 1, t.size),
+                             pol.reshape(1, 3, t.size)),
+                1j*amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
+                              -1j*self.phase)
             )
 
-        return delE
+        return delEq
 
 
 
