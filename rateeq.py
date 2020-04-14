@@ -212,7 +212,7 @@ class rateeq():
             for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
                 for ii in range(dijq.shape[1]):
                     for jj in range(dijq.shape[2]):
-                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj))**2
+                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj[::-1]))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
                             # onto the appropriate basis:
