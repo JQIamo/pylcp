@@ -74,7 +74,7 @@ First, check to see that the rate equations and OBE agree for F=1 to F=2,
 two-state solution:
 """
 # Define a v axis:
-v = np.arange(-5.0, 5.1, 0.5)
+v = np.arange(-5.0, 5.1, 0.25)
 
 for jj, key in enumerate(laserBeams.keys()):
     obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
