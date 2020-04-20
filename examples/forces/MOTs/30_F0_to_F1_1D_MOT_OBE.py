@@ -27,7 +27,7 @@ plt.style.use('paper')
 laser_det = 0
 ham_det = -2.5
 beta = 1.25
-transform = False
+transform = True
 
 laserBeams = {}
 laserBeams['x'] = pylcp.laserBeams([
@@ -84,9 +84,6 @@ obe['z'].generate_force_profile(
 toc=time.time()
 print('Total computation time was %.3f s.' % (toc-tic))
 
-rateeq['z'].equilibrium_populations(np.array([0., 0., -laser_det/alpha]), np.array([0., 0., 0.]), 0)
-print(rateeq['z'].Rijl['g->e'])
-laserBeams['z'].project_pol(np.array([0., 0., -1.]))
 # %%
 """
 Plot 'er up:

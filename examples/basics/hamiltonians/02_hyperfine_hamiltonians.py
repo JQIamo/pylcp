@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import scipy.constants as cts
 from pylcp import hamiltonians
 from pylcp.atom import atom
+from pylcp.common import cart2spherical
 plt.style.use('paper')
 
 atom_Li6 = atom("Li6")
@@ -54,7 +55,7 @@ def breitrabi(B, gJ, gI, AHFS, J=1/2, I=3/2):
 
 
 def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
-                        Bhat=np.array([0,0,1]), dosort=True):
+                        Bhat=np.array([0., 0., 1.]), dosort=True):
     """
     Diagonalize and sort does what you would expect.
     """
@@ -63,12 +64,12 @@ def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
     Vecs = np.zeros((B.size, nstates, nstates), dtype='complex128')
 
     if method == 'uncoupled':
-        H0, HBq = hamiltonians.hyperfine_uncoupled(
+        H0, mu_q = hamiltonians.hyperfine_uncoupled(
             state.J, I, gJ=state.gJ, gI=gI, Ahfs=state.Ahfs,
             Bhfs=state.Bhfs, muB=muB
             )
     elif method == 'coupled':
-        H0, HBq = hamiltonians.hyperfine_coupled(
+        H0, mu_q = hamiltonians.hyperfine_coupled(
             state.J, I, gJ=state.gJ, gI=gI, Ahfs=state.Ahfs,
             Bhfs=state.Bhfs, muB=muB
             )
@@ -77,18 +78,15 @@ def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
 
     # Make sure Bhat is normalized:
     Bhat = Bhat/np.linalg.norm(Bhat)
-    Bq = np.zeros((3,), dtype='complex128')
-
-    Bq[0] = (Bhat[0]-1j*Bhat[1])/np.sqrt(2)
-    Bq[1] = Bhat[2]
-    Bq[2] = -(Bhat[0]+1j*Bhat[1])/np.sqrt(2)
+    Bq = cart2spherical(Bhat)
 
     # Determine the components of Bq based on the direction:
     for ii, Bi in enumerate(B):
         # Diagonalize the Hamiltonian:
-        Es[ii, :], Vecs_i = np.linalg.eigh(
-            H0 +  np.tensordot(Bq[::-1], HBq, axes=(0,0))*Bi
-            )
+        H = H0.astype('complex128')
+        for jj, q in enumerate(np.arange(-1., 2., 1.)):
+            H -= (-1.)**q*Bi*Bq[2-jj]*mu_q[jj]
+        Es[ii, :], Vecs_i = np.linalg.eigh(H)
 
         # Now, we want to sort the values according to the low field groupings.
         # B=0 is like a diabolic point, in that it is really difficult to track
@@ -128,7 +126,7 @@ def diagnolize_and_sort(B, I, gI, state, method='uncoupled',
 
 # %% Now, test out the Hamiltonian diagonalization against Breit-Rabi for
 # 7Li:
-B = np.arange(0.1, 1000, 2)
+B = np.arange(0.1, 1000, 1)
 
 Es, Vecs = diagnolize_and_sort(B, atom_Li7.I, atom_Li7.gI,
                                atom_Li7.state[0], method='uncoupled')
@@ -241,7 +239,7 @@ plt.ylabel("$E/h$ (MHz)")
 plt.xlim((0, np.amax(B)))
 
 # %% Finally, it should not matter how the magnetic field is applied:
-B = np.arange(0.0, 100, 0.25)
+B = np.arange(0.0, 200, 0.5)
 Bvec = np.array([np.zeros(B.size), np.zeros(B.size), np.zeros(B.size)])
 
 Es, Vecs = diagnolize_and_sort(B, atom_Li6.I, atom_Li6.gI,

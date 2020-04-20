@@ -78,7 +78,7 @@ v = np.arange(-5.0, 5.1, 0.25)
 
 for jj, key in enumerate(laserBeams.keys()):
     obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
-                             transform_into_re_im=False)
+                         transform_into_re_im=True)
 
     # Generate a rateeq model of what's going on:
     obe[key].rateeq.generate_force_profile(
@@ -113,7 +113,7 @@ ax[0].legend(fontsize=6)
 ax[0].set_xlabel('$v/(\Gamma/k)$')
 ax[0].set_ylabel('$F/(\hbar k \Gamma)$')
 
-key = '$\\pi_x\\pi_y$'
+key = '$\\sigma^+\\sigma^+$'
 types = ['-', '--', '-.']
 for q in range(3):
     ax[1].plot(v, obe[key].profile['molasses'].fq['g->e'][2, :, q, 0], types[q],
@@ -198,8 +198,12 @@ ax[1].set_ylabel('$F/(\hbar k \Gamma)$')
 """
 Run a simulation at resonance to see what the coherences and such are doing.
 """
-v_i=0.2
-key = '$\\pi_x\\pi_y$'
+v_i=-(ham_det+laser_det)
+key = '$\\sigma^+\\sigma^-$'
+
+obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
+                     transform_into_re_im=True)
+
 obe[key].set_initial_position_and_velocity(
     np.array([0., 0., 0.]), np.array([0., 0., v_i])
     )
@@ -213,9 +217,9 @@ else:
 
 obe[key].set_initial_rho_from_rateeq()
 obe[key].evolve_density(t_span=[0, t_max], t_eval=np.linspace(0, t_max, 1001),)
-(t, rho) = obe[key].reshape_sol()
+(t, r, v, rho) = obe[key].reshape_sol()
 
-f, flaser = obe[key].force_from_sol(return_laser=True)
+f, flaser, flaser_q = obe[key].force(r, t, rho, return_details=True)
 
 fig, ax = plt.subplots(2, 2, num='OBE F=0->F1', figsize=(6.25, 5.5))
 ax[0, 0].plot(t, np.real(rho[0, 0]), label='$\\rho_{00}$')
@@ -224,10 +228,10 @@ ax[0, 0].plot(t, np.real(rho[2, 2]), label='$\\rho_{22}$')
 ax[0, 0].plot(t, np.real(rho[3, 3]), label='$\\rho_{33}$')
 ax[0, 0].legend(fontsize=6)
 
-ax[0, 1].plot(t, np.abs(rho[0, 1]), label='$\\rho_{01}$')
-ax[0, 1].plot(t, np.abs(rho[0, 2]), label='$\\rho_{02}$')
-ax[0, 1].plot(t, np.abs(rho[0, 3]), label='$\\rho_{03}$')
-ax[0, 1].plot(t, np.abs(rho[1, 3]), label='$\\rho_{13}$')
+ax[0, 1].plot(t, np.abs(rho[0, 1]), label='$|\\rho_{01}|$')
+ax[0, 1].plot(t, np.abs(rho[0, 2]), label='$|\\rho_{02}|$')
+ax[0, 1].plot(t, np.abs(rho[0, 3]), label='$|\\rho_{03}|$')
+ax[0, 1].plot(t, np.abs(rho[1, 3]), label='$|\\rho_{13}|$')
 ax[0, 1].legend(fontsize=6)
 
 ax[1, 0].plot(t, flaser['g->e'][2, 0], '-', linewidth=0.75)

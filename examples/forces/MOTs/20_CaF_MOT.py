@@ -64,17 +64,17 @@ def six_beam_CaF_MOT(beta, det):
     for ii, Eg_i in enumerate(E_X):
         if ii<3:
             laserBeams += pylcp.tools.standard_six_beam_MOT(
-                beta=beta, delta=-(E_A[-1] - Eg_i)+det, pol=-1
+                beta=beta, delta=(E_A[-1] - Eg_i)+det, pol=+1
                 )
         else:
             laserBeams += pylcp.tools.standard_six_beam_MOT(
-                beta=beta, delta=-(E_A[-1] - Eg_i)+det, pol=+1
+                beta=beta, delta=(E_A[-1] - Eg_i)+det, pol=-1
                 )
 
     return laserBeams
 
 # Make the magnetic field:
-magField = lambda R: pylcp.tools.quadrupoleField3D(R, 1)
+magField = lambda R: pylcp.tools.quadrupoleField3D(R, 2)
 
 # Make the axis:
 z = np.linspace(1e-10, 20., 101)
@@ -93,7 +93,7 @@ for ii, beta_i in enumerate(betas):
         [np.zeros(v.shape), np.zeros(v.shape), 1e-3*np.ones(v.shape)],
         [np.zeros(v.shape), np.zeros(v.shape), v],
         name='Fv')
-    ax[0, 0].plot(z, -trap.profile['Fz'].F[2], color='C{0:d}'.format(ii))
+    ax[0, 0].plot(z, trap.profile['Fz'].F[2], color='C{0:d}'.format(ii))
     ax[0, 1].plot(v, trap.profile['Fv'].F[2], color='C{0:d}'.format(ii))
 
 for ii, det_i in enumerate(dets):
@@ -107,7 +107,7 @@ for ii, det_i in enumerate(dets):
         [np.zeros(v.shape), np.zeros(v.shape), 1e-3*np.ones(v.shape)],
         [np.zeros(v.shape), np.zeros(v.shape), v],
         name='Fv')
-    ax[1, 0].plot(z, -trap.profile['Fz'].F[2], color='C{0:d}'.format(ii))
+    ax[1, 0].plot(z, trap.profile['Fz'].F[2], color='C{0:d}'.format(ii))
     ax[1, 1].plot(v, trap.profile['Fv'].F[2], color='C{0:d}'.format(ii))
 
 # %%
@@ -116,7 +116,7 @@ Next, make the two color MOT of CaF (Fig. 4)
 """
 laserBeams = six_beam_CaF_MOT(betas[2], dets[2])
 laserBeams += pylcp.tools.standard_six_beam_MOT(
-    beta=betas[2], delta=-(E_A[-1] - E_X[0]) + 2, pol=+1
+    beta=betas[2], delta=(E_A[-1] - E_X[0]) + 2, pol=-1
     )
 
 fig, ax = plt.subplots(2, 1, figsize=(3.25, 4),
@@ -131,5 +131,5 @@ trap.generate_force_profile(
     [np.zeros(v.shape), np.zeros(v.shape), 1e-3*np.ones(v.shape)],
     [np.zeros(v.shape), np.zeros(v.shape), v],
     name='Fv')
-ax[0].plot(z, -trap.profile['Fz'].F[2])
+ax[0].plot(z, trap.profile['Fz'].F[2])
 ax[1].plot(v, trap.profile['Fv'].F[2])
