@@ -129,7 +129,7 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
 
 def coupled_index(F, mF, Fmin):
     if np.abs(mF) > F:
-        raise ValueError("Not a good mF value")
+        raise ValueError("mF=%.1f not a good value for F=%.1f"%(mF, F))
     return int(np.sum((2*np.arange(Fmin, F, 1)+1))+(F+mF))
 
 
