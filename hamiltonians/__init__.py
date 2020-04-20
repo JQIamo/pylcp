@@ -39,7 +39,7 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     for mJ in np.arange(-J, J+1, 1):
         for mI in np.arange(-I, I+1, 1):
             H_Bq[1, index(J, I, mJ, mI), index(J, I, mJ, mI)] += \
-                (gJ*muB*mJ + gI*muB*mI)
+                (-gJ*muB*mJ + gI*muB*mI)
 
     # Next, do the J_zI_z diagonal elements of J\dotI operator:
     for mJ in np.arange(-J, J+1, 1):
@@ -178,22 +178,21 @@ def hyperfine_coupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     mu_q = np.zeros((3, num_of_states, num_of_states))
 
     for ii, q in enumerate(range(-1, 2)):
-        # TODO: Verify sign of q!
         for Fp in np.arange(Fmin, Fmax+0.5, 1):
             for F in np.arange(Fmin, Fmax+0.5, 1):
                 for mFp in np.arange(-Fp, Fp+0.5, 1):
                     mF = mFp+q
-                    if np.abs(mF)<=Fp:
+                    if not np.abs(mF)>F:
                         mu_q[ii, index(F, mF), index(Fp, mFp)] -= gJ*muB*\
-                        (-1)**np.abs(F-mF)*wig3j(Fp, 1, F, -mF, q, mFp)*\
+                        (-1)**np.abs(F-mF)*wig3j(F, 1, Fp, -mF, q, mFp)*\
                         np.sqrt((2*Fp+1)*(2*F+1))*(-1)**(J+I+Fp+1)*\
-                        wig6j(J, F, I, Fp, J, 1)*\
+                        wig6j(J, Fp, I, F, J, 1)*\
                         np.sqrt(J*(J+1)*(2*J+1))
 
-                        mu_q[ii, index(F, mF), index(Fp, mF - q)] += gI*muB*\
-                        (-1)**np.abs(F-mF)*wig3j(Fp, 1, F, -mF, q, mFp)*\
+                        mu_q[ii, index(F, mF), index(Fp, mFp)] += gI*muB*\
+                        (-1)**np.abs(F-mF)*wig3j(F, 1, Fp, -mF, q, mFp)*\
                         np.sqrt((2*Fp+1)*(2*F+1))*(-1)**(J+I+Fp+1)*\
-                        wig6j(I, F, J, Fp, I, 1)*\
+                        wig6j(I, Fp, J, F, I, 1)*\
                         np.sqrt(I*(I+1)*(2*I+1))
 
     if return_basis:
@@ -218,7 +217,7 @@ def singleF(F, gF=1, muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
     for ii, q in enumerate(np.arange(-1, 2, 1)):
         for mFp in np.arange(-F, F+1, 1):
             mF = mFp + q
-            if np.abs(mF) <= F:
+            if not np.abs(mF) > F:
                 # The minus sign here comes from the fact that the hyperfine
                 # magnetic moment is dominated by the electron, whose magnetic
                 # moment points in the opposite direction as the spin.
@@ -249,36 +248,36 @@ def dqij_norm(dqij):
     return dqij_norm
 
 
-def dqij_two_hyperfine_manifolds(J1, J2, I, normalize=True, return_basis=False):
+def dqij_two_hyperfine_manifolds(J, Jp, I, normalize=True, return_basis=False):
     """
     Dipole matrix element matrix elements matrix for a dipole matrix element
     transition.
     """
     def matrix_element(J, F, m_F, Jp, Fp, m_Fp, I, q):
-        return (-1)**(Fp+1-m_F+J+I+Fp+1)*np.sqrt((2*F+1)*(2*Fp+1))*\
-            wig3j(Fp, 1, F, m_Fp, q, -m_F)*wig6j(J, F, I, Fp, Jp, 1)
+        return (-1)**(F-m_F+J+I+Fp+1)*np.sqrt((2*F+1)*(2*Fp+1))*\
+            wig3j(F, 1, Fp, -m_F, q, m_Fp)*wig6j(J, F, I, Fp, Jp, 1)
 
     # A simple function for addressing the index:
     index = lambda Fmin, F, mF: coupled_index(F, mF, Fmin)
 
     # What's the minimum F1 and F2?
-    F1min = np.abs(I-J1)
-    F2min = np.abs(I-J2)
+    Fmin = np.abs(I-J)
+    Fpmin = np.abs(I-Jp)
 
-    F1max = np.abs(I+J1)
-    F2max = np.abs(I+J2)
+    Fmax = np.abs(I+J)
+    Fpmax = np.abs(I+Jp)
 
-    dqij = np.zeros((3, int(np.sum(2*np.arange(F1min, F1max+0.5, 1)+1)),
-                     int(np.sum(2*np.arange(F2min, F2max+0.5, 1)+1))))
+    dqij = np.zeros((3, int(np.sum(2*np.arange(Fmin, Fmax+0.5, 1)+1)),
+                     int(np.sum(2*np.arange(Fpmin, Fpmax+0.5, 1)+1))))
 
     for ii, q in enumerate(range(-1, 2)):
-        for F1 in np.arange(F1min, F1max+0.5, 1):
-            for F2 in np.arange(F2min, F2max+0.5, 1):
-                for mF in np.arange(-F1, F1+0.5, 1):
-                    if not np.abs(mF-q) > F2:
-                        dqij[ii, index(F1min, F1, mF),
-                             index(F2min, F2, mF-q)] =\
-                        matrix_element(J1, F1, mF, J2, F2, mF-q, I, q)
+        for F in np.arange(Fmin, Fmax+0.5, 1):
+            for Fp in np.arange(Fpmin, Fpmax+0.5, 1):
+                for m_Fp in np.arange(-Fp, Fp+0.5, 1):
+                    m_F = m_Fp+q
+                    if not np.abs(m_F) > F:
+                        dqij[ii, index(Fmin, F, m_F), index(Fpmin, Fp, m_Fp)] =\
+                        matrix_element(J, F, m_F, Jp, Fp, m_Fp, I, q)
 
     if normalize:
         dqij = dqij_norm(dqij)
@@ -287,13 +286,13 @@ def dqij_two_hyperfine_manifolds(J1, J2, I, normalize=True, return_basis=False):
         basis_g = np.zeros((dqij.shape[1], 2))
         basis_e = np.zeros((dqij.shape[2], 2))
 
-        for F in np.arange(F1min, F1max+0.5, 1):
-            for mF in np.arange(-F, F+0.5, 1):
-                basis_g[index(F1min, F, mF), :] = np.array([F, mF])
+        for F in np.arange(Fmin, Fmax+0.5, 1):
+            for m_F in np.arange(-F, F+0.5, 1):
+                basis_g[index(Fmin, F, m_F), :] = np.array([F, m_F])
 
-        for F in np.arange(F2min, F2max+0.5, 1):
-            for mF in np.arange(-F, F+0.5, 1):
-                basis_e[index(F2min, F, mF), :] = np.array([F, mF])
+        for Fp in np.arange(Fpmin, Fpmax+0.5, 1):
+            for m_Fp in np.arange(-Fp, Fp+0.5, 1):
+                basis_e[index(Fpmin, Fp, m_Fp), :] = np.array([Fp, m_Fp])
 
         argout = (dqij, basis_g, basis_e)
     else:
