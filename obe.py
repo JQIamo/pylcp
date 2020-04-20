@@ -334,15 +334,18 @@ class obe():
             self.ev_mat['reE'][key] = np.array([self.transform_ev_matrix(
                 self.ev_mat['d_q'][key][jj] + self.ev_mat['d_q*'][key][jj]
                 ) for jj in range(3)])
+            # Unclear why the following works, I calculate that there should
+            # be a minus sign out front.
             self.ev_mat['imE'][key] = np.array([self.transform_ev_matrix(
-                -1j*(self.ev_mat['d_q'][key][jj] - self.ev_mat['d_q*'][key][jj])
+                1j*(self.ev_mat['d_q'][key][jj] - self.ev_mat['d_q*'][key][jj])
                 ) for jj in range(3)])
 
         # Transform Bq back into Bx, By, and Bz (making it real):
-        self.ev_mat['B'] = spherical2cart(self.ev_mat['B'][0])
+        self.ev_mat['B'] = spherical2cart(self.ev_mat['B'])
 
         for jj in range(3):
             self.ev_mat['B'][jj] = self.transform_ev_matrix(self.ev_mat['B'][jj])
+        self.ev_mat['B'] = np.real(self.ev_mat['B'])
 
         del self.ev_mat['d_q']
         del self.ev_mat['d_q*']
@@ -508,22 +511,30 @@ class obe():
         for key in self.laserBeams.keys():
             if self.transform_into_re_im:
                 Eq = self.laserBeams[key].total_electric_field(r, t)
-                for ii in range(3):
-                    drhodt -= 0.5*np.real(Eq[ii])*(self.ev_mat['reE'][key][ii] @ rho)
-                    drhodt -= 0.5*np.imag(Eq[ii])*(self.ev_mat['imE'][key][ii] @ rho)
+                for ii, q in enumerate(np.arange(-1., 2., 1)):
+                    if np.abs(Eq[2-ii])>1e-10:
+                        drhodt -= (0.5*(-1.)**q*np.real(Eq[2-ii])*
+                                   (self.ev_mat['reE'][key][ii] @ rho))
+                        drhodt -= (0.5*(-1.)**q*np.imag(Eq[2-ii])*
+                                   (self.ev_mat['imE'][key][ii] @ rho))
             else:
                 Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
                 for ii, q in enumerate(np.arange(-1., 2., 1)):
-                    drhodt -= 0.5*(-1.)**q*Eq[2-ii]*(self.ev_mat['d_q'][key][ii] @ rho)
-                    drhodt -= 0.5*(-1.)**q*np.conjugate(Eq[2-ii])*(self.ev_mat['d_q*'][key][ii] @ rho)
+                    if np.abs(Eq[2-ii])>1e-10:
+                        drhodt -= (0.5*(-1.)**q*Eq[2-ii]*
+                                   (self.ev_mat['d_q'][key][ii] @ rho))
+                        drhodt -= (0.5*(-1.)**q*np.conjugate(Eq[2-ii])*
+                                   (self.ev_mat['d_q*'][key][ii] @ rho))
 
         # Add in magnetic fields:
         Bq = self.return_magnetic_field(t, r)
         for ii, q in enumerate(range(-1, 2)):
             if self.transform_into_re_im:
-                drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
+                if np.abs(Bq[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
             else:
-                drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
+                if np.abs(Bq[2-ii])>1e-10:
+                    drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
         return drhodt
 
@@ -593,7 +604,7 @@ class obe():
             observable has shape (O[:-2])+(rho[2:])
         """
         if rho is None:
-            (t, rho) = self.reshape_sol()
+            (t, r, v, rho) = self.reshape_sol()
 
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise StandardError('rho must have dimensions (n, n,...), where n '+
@@ -684,8 +695,8 @@ class obe():
                 kwargs['t_eval'] = np.linspace(ii*deltat, (ii+1)*deltat, int(Npts))
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
-            (t, rho) = self.reshape_sol()
-            f, f_laser, f_laser_q = self.force(self.sol.y[-3:,:], t, rho,
+            (t, r, v, rho) = self.reshape_sol()
+            f, f_laser, f_laser_q = self.force(r, t, rho,
                                                return_details=True)
 
             f_avg = np.mean(f, axis=1)
@@ -791,6 +802,9 @@ class obe():
         """
         rho = self.sol.y[:-6].astype('complex128')
 
+        v = np.real(self.sol.y[-6:-3])
+        r = np.real(self.sol.y[-3:])
+
         if self.transform_into_re_im:
             for jj in range(rho.shape[1]):
                 rho[:, jj] = self.U @ rho[:, jj]
@@ -808,4 +822,4 @@ class obe():
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
             rho = new_rho"""
 
-        return (self.sol.t, rho)
+        return (self.sol.t, r, v, rho)
