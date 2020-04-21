@@ -8,8 +8,7 @@ import copy
 from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
-from .lasers import laserBeams
-from .fields import magField
+from .fields import laserBeams, magField
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -50,7 +49,7 @@ class force_profile():
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
 
-        for key in f:
+        for key in f_laser:
             for jj in range(3):
                 self.f[key][(jj,) + ind] = f_laser[key][jj]
 
@@ -216,7 +215,10 @@ class rateeq():
                                       dijq.shape[1:])
 
             # Grab the laser parameters:
-            (kvecs, betas, pols, deltas) = self.laserBeams[key].return_parameters(r, t)
+            kvecs = self.laserBeams[key].kvec(r, t)
+            betas = self.laserBeams[key].beta(r, t)
+            deltas = self.laserBeams[key].detuning(t)
+
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 
             # Loop through each laser beam driving this transition:
@@ -286,7 +288,7 @@ class rateeq():
             m = sum(self.hamiltonian.ns[:ind[1]])
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 # If kvec is callable, evaluate kvec:
-                kvec = beam.return_kvec(r, t)
+                kvec = beam.kvec(r, t)
 
                 for ii in range(self.Rijl[key].shape[1]):
                     for jj in range(self.Rijl[key].shape[2]):
