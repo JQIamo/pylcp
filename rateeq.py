@@ -41,15 +41,15 @@ class force_profile():
         self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
         self.F = np.zeros(R.shape)
 
-    def store_data(self, ind, Rijl, Neq, f, F):
+    def store_data(self, ind, Rijl, Neq, f_laser, F):
         self.Neq[ind] = Neq
 
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
 
-        for key in f:
+        for key in f_laser:
             for jj in range(3):
-                self.f[key][(jj,) + ind] = f[key][jj]
+                self.f[key][(jj,) + ind] = f_laser[key][jj]
 
         for jj in range(3):
             self.F[(jj,) + ind] = F[jj]
@@ -212,7 +212,7 @@ class rateeq():
             for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
                 for ii in range(dijq.shape[1]):
                     for jj in range(dijq.shape[2]):
-                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj))**2
+                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj[::-1]))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
                             # onto the appropriate basis:
@@ -220,7 +220,7 @@ class rateeq():
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
                             self.Rijl[key][ll, ii, jj] = beta/2*\
-                                fijq/(1 + 4*((E2[jj] - E1[ii]) + delta -
+                                fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:

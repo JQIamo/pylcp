@@ -49,7 +49,7 @@ for Fg, Fe in zip([1, 1, 2], [2, 1, 1]):
     He, Beq = pylcp.hamiltonians.singleF(F=Fe, gF=1/Fe, muB=1)
     dijq = pylcp.hamiltonians.dqij_two_bare_hyperfine(Fg, Fe)
     hamiltonian['Fg%d;Fe%d'%(Fg,Fe)] = pylcp.hamiltonian(
-        Hg, He + det*np.eye(2*Fe+1), Bgq, Beq, dijq
+        Hg, He - det*np.eye(2*Fe+1), Bgq, Beq, dijq
         )
 
 magField = lambda R: np.zeros(R.shape)

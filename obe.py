@@ -11,6 +11,7 @@ from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .lasers import laserBeams
 from .common import printProgressBar
+from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -188,20 +189,20 @@ class obe():
             )
         self.ev_mat['B'] = np.array(self.ev_mat['B'])
 
-        self.ev_mat['E'] = {}
-        self.ev_mat['E*'] = {}
+        self.ev_mat['d_q'] = {}
+        self.ev_mat['d_q*'] = {}
         for key in self.laserBeams.keys():
-            self.ev_mat['E'][key] = [None]*3
-            self.ev_mat['E*'][key] = [None]*3
+            self.ev_mat['d_q'][key] = [None]*3
+            self.ev_mat['d_q*'][key] = [None]*3
             for q in range(3):
-                self.ev_mat['E'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q'][key][q] = self.build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_bare[key][q]
                 )
-                self.ev_mat['E*'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q*'][key][q] = self.build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_star[key][q]
                 )
-            self.ev_mat['E'][key] = np.array(self.ev_mat['E'][key])
-            self.ev_mat['E*'][key] = np.array(self.ev_mat['E*'][key])
+            self.ev_mat['d_q'][key] = np.array(self.ev_mat['d_q'][key])
+            self.ev_mat['d_q*'][key] = np.array(self.ev_mat['d_q*'][key])
 
 
     def build_decay_ev(self):
@@ -329,30 +330,26 @@ class obe():
 
         self.ev_mat['reE'] = {}
         self.ev_mat['imE'] = {}
-        for key in self.ev_mat['E'].keys():
+        for key in self.ev_mat['d_q'].keys():
             self.ev_mat['reE'][key] = np.array([self.transform_ev_matrix(
-                self.ev_mat['E'][key][jj] + self.ev_mat['E*'][key][jj]
+                self.ev_mat['d_q'][key][jj] + self.ev_mat['d_q*'][key][jj]
                 ) for jj in range(3)])
+            # Unclear why the following works, I calculate that there should
+            # be a minus sign out front.
             self.ev_mat['imE'][key] = np.array([self.transform_ev_matrix(
-                -1j*(self.ev_mat['E'][key][jj] - self.ev_mat['E*'][key][jj])
+                1j*(self.ev_mat['d_q'][key][jj] - self.ev_mat['d_q*'][key][jj])
                 ) for jj in range(3)])
 
         # Transform Bq back into Bx, By, and Bz (making it real):
-        ev_mat_Bx = self.transform_ev_matrix(
-            1/np.sqrt(2)*(self.ev_mat['B'][0] - self.ev_mat['B'][2])
-            )
-        ev_mat_By = self.transform_ev_matrix(
-            1j/np.sqrt(2)*(self.ev_mat['B'][0] + self.ev_mat['B'][2])
-            )
-        ev_mat_Bz = self.transform_ev_matrix(
-            self.ev_mat['B'][1]
-            )
+        self.ev_mat['B'] = spherical2cart(self.ev_mat['B'])
 
-        del self.ev_mat['B']
-        self.ev_mat['B'] = np.array([ev_mat_Bx, ev_mat_By, ev_mat_Bz])
+        for jj in range(3):
+            self.ev_mat['B'][jj] = self.transform_ev_matrix(self.ev_mat['B'][jj])
+        self.ev_mat['B'] = np.real(self.ev_mat['B'])
 
-        del self.ev_mat['E']
-        del self.ev_mat['E*']
+        del self.ev_mat['d_q']
+        del self.ev_mat['d_q*']
+
 
     def convert_to_sparse(self):
         def convert_based_on_shape(matrix):
@@ -396,11 +393,7 @@ class obe():
         if self.transform_into_re_im:
             return B
         else:
-            Bq = np.zeros((3,), dtype='complex128')
-
-            Bq[0] = B[0]/np.sqrt(2)+1j*B[1]/np.sqrt(2)
-            Bq[1] = B[2]
-            Bq[2] = -B[0]/np.sqrt(2)+1j*B[1]/np.sqrt(2)
+            Bq = cart2spherical(B)
 
             return Bq
 
@@ -491,17 +484,16 @@ class obe():
                         ev_mat -= 0.5*np.real(Eq[ii])*self.ev_mat['reE'][key][ii]
                         ev_mat -= 0.5*np.imag(Eq[ii])*self.ev_mat['imE'][key][ii]
             else:
-                Eq = self.laserBeams[key].total_electric_field(t, np.real(r))
+                Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
                 for ii in range(3):
                     if np.abs(Eq[ii])>1e-10:
-                        ev_mat -= 0.5*np.conjugate(Eq[ii])*self.ev_mat['E'][key][ii]
-                        ev_mat -= 0.5*Eq[ii]*self.ev_mat['E*'][key][ii]
+                        ev_mat -= 0.5*np.conjugate(Eq[ii])*self.ev_mat['d_q'][key][ii]
+                        ev_mat -= 0.5*Eq[ii]*self.ev_mat['d_q*'][key][ii]
 
         # Add in magnetic fields:
         Bq = self.return_magnetic_field(r, t)
         for ii in range(3):
-            if np.abs(Bq[ii])>1e-10:
-                ev_mat += Bq[ii]*self.ev_mat['B'][ii]
+            ev_mat -= spherical_dot(self.ev_mat['B'], Bq)
 
         return ev_mat
 
@@ -519,22 +511,30 @@ class obe():
         for key in self.laserBeams.keys():
             if self.transform_into_re_im:
                 Eq = self.laserBeams[key].total_electric_field(r, t)
-                for ii in range(3):
-                    if np.abs(Eq[ii])>1e-10:
-                        drhodt -= 0.5*np.real(Eq[ii])*(self.ev_mat['reE'][key][ii] @ rho)
-                        drhodt -= 0.5*np.imag(Eq[ii])*(self.ev_mat['imE'][key][ii] @ rho)
+                for ii, q in enumerate(np.arange(-1., 2., 1)):
+                    if np.abs(Eq[2-ii])>1e-10:
+                        drhodt -= (0.5*(-1.)**q*np.real(Eq[2-ii])*
+                                   (self.ev_mat['reE'][key][ii] @ rho))
+                        drhodt -= (0.5*(-1.)**q*np.imag(Eq[2-ii])*
+                                   (self.ev_mat['imE'][key][ii] @ rho))
             else:
                 Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
-                for ii in range(3):
-                    if np.abs(Eq[ii])>1e-10:
-                        drhodt -= 0.5*np.conjugate(Eq[ii])*(self.ev_mat['E'][key][ii] @ rho)
-                        drhodt -= 0.5*Eq[ii]*(self.ev_mat['E*'][key][ii] @ rho)
+                for ii, q in enumerate(np.arange(-1., 2., 1)):
+                    if np.abs(Eq[2-ii])>1e-10:
+                        drhodt -= (0.5*(-1.)**q*Eq[2-ii]*
+                                   (self.ev_mat['d_q'][key][ii] @ rho))
+                        drhodt -= (0.5*(-1.)**q*np.conjugate(Eq[2-ii])*
+                                   (self.ev_mat['d_q*'][key][ii] @ rho))
 
         # Add in magnetic fields:
         Bq = self.return_magnetic_field(t, r)
-        for ii in range(3):
-            if np.abs(Bq[ii])>1e-10:
-                drhodt += Bq[ii]*(self.ev_mat['B'][ii] @ rho)
+        for ii, q in enumerate(range(-1, 2)):
+            if self.transform_into_re_im:
+                if np.abs(Bq[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
+            else:
+                if np.abs(Bq[2-ii])>1e-10:
+                    drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
         return drhodt
 
@@ -575,106 +575,97 @@ class obe():
                              **kwargs)
 
 
-    def force_from_rho(self, r, t, rho):
-        f = np.zeros((3,))
+    def observable(self, O, rho=None):
+        """
+        Observable returns the obervable O given density matrix rho.
 
-        for key in self.laserBeams:
-            if not self.transform_into_re_im:
-                delE = self.laserBeams[key].total_electric_field_gradient(
-                    np.real(r), t
-                    )
-            else:
-                delE = self.laserBeams[key].total_electric_field_gradient(r, t)
+        Parameters
+        ----------
+        O : array or array-like
+            The matrix form of the observable operator.  Can have any shape,
+            representing scalar, vector, or tensor operators, but the last two
+            axes must correspond to the matrix of the operator and have the
+            same dimensions of the generating Hamiltonian.  For example,
+            a vector operator might have the shape (3, n, n), where n
+            is the number of states and the first axis corresponds to x, y,
+            and z.
+        rho : [optional] array or array-like
+            The density matrix.  The first two dimensions must have sizes
+            (n, n), but there may be multiple instances of the density matrix
+            tiled in the higher dimensions.  For example, a rho with (n, n, m)
+            could have m instances of the density matrix at different times.
 
-            ind = self.hamiltonian.laser_keys[key]
+            If not specified, will get rho from the current solution stored in
+            memory.
 
-            n = sum(self.hamiltonian.ns[:ind[0]])
-            m = sum(self.hamiltonian.ns[:ind[1]])
+        Outputs
+        -------
+        observable: float or array
+            observable has shape (O[:-2])+(rho[2:])
+        """
+        if rho is None:
+            (t, r, v, rho) = self.reshape_sol()
 
-            for ii in range(n, n+self.hamiltonian.ns[ind[0]]):
-                for jj in range(m, m+self.hamiltonian.ns[ind[1]]):
-                    # This array has the same shape as (t.size):
-                    if self.transform_into_re_im:
-                        rho_ji = rho[self.density_index(ii, jj)] -\
-                                  1j*rho[self.density_index(jj, ii)]
-                    else:
-                        rho_ji = rho[self.density_index(jj, ii)]
-
-                    ddotdelE = 0.5*(np.conjugate(delE) @
-                                    self.hamiltonian.d_q_bare[key][:, ii, jj])
-
-                    f += 2*np.real(ddotdelE*rho_ji)
-
-        return f
-
-    def force_from_sol(self, return_q=False, return_laser=False):
-        f = np.zeros((3, self.sol.t.shape[0]))
-        f_laser_q = {}
-        f_laser = {}
-
-        if not hasattr(self, 'sol'):
-            raise ValueError('No solution present to calculate force from')
-
-        if self.transform_into_re_im:
-            r = self.sol.y[-3:, :]
+        if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
+            raise StandardError('rho must have dimensions (n, n,...), where n '+
+                                'corresponds to the number of states in the '+
+                                'generating Hamiltonian.')
+        elif O.shape[-2:]!=(self.hamiltonian.n, self.hamiltonian.n):
+            raise StandardError('O must have dimensions (..., n, n), where n '+
+                                'corresponds to the number of states in the '+
+                                'generating Hamiltonian.')
         else:
-            r = np.real(self.sol.y[-3:, :])
+            avO = np.tensordot(O, rho, axes=[(-2, -1),(0, 1)])
+            if np.allclose(np.imag(avO), 0):
+                return np.real(avO)
+            else:
+                return avO
+
+
+    def force(self, r, t, rho, return_details=False):
+        if rho.shape[0] == (self.hamiltonian.n**2,):
+            rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) + rho.shape[1:])
+
+        f = np.zeros((3,) + rho.shape[2:])
+        if return_details:
+            f_laser_q = {}
+            f_laser = {}
 
         for key in self.laserBeams:
-            f_laser_q[key] = np.zeros((3, 3, self.laserBeams[key].num_of_beams,
-                                       self.sol.t.shape[0]))
-            f_laser[key] = np.zeros((3, self.laserBeams[key].num_of_beams,
-                                     self.sol.t.shape[0]))
+            # First, determine the average mu_q:
+            # This returns a (3,) + rho.shape[2:] array
+            mu_q_av = self.observable(self.hamiltonian.d_q_bare[key], rho)
 
-            # Calculate rho_ji*d for this key:
-            ind = self.hamiltonian.laser_keys[key]
+            if not return_details:
+                if not self.transform_into_re_im:
+                    delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
+                else:
+                    delE = self.laserBeams[key].total_electric_field_gradient(r, t)
 
-            n = sum(self.hamiltonian.ns[:ind[0]])
-            m = sum(self.hamiltonian.ns[:ind[1]])
-
-            rho_ji_d = np.zeros((3, self.sol.t.shape[0]), dtype='complex128')
-
-            for ii in range(n, n+self.hamiltonian.ns[ind[0]]):
-                for jj in range(m, m+self.hamiltonian.ns[ind[1]]):
-                    # This array has the same shape as (t.size):
-                    if self.transform_into_re_im:
-                        rho_ji = (self.sol.y[self.density_index(ii, jj)] -\
-                                  1j*self.sol.y[self.density_index(jj, ii)])
-                    else:
-                        rho_ji = self.sol.y[self.density_index(jj, ii)]
-
-                    # The first line generates an array that is (n, n, t.size).
-                    # the d array is constant with time and is (n, n).
-                    # We want to multiply the element by element axes (1,2) of the
-                    # second array by (0, 1 of the first array.)
-                    rho_ji_d += np.outer(self.hamiltonian.d_q_bare[key][:, ii, jj],
-                                         rho_ji)
-
-            if self.transform_into_re_im:
-                delE = self.laserBeams[key].electric_field_gradient(
-                    self.sol.y[-3:], self.sol.t
-                    )
+                for jj, q in enumerate(np.arange(-1., 2., 1.)):
+                    f += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
             else:
-                delE = self.laserBeams[key].electric_field_gradient(
-                    np.real(self.sol.y[-3:]), self.sol.t
-                    )
+                f_laser_q[key] = np.zeros((3, 3, self.laserBeams[key].num_of_beams)
+                                          + rho.shape[2:])
+                f_laser[key] = np.zeros((3, self.laserBeams[key].num_of_beams)
+                                        + rho.shape[2:])
 
-            # Now calculate each beam independently:
-            for ll, delE_laser in enumerate(delE):
-                # The output array here is  (3, 3, len(laserBeams), t.size).
-                # The size of delE is size  (3, 3, t.size): (kvec, pol, t)
-                # The size of rho_ji_d is size  (3, t.size): (pol, t)
-                f_laser_q[key][:, :, ll, :] += 2*np.real(
-                    0.5*rho_ji_d.reshape(3, self.sol.t.size)*np.conjugate(delE_laser)
-                    )
+                # Now, dot it into each laser beam:
+                for ii, beam in enumerate(self.laserBeams[key].beam_vector):
+                    if not self.transform_into_re_im:
+                        delE = beam.electric_field_gradient(np.real(r), t)
+                    else:
+                        delE = beam.electric_field_gradient(r, t)
 
-            f_laser[key] = np.sum(f_laser_q[key], axis=1)
-            f += np.sum(f_laser[key], axis=1)
+                    for jj, q in enumerate(np.arange(-1., 2., 1.)):
+                        f_laser_q[key][:, jj, ii] += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
 
-        if return_q:
+                    f_laser[key][:, ii] = np.sum(f_laser_q[key][:, :, ii], axis=1)
+
+                f+=np.sum(f_laser[key], axis=1)
+
+        if return_details:
             return f, f_laser, f_laser_q
-        elif return_laser:
-            return f, f_laser
         else:
             return f
 
@@ -704,8 +695,9 @@ class obe():
                 kwargs['t_eval'] = np.linspace(ii*deltat, (ii+1)*deltat, int(Npts))
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
-
-            f, f_laser, f_laser_q = self.force_from_sol(return_q=True)
+            (t, r, v, rho) = self.reshape_sol()
+            f, f_laser, f_laser_q = self.force(r, t, rho,
+                                               return_details=True)
 
             f_avg = np.mean(f, axis=1)
 
@@ -808,19 +800,26 @@ class obe():
         """
         Reshape the solution to have all the proper parts.
         """
-        # This should just do it:
-        rho = self.sol.y[:-6].reshape(self.hamiltonian.n, self.hamiltonian.n,
-                                      self.sol.t.size)
+        rho = self.sol.y[:-6].astype('complex128')
 
-        # If not:
+        v = np.real(self.sol.y[-6:-3])
+        r = np.real(self.sol.y[-3:])
+
+        if self.transform_into_re_im:
+            for jj in range(rho.shape[1]):
+                rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape(self.hamiltonian.n, self.hamiltonian.n,
+                          self.sol.t.size)
+        """# If not:
         if self.transform_into_re_im:
             new_rho = np.zeros(rho.shape, dtype='complex128')
             for jj in range(new_rho.shape[2]):
                 new_rho[:, :, jj] = (np.diag(np.diagonal(rho[:, :, jj])) +
                                      np.triu(rho[:, :, jj], k=1) +
-                                     np.triu(rho[:, :, jj], k=1).T -
-                                     1j*np.tril(rho[:, :, jj], k=-1) +
+                                     np.triu(rho[:, :, jj], k=1).T +
+                                     1j*np.tril(rho[:, :, jj], k=-1) -
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
-            rho = new_rho
+            rho = new_rho"""
 
-        return (self.sol.t, rho)
+        return (self.sol.t, r, v, rho)
