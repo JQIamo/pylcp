@@ -1,5 +1,7 @@
 import numpy as np
 from inspect import signature
+from .common import cart2spherical, spherical2cart
+
 import numba
 
 @numba.jit(nopython=True)
@@ -293,19 +295,13 @@ class laserBeam():
                     if np.abs(np.dot(self.kvec(), pol)) > 1e-9:
                         raise ValueError("I'm sorry; light is a transverse wave")
 
-                    # Always store in spherical basis:
-                    self.pol = np.array([(+pol[0]-1j*pol[1])/np.sqrt(2),
-                                         pol[2],
-                                         (-pol[0]-1j*pol[1])/np.sqrt(2)])
-
+                    # Always store in spherical basis.  Matches Brown and Carrington.
+                    self.pol = cart2spherical(pol).astype('complex128')
 
                 # The user has specified a single polarization vector in
                 # spherical basis:
                 elif pol_coord=='spherical':
-                    pol_cart = np.array([(-pol[2]+pol[0])/np.sqrt(2),
-                                         1j*(pol[2]+pol[0])/np.sqrt(2),
-                                         pol[1]
-                                         ])
+                    pol_cart = spherical2cart(pol)
 
                     # Check for transverseness:
                     if np.abs(np.dot(self.kvec(), pol_cart)) > 1e-9:
@@ -432,11 +428,8 @@ class laserBeam():
         """
         Returns the polarization in Cartesian coordinates.
         """
-        pol = self.pol(R, t)
-        return np.array([(-pol[2]+pol[0])/np.sqrt(2),
-                         1j*(pol[2]+pol[0])/np.sqrt(2),
-                         pol[1]
-                        ])
+        pol = self.return_pol(R, t)
+        return spherical2cart(pol)
 
     def jones_vector(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
         """
@@ -496,6 +489,8 @@ class laserBeam():
     def electric_field(self, R, t, mean_detuning=0):
         """
         Returns the electric field of the laser beam at position R and time t.
+        More specifically, this function returns E^\dagger, or so it would
+        appear.
         """
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
@@ -553,7 +548,7 @@ class laserBeam():
                   self.electric_field(R-dz, t))/2/self.eps
                 ])
 
-        return delE
+        return delEq
 
 
 

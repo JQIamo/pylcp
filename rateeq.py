@@ -225,7 +225,7 @@ class rateeq():
             for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
                 for ii in range(dijq.shape[1]):
                     for jj in range(dijq.shape[2]):
-                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj))**2
+                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj[::-1]))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
                             # onto the appropriate basis:
@@ -233,7 +233,7 @@ class rateeq():
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
                             self.Rijl[key][ll, ii, jj] = beta/2*\
-                                fijq/(1 + 4*((E2[jj] - E1[ii]) + delta -
+                                fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:
