@@ -334,7 +334,7 @@ class rateeq():
             F, f_laser = self.force(Rijl, N)
             F[hold_axis] = 0.
 
-            dydt = np.concatenate((Rev @ N, mass_ratio*F, v))
+            dydt = np.concatenate((self.Rev @ N, 1/self.hamiltonian.mass*F, v))
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
 
