@@ -88,51 +88,70 @@ print('Total computation time was %.3f s.' % (toc-tic))
 """
 Plot 'er up:
 """
-fig, ax = plt.subplots(2, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 4.5))
-ax[0, 0].plot(obe['z'].profile['MOT_1'].R[2]*alpha,
-           obe['z'].profile['MOT_1'].F[2],
-           label='OBE', linewidth=0.5)
-ax[0, 0].plot(rateeq['z'].profile['MOT_1'].R[2]*alpha,
-           rateeq['z'].profile['MOT_1'].F[2],
-           label='Rate Eq.', linewidth=0.5)
-ax[0, 0].legend(fontsize=6)
-ax[0, 0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
-ax[0, 0].set_ylabel('$F/(\hbar k \Gamma)$')
-
-types = ['-', '--', '-.']
-for q in range(3):
-    ax[0, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 0], types[q],
-            linewidth=0.5, color='C0', label='$+k$, $q=%d$'%(q-1))
-    ax[0, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 1], types[q],
-            linewidth=0.5, color='C1', label='$-k$, $q=%d$'%(q-1))
-ax[0, 1].plot(z, obe['z'].profile['MOT_1'].F[2], 'k-',
-           linewidth=0.75)
-ax[0, 1].legend(fontsize=6)
-ax[0, 1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
-fig.subplots_adjust(wspace=0.15)
-
-ax[1, 0].plot(z, rateeq['z'].profile['MOT_1'].Neq[:, 0], '--',
-              linewidth=0.5, label='$F=0$')
-for jj in range(3):
-    ind = z<=0
-    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, 3-jj], '-',
-                  linewidth=0.5, color='C%d'%jj, label='$m_F=%d$'%(jj-1))
-    ind = z>=0
-    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, jj+1], '-',
-                  linewidth=0.5, color='C%d'%jj)
-ax[1, 0].legend(fontsize=6)
-ax[1, 0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+fig, ax = plt.subplots(3, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 3*2.25))
 
 Es = np.zeros((z.size, 4))
-
 for ii, z_i in enumerate(z):
     Bq = np.array([0., magField(np.array([0., 0., z_i/alpha]))[2], 0])
     Es[ii, :] = np.diag(hamiltonian.return_full_H({'g->e':np.array([0., 0., 0.])}, Bq))
 
-[ax[1, 1].plot(z, Es[:, 1+jj], label='$m_F=%d$'%(jj-1)) for jj in range(3)]
+[ax[0, 0].plot(z, Es[:, 1+jj], label='$m_F=%d$'%(jj-1)) for jj in range(3)]
+ax[0, 0].legend(fontsize=6)
+ax[0, 0].set_ylabel('$E/(\hbar \Gamma)$')
+
+types = ['-', '--', '-.']
+lbls = ['+k','-k']
+ax[0, 1].plot(obe['z'].profile['MOT_1'].R[2]*alpha,
+           obe['z'].profile['MOT_1'].F[2],
+           label='OBE', linewidth=0.75)
+ax[0, 1].plot(rateeq['z'].profile['MOT_1'].R[2]*alpha,
+           rateeq['z'].profile['MOT_1'].F[2],
+           label='Rate Eq.', linewidth=0.5)
+for jj in range(2):
+    ax[0, 1].plot(obe['z'].profile['MOT_1'].R[2]*alpha,
+                  obe['z'].profile['MOT_1'].f['g->e'][2, :, jj],
+                  types[jj+1], color='C0', linewidth=0.75, label=lbls[jj])
+    ax[0, 1].plot(rateeq['z'].profile['MOT_1'].R[2]*alpha,
+                  rateeq['z'].profile['MOT_1'].f['g->e'][2, :, jj],
+                  types[jj+1], color='C1', linewidth=0.5)
+ax[0, 1].legend(fontsize=6)
+ax[0, 1].set_ylabel('$F/(\hbar k \Gamma)$')
+
+for q in range(3):
+    ax[1, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 0], types[q],
+            linewidth=0.5, color='C0', label='$+k$, $q=%d$'%(q-1))
+    ax[1, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 1], types[q],
+            linewidth=0.5, color='C1', label='$-k$, $q=%d$'%(q-1))
+ax[1, 1].plot(z, obe['z'].profile['MOT_1'].F[2], 'k-',
+           linewidth=0.75)
 ax[1, 1].legend(fontsize=6)
 ax[1, 1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+ax[1, 1].set_ylabel('$F/(\hbar k \Gamma)$')
 fig.subplots_adjust(wspace=0.15)
+
+ax[1, 0].plot(z, rateeq['z'].profile['MOT_1'].Neq[:, 0], '--',
+              linewidth=0.75, label='$F=0$ (RE)')
+ax[1, 0].plot(z, obe['z'].profile['MOT_1'].Neq[:, 0], '-',
+              linewidth=0.5, color='C0', label='$F=0$ (OBE)')
+for jj in range(3):
+    ind = z<=0
+    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, 3-jj], '--',
+                  linewidth=0.75, color='C%d'%jj, label='$m_F=%d$'%(jj-1))
+    ind = z>=0
+    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, jj+1], '--',
+                  linewidth=0.75, color='C%d'%jj)
+    ax[1, 0].plot(z, obe['z'].profile['MOT_1'].Neq[:, jj+1], '-',
+                  linewidth=0.5, color='C%d'%jj)
+
+ax[1, 0].legend(fontsize=6)
+ax[1, 0].set_ylabel('$N_{eq}$')
+
+ax[2, 0].plot(z, 1e5*obe['z'].profile['MOT_1'].f_mag[2], linewidth=0.75)
+ax[2, 0].plot(z, 1e5*rateeq['z'].profile['MOT_1'].f_mag[2], linewidth=0.5)
+ax[2, 0].set_ylabel('$10^5F_{\\rm mag}/\hbar k \Gamma$')
+ax[2, 0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+ax[2, 1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+fig.subplots_adjust(left=0.08, wspace=0.25)
 
 # %% Let's now go along the x and y directions:
 R = {}
