@@ -63,19 +63,3 @@ for jj in range(3):
 ax.set_xlabel('$t\'$')
 ax.set_ylabel('$z\'$')
 #fig.savefig('oscillation_vs_axis.pdf')
-
-"""
-Now, let's try it with the OBE:
-"""
-obe = pylcp.obe(laserBeams, magField, hamiltonian, include_mag_forces=True)
-
-obe.set_initial_position(np.array([5., 0., 0.]))
-obe.set_initial_rho_from_populations(np.array([0., 1.]))
-
-obe.evolve_motion([0, 30])
-
-# %%
-t, rho = obe.reshape_sol()
-fig, ax = plt.subplots(1, 2, figsize=(6.25, 2.75))
-[ax[0].plot(t, rho[ii, ii]) for ii in range(2)]
-ax[1].plot(t, obe.sol.y[-3:, :].T)
