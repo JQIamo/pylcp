@@ -42,7 +42,7 @@ class rateeq():
     """
     def __init__(self, lasers, mag_field, hamiltonian,
                  r=np.array([0.0, 0.0, 0.0]), v=np.array([0.0, 0.0, 0.0]),
-                 svd_eps=1e-10, include_mag_forces=False):
+                 svd_eps=1e-10, include_mag_forces=True):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
@@ -282,22 +282,22 @@ class rateeq():
             for ii, block in enumerate(np.diag(self.hamiltonian.blocks)):
                 ind1 = int(np.sum(self.hamiltonian.ns[:ii]))
                 ind2 = int(np.sum(self.hamiltonian.ns[:ii+1]))
-                if self.hamiltonian.diagonal:
+                if self.hamiltonian.diagonal[ii]:
                     if isinstance(block, tuple):
-                        fmag -= np.sum(np.real(
+                        fmag += np.sum(np.real(
                             block[1].matrix[1] @ Npop[ind1:ind2]
                             ))*gradBmag
                     elif isinstance(block, self.hamiltonian.vector_block):
-                        fmag -= np.sum(np.real(
+                        fmag += np.sum(np.real(
                             block.matrix[1] @ Npop[ind1:ind2]
                             ))*gradBmag
                 else:
                     if isinstance(block, tuple):
-                        fmag -= np.sum((self.hamiltonian.U[ii].T @
+                        fmag += np.sum((self.hamiltonian.U[ii].T @
                                         block[1].matrix[1] @ self.hamiltonian.U[ii])
                                        @ Npop[ind1:ind2])*gradBmag
                     elif isinstance(block, self.hamiltonian.vector_block):
-                        fmag -= np.sum(np.real(
+                        fmag += np.sum(np.real(
                             self.hamiltonian.U[ii].T @ block.matrix[1] @
                             self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
 
