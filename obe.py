@@ -9,8 +9,9 @@ import numba
 import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
-from .common import printProgressBar
-from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
+from .fields import laserBeams, magField
+from .common import (printProgressBar, spherical_dot, cart2spherical,
+                     spherical2cart, base_force_profile)
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -25,36 +26,23 @@ def dot_and_add(A, x, b):
     b += A @ x
 
 
-class force_profile():
-    def __init__(self, R, V, num_of_beams, hamiltonian):
-        if not isinstance(R, np.ndarray):
-            R = np.array(R)
-        if not isinstance(V, np.ndarray):
-            V = np.array(V)
+class force_profile(base_force_profile):
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        super().__init__(R, V, laserBeams, hamiltonian)
 
-        if R.shape[0] != 3 or V.shape[0] != 3:
-            raise TypeError('R and V must have first dimension of 3.')
-
-        self.R = copy.copy(R)
-        self.V = copy.copy(V)
-
-        self.iterations = np.zeros(R[0].shape, dtype='int64')
+        self.iterations = np.zeros(self.R[0].shape, dtype='int64')
         self.fq = {}
-        self.f = {}
-        for key in num_of_beams:
-            self.fq[key] = np.zeros(R.shape + (3, num_of_beams[key]))
-            self.f[key] = np.zeros(R.shape + (num_of_beams[key],))
+        for key in laserBeams:
+            self.fq[key] = np.zeros(self.R.shape + (3, len(laserBeams[key].beam_vector)))
 
-        self.F = np.zeros(R.shape)
+    def store_data(self, ind, Neq, F, F_laser, F_mag, iterations, F_laser_q):
+        super().store_data(ind, Neq, F, F_laser, F_mag)
 
-    def store_data(self, ind, F, F_laser, F_laser_q, iterations):
-        self.iterations[ind] = iterations
         for jj in range(3):
-            #self.f[(jj,) + ind] = f[jj]
-            self.F[(jj,) + ind] = F[jj]
             for key in F_laser_q:
-                self.f[key][(jj,) + ind] = F_laser[key][jj]
                 self.fq[key][(jj,) + ind] = F_laser_q[key][jj]
+
+        self.iterations[ind] = iterations
 
 
 class obe():
@@ -762,13 +750,16 @@ class obe():
                                                        self.sol.y[-6:-3, -1])
                 ii+=1
 
+        f_mag = np.mean(f_mag, axis=1)
+
         f_laser_avg = {}
         f_laser_avg_q = {}
         for key in f_laser:
             f_laser_avg[key] = np.mean(f_laser[key], axis=2)
             f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
-        return f_avg, f_laser_avg, f_laser_avg_q, ii
+        Neq = np.real(np.diagonal(np.mean(rho, axis=2)))
+        return (Neq, f_avg, f_laser_avg, f_laser_avg_q, f_mag, ii)
 
 
     def generate_force_profile(self, R, V,  **kwargs):
@@ -785,11 +776,7 @@ class obe():
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
-        num_of_beams = {}
-        for key in self.laserBeams:
-            num_of_beams[key] = self.laserBeams[key].num_of_beams
-
-        self.profile[name] = force_profile(R, V, num_of_beams, self.hamiltonian)
+        self.profile[name] = force_profile(R, V, self.laserBeams, self.hamiltonian)
 
         it = np.nditer([R[0], R[1], R[2], V[0], V[1], V[2]],
                        flags=['refs_ok', 'multi_index'],
@@ -829,10 +816,10 @@ class obe():
                 else:
                     kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
 
-            F, F_laser, F_laser_q, iterations = self.find_equilibrium_force(**kwargs)
+            Neq, F, F_laser, F_laser_q, F_mag, iterations = self.find_equilibrium_force(**kwargs)
 
-            self.profile[name].store_data(it.multi_index, F, F_laser, F_laser_q,
-                                          iterations)
+            self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
+                                          iterations, F_laser_q)
 
             if progress_bar:
                 toc = time.time()

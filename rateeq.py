@@ -9,53 +9,30 @@ from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
+from .common import base_force_profile
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
     return x.real**2 + x.imag**2
 
-class force_profile():
-    def __init__(self, R, V, laserBeams, hamiltonian,
-                 contents=['Rijl','Neq','f','F']):
-        if not isinstance(R, np.ndarray):
-            R = np.array(R)
-        if not isinstance(V, np.ndarray):
-            V = np.array(V)
+class force_profile(base_force_profile):
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        super().__init__(R, V, laserBeams, hamiltonian)
 
-        if R.shape[0] != 3 or V.shape[0] != 3:
-            raise TypeError('R and V must have first dimension of 3.')
-
-        self.R = copy.copy(R)
-        self.V = copy.copy(V)
-
+        # Add in the specific instance of the Rijl:
         self.Rijl = {}
-        self.f = {}
         for key in laserBeams:
-             self.Rijl[key] = np.zeros(
-                 R[0].shape+(len(laserBeams[key].beam_vector),
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
-                 )
-             self.f[key] = np.zeros(R.shape + (len(laserBeams[key].beam_vector),))
+            self.Rijl[key] = np.zeros(
+                self.R[0].shape+(len(laserBeams[key].beam_vector),
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
+                )
 
-        self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
-        self.F = np.zeros(R.shape)
-        self.fmag = np.zeros(R.shape)
-
-
-    def store_data(self, ind, Rijl, Neq, f_mag, f_laser, F):
-        self.Neq[ind] = Neq
+    def store_data(self, ind, Neq, F, F_laser, F_mag, Rijl):
+        super().store_data(ind, Neq, F, F_laser, F_mag)
 
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
-
-        for key in f_laser:
-            for jj in range(3):
-                self.f[key][(jj,) + ind] = f_laser[key][jj]
-
-        for jj in range(3):
-            self.F[(jj,) + ind] = F[jj]
-            self.fmag[(jj,) + ind] = f_mag[jj]
 
 
 class rateeq():
@@ -439,7 +416,7 @@ class rateeq():
                     "v=({0:0.2f},{1:0.2f},{2:0.2f})".format(vx, vy, vz)
                     )
 
-            self.profile[name].store_data(it.multi_index, Rijl, Neq, f_mag, f, F)
+            self.profile[name].store_data(it.multi_index, Neq, F, f, f_mag, Rijl)
 
 
 class trap(rateeq):

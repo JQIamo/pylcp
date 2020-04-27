@@ -1,4 +1,5 @@
 import time
+import copy
 import numpy as np
 
 # Define a progress bar for use in the next section of code:
@@ -40,6 +41,43 @@ def spherical2cart(A):
 def spherical_dot(A, B):
     return np.tensordot(A, np.array([-1., 1., -1.])*B[::-1], axes=(0, 0))
     #return np.tensordot(A, np.conjugate(B), axes=(0,0))
+
+class base_force_profile():
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        if not isinstance(R, np.ndarray):
+            R = np.array(R)
+        if not isinstance(V, np.ndarray):
+            V = np.array(V)
+
+        if R.shape[0] != 3 or V.shape[0] != 3:
+            raise TypeError('R and V must have first dimension of 3.')
+
+        self.R = copy.copy(R)
+        self.V = copy.copy(V)
+
+        self.iterations = np.zeros(R[0].shape, dtype='int64')
+
+        self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
+
+        self.f = {}
+        for key in laserBeams:
+            self.f[key] = np.zeros(R.shape + (len(laserBeams[key].beam_vector),))
+
+        self.f_mag = np.zeros(R.shape)
+
+        self.F = np.zeros(R.shape)
+
+    def store_data(self, ind, Neq, F, F_laser, F_mag):
+        self.Neq[ind] = Neq
+
+        for jj in range(3):
+            #self.f[(jj,) + ind] = f[jj]
+            self.F[(jj,) + ind] = F[jj]
+            for key in F_laser:
+                self.f[key][(jj,) + ind] = F_laser[key][jj]
+
+            self.f_mag[(jj,) + ind] = F_mag[jj]
+
 
 def random_vector():
     a, b = np.random.rand(2)
