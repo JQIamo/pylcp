@@ -527,19 +527,19 @@ class laserBeam():
 
         if self.infinite_beam:
             if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-                delE = np.multiply(kvec.reshape(3, 1), pol.reshape(1, 3))*\
+                delEq = np.multiply(-kvec.reshape(3, 1), pol.reshape(1, 3))*\
                      1j*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
                                               -1j*self.phase)
             else:
-                delE = np.multiply(
-                    np.multiply(kvec.reshape(3, 1, t.size),
+                delEq = np.multiply(
+                    np.multiply(-kvec.reshape(3, 1, t.size),
                                 pol.reshape(1, 3, t.size)),
                     1j*amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
                                   -1j*self.phase)
                 )
         else:
             (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
-            return np.array([
+            delEq = np.array([
                  (self.electric_field(R+dx, t) -
                   self.electric_field(R-dx, t))/2/self.eps,
                  (self.electric_field(R+dy, t) -
