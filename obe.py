@@ -393,18 +393,6 @@ class obe():
         self.v0 = v0
         self.sol = None
 
-
-    def return_magnetic_field(self, t, r):
-        B = self.magField.Field(r)
-
-        if self.transform_into_re_im:
-            return B
-        else:
-            Bq = cart2spherical(B)
-
-            return Bq
-
-
     def set_initial_rho(self, rho0):
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
@@ -460,7 +448,8 @@ class obe():
         for key in self.laserBeams.keys():
             Eq[key] = self.laserBeams[key].total_electric_field(r, t)
 
-        Bq = self.return_magnetic_field(r, t)
+        B = self.magField.Field(r, t)
+        Bq = cart2spherical(B)
 
         H = self.hamiltonian.return_full_H(Bq, Eq)
         ev_mat = self.build_coherent_ev_submatrix(H)
@@ -498,9 +487,15 @@ class obe():
                         ev_mat -= 0.5*Eq[ii]*self.ev_mat['d_q*'][key][ii]
 
         # Add in magnetic fields:
-        Bq = self.return_magnetic_field(r, t)
-        for ii in range(3):
-            ev_mat -= spherical_dot(self.ev_mat['B'], Bq)
+        B = self.magField.Field(r, t)
+        for ii, q in enumerate(range(-1, 2)):
+            if self.transform_into_re_im:
+                if np.abs(Bq[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*B[ii] @ rho
+            else:
+                Bq = cart2spherical(B)
+                if np.abs(Bq[2-ii])>1e-10:
+                    drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
         return ev_mat
 
@@ -534,12 +529,13 @@ class obe():
                                    (self.ev_mat['d_q*'][key][ii] @ rho))
 
         # Add in magnetic fields:
-        Bq = self.return_magnetic_field(t, r)
+        B = self.magField.Field(r, t)
         for ii, q in enumerate(range(-1, 2)):
             if self.transform_into_re_im:
-                if np.abs(Bq[ii])>1e-10:
-                    drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
+                if np.abs(B[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*B[ii] @ rho
             else:
+                Bq = cart2spherical(B)
                 if np.abs(Bq[2-ii])>1e-10:
                     drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
@@ -631,8 +627,8 @@ class obe():
 
 
     def force(self, r, t, rho, return_details=False):
-        if rho.shape[0] == (self.hamiltonian.n**2,):
-            rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) + rho.shape[1:])
+        if rho.shape[0] != self.hamiltonian.n:
+            rho = self.reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
         if return_details:
@@ -645,10 +641,7 @@ class obe():
             mu_q_av = self.observable(self.hamiltonian.d_q_bare[key], rho)
 
             if not return_details:
-                if not self.transform_into_re_im:
-                    delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
-                else:
-                    delE = self.laserBeams[key].total_electric_field_gradient(r, t)
+                delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
 
                 for jj, q in enumerate(np.arange(-1., 2., 1.)):
                     f += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
@@ -672,8 +665,28 @@ class obe():
 
                 f+=np.sum(f_laser[key], axis=1)
 
+        # Are we including magnetic forces?
+        if self.include_mag_forces:
+            # This function returns a matrix that (3, 3) with the format:
+            # [dBx/dx, dBy/dx, dBz/dx; dBx/dy, dBy/dy, dBz/dy], and so on.
+            # We need to dot, and su
+            delB = self.magField.gradField(np.real(r))
+
+            # What's the expectation value of mu?
+            av_mu = self.observable(self.hamiltonian.mu, rho)
+
+            # Now dot it into the gradient:
+            f_mag = np.zeros(f.shape)
+            for ii in range(3): # Loop over muxB_x, mu_yB_y, mu_zB_z
+                f_mag += av_mu[ii]*delB[:, ii]
+
+            # Add it into the regular force.
+            f+=f_mag
+        elif return_details:
+            f_mag=np.zeros(f.shape)
+
         if return_details:
-            return f, f_laser, f_laser_q
+            return f, f_laser, f_laser_q, f_mag
         else:
             return f
 
@@ -704,8 +717,8 @@ class obe():
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
             (t, r, v, rho) = self.reshape_sol()
-            f, f_laser, f_laser_q = self.force(r, t, rho,
-                                               return_details=True)
+            f, f_laser, f_laser_q, f_mag = self.force(r, t, rho,
+                                                      return_details=True)
 
             f_avg = np.mean(f, axis=1)
 
@@ -804,21 +817,19 @@ class obe():
                                  suffix = 'complete', decimals = 1, length = 40,
                                  remaining_time = (it.itersize-it.iterindex)*avgtime)
 
-    def reshape_sol(self):
-        """
-        Reshape the solution to have all the proper parts.
-        """
-        rho = self.sol.y[:-6].astype('complex128')
-
-        v = np.real(self.sol.y[-6:-3])
-        r = np.real(self.sol.y[-3:])
-
+    def reshape_rho(self, rho):
         if self.transform_into_re_im:
-            for jj in range(rho.shape[1]):
-                rho[:, jj] = self.U @ rho[:, jj]
+            rho = rho.astype('complex128')
 
-        rho = rho.reshape(self.hamiltonian.n, self.hamiltonian.n,
-                          self.sol.t.size)
+            if len(rho.shape) == 1:
+                rho = self.U @ rho
+            else:
+                for jj in range(rho.shape[1]):
+                    rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) +
+                          rho.shape[1:])
+
         """# If not:
         if self.transform_into_re_im:
             new_rho = np.zeros(rho.shape, dtype='complex128')
@@ -830,4 +841,13 @@ class obe():
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
             rho = new_rho"""
 
-        return (self.sol.t, r, v, rho)
+        return rho
+
+
+    def reshape_sol(self):
+        """
+        Reshape the solution to have all the proper parts.
+        """
+        rho = self.reshape_rho(self.sol.y[:-6])
+
+        return (self.sol.t, self.sol.y[-3:], self.sol.y[-6:-3], rho)
