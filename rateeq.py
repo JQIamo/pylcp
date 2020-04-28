@@ -325,13 +325,14 @@ class rateeq():
         """
         hold_axis = kwargs.pop('freeze_axis', [False, False, False])
         mass_ratio = kwargs.pop('mass_ratio', 1e-3)
-        def motion(t, y):
+        length_scale = kwargs.pop('length_scale', 1)
+        def motion(t, y, length_scale):
             N = y[:-6]
             v = y[-6:-3]
-            r = y[-3:]
+            r = y[-3:]*length_scale
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
-            F, f_laser = self.force(Rijl, N)
+            F, f_laser = self.force(r, t, Rijl, N)
             F[hold_axis] = 0.
 
             dydt = np.concatenate((Rev @ N, mass_ratio*F, v))
@@ -340,8 +341,8 @@ class rateeq():
 
             return dydt
 
-        y0 = np.concatenate((self.N0, self.v0, self.r0))
-        self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+        y0 = np.concatenate((self.N0, self.v0, self.r0/length_scale))
+        self.sol = solve_ivp(lambda t, y: motion(t,y,length_scale), t_span, y0, **kwargs)
 
     def find_equilibrium_force(self, **kwargs):
         """
