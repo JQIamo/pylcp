@@ -291,7 +291,7 @@ class hamiltonian():
 
         # Make Cartesian coordinate copies.
         self.mu = spherical2cart(self.mu_q)
-        self.d = spherical2cart(self.d_q_full)
+        self.d = spherical2cart(self.d_q)
 
         return self.H_0, self.mu_q, self.d_q_bare, self.d_q_star
 
@@ -304,7 +304,7 @@ class hamiltonian():
 
         for key in self.d_q_bare.keys():
             for ii, q in enumerate(np.arange(-1., 2., 1.)):
-                H -= (0.5*(-1.)**q*self.d_q_bare[key][ii]*Eq[key][2-ii] + 
+                H -= (0.5*(-1.)**q*self.d_q_bare[key][ii]*Eq[key][2-ii] +
                       0.5*(-1.)**q*self.d_q_star[key][ii]*np.conjugate(Eq[key][2-ii]))
 
         return H
