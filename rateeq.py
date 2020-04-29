@@ -194,7 +194,7 @@ class rateeq():
             # Grab the laser parameters:
             kvecs = self.laserBeams[key].kvec(r, t)
             betas = self.laserBeams[key].beta(r, t)
-            deltas = self.laserBeams[key].detuning(t)
+            deltas = self.laserBeams[key].delta(t)
 
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 
