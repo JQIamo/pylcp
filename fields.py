@@ -11,26 +11,6 @@ def dot2D(a, b):
         c[ii] = np.sum(a[:, ii]*b[:, ii])
     return c
 
-@numba.jit(nopython=True)
-def speedy_E_field_evaluator(r, t, kvecs, betas, pols, deltas, phases,
-                             mean_detuning):
-    return np.dot(pols.T,
-                  np.sqrt(betas/2)*np.exp(- 1j*np.dot(kvecs, r)
-                                          + 1j*(deltas - mean_detuning)*t
-                                          - 1j*phases),
-                 )
-
-#@numba.jit(nopython=True)
-def speedy_delE_field_evaluator(r, t, kvecs, betas, pols, deltas, phases,
-                                mean_detuning):
-    delE = np.zeros((3, 3), dtype='complex128')
-    for (kvec, beta, pol, delta, phase) in zip(kvecs, betas, pols, deltas, phases):
-        delE += np.multiply(kvec.reshape(3, 1), pol.reshape(1, 3))*\
-                1j*np.sqrt(beta/2)*np.exp(-1j*np.dot(kvec, r) + 1j*delta*t +
-                                          -1j*phase)
-
-    return delE
-
 def return_constant_val(R, t, val):
     if R.shape==(3,):
         return val
@@ -164,7 +144,7 @@ def quadrupoleMagneticField(magField):
 
 # First, define the laser beam class:
 class laserBeam(object):
-    def __init__(self, kvec=None, beta=None, pol=None, detuning=None,
+    def __init__(self, kvec=None, beta=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
         # Promote it to a lambda func:
         if not kvec is None:
@@ -182,8 +162,8 @@ class laserBeam(object):
             self.pol, self.pol_sig = promote_to_lambda(pol, var_name='polarization')
 
         # Promote it to a lambda func:
-        if not detuning is None:
-            self.detuning, self.detuning_sig = promote_to_lambda(detuning, var_name='detuning', type='t')
+        if not delta is None:
+            self.delta, self.delta_sig = promote_to_lambda(delta, var_name='delta', type='t')
 
         self.phase = phase
         self.eps = eps
@@ -252,7 +232,7 @@ class laserBeam(object):
     def pol(self, R=np.array([0., 0., 0.]), t=0.):
         pass
 
-    def detuning(self, t=0.):
+    def delta(self, t=0.):
         pass
 
     # TODO: add testing of kvec/pol orthogonality.
@@ -422,7 +402,7 @@ class laserBeam(object):
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
         pol = self.pol(R, t)
-        delta = self.detuning(t)
+        delta = self.delta(t)
 
         amp = np.sqrt(beta/2)
 
@@ -444,7 +424,7 @@ class laserBeam(object):
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
         pol = self.pol(R, t)
-        delta = self.detuning(t)
+        delta = self.delta(t)
 
         amp = np.sqrt(beta/2)
 
@@ -462,7 +442,7 @@ class laserBeam(object):
 
 
 class infinitePlaneWaveBeam(laserBeam):
-    def __init__(self, kvec, pol, beta, detuning, **kwargs):
+    def __init__(self, kvec, pol, beta, delta, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for an infinite plane wave.')
 
@@ -472,8 +452,8 @@ class infinitePlaneWaveBeam(laserBeam):
         if callable(pol):
             raise TypeError('Polarization cannot be a function for an infinite plane wave.')
 
-        # Use the super class to define the functions kvec, beta, pol, and detuning.
-        super().__init__(kvec=kvec, beta=beta, pol=pol, detuning=detuning,
+        # Use the super class to define the functions kvec, beta, pol, and delta.
+        super().__init__(kvec=kvec, beta=beta, pol=pol, delta=delta,
                          **kwargs)
 
         # Save the constant values (might be useful):
@@ -491,7 +471,7 @@ class infinitePlaneWaveBeam(laserBeam):
         """
         With an infinite plane wave, the derivative is simple.
         """
-        delta = self.detuning(t)
+        delta = self.delta(t)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
             delEq = self.dEq_prefactor*\
@@ -504,15 +484,15 @@ class infinitePlaneWaveBeam(laserBeam):
 
 
 class gaussianBeam(laserBeam):
-    def __init__(self, kvec, pol, beta_max, detuning, wb, **kwargs):
+    def __init__(self, kvec, pol, beta_max, delta, wb, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
         if callable(pol):
             raise TypeError('Polarization cannot be a function for an infinite plane wave.')
 
-        # Use super class to define kvec(R, t), pol(R, t), and detuning(t)
-        super().__init__(kvec=kvec, pol=pol, detuning=detuning, **kwargs)
+        # Use super class to define kvec(R, t), pol(R, t), and delta(t)
+        super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
 
         # Save the constant values (might be useful):
         self.con_kvec = kvec
@@ -537,8 +517,8 @@ class gaussianBeam(laserBeam):
 
 
 class clippedGaussianBeam(gaussianBeam):
-    def __init__(self, kvec, pol, beta_max, detuning, wb, rs, **kwargs):
-        super().__init__(kvec, pol, beta_max, detuning, wb, **kwargs)
+    def __init__(self, kvec, pol, beta_max, delta, wb, rs, **kwargs):
+        super().__init__(kvec, pol, beta_max, delta, wb, **kwargs)
 
         self.rs = rs # Save the value of the stop.
 
@@ -605,23 +585,21 @@ class laserBeams(object):
     def kvec(self, R=np.array([0., 0., 0.]), t=0.):
         return np.array([beam.kvec(R, t) for beam in self.beam_vector])
 
-    def detuning(self, t=0):
-        return np.array([beam.detuning(t) for beam in self.beam_vector])
+    def delta(self, t=0):
+        return np.array([beam.delta(t) for beam in self.beam_vector])
 
-    def electric_field(self, R=np.array([0., 0., 0.]), t=0., mean_detuning=0):
+    def electric_field(self, R=np.array([0., 0., 0.]), t=0.):
         return np.array([beam.electric_field(R, t) for beam in self.beam_vector])
 
-    def electric_field_gradient(self, R=np.array([0., 0., 0.]), t=0., mean_detuning=0):
+    def electric_field_gradient(self, R=np.array([0., 0., 0.]), t=0.):
         return np.array([beam.electric_field_gradient(R, t)
                          for beam in self.beam_vector])
 
-    def total_electric_field(self, r, t, mean_detuning=0):
-        return np.sum(self.electric_field(r, t, mean_detuning=mean_detuning),
-                      axis=0)
+    def total_electric_field(self, r, t):
+        return np.sum(self.electric_field(r, t), axis=0)
 
-    def total_electric_field_gradient(self, r, t, mean_detuning=0):
-        return np.sum(self.electric_field_gradient(r, t,
-                                                   mean_detuning=mean_detuning), axis=0)
+    def total_electric_field_gradient(self, r, t):
+        return np.sum(self.electric_field_gradient(r, t), axis=0)
 
     def randomize_laser_phases(self):
         for beam in self.beam_vector:
@@ -706,9 +684,9 @@ if __name__ == '__main__':
 
     example_beams = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'detuning':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'detuning':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
         ])
 
     print(example_beams.beam_vector[0].jones_vector(np.array([1., 0., 0.]), np.array([0., 1., 0.])))
@@ -720,9 +698,9 @@ if __name__ == '__main__':
 
     example_beams_2 = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'detuning':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'detuning':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
         ])
 
     print(example_beams_2.electric_field_gradient(np.array([0., 0., 0.]), 0.5))
