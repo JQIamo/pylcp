@@ -1,6 +1,6 @@
 import numpy as np
 from inspect import signature
-from .common import cart2spherical, spherical2cart
+from pylcp.common import cart2spherical, spherical2cart
 
 import numba
 
@@ -62,8 +62,8 @@ def promote_to_lambda(val, var_name=None, type='Rt'):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: val(R, t)
                 sig = '(R, t)'
             else:
-                raise StandardError('Signature [%s] of function %s not'+
-                                    'understood.'% (sig, var_name))
+                raise TypeError('Signature [%s] of function %s not'+
+                                'understood.'% (sig, var_name))
 
         return func, sig
     elif type is 't':
@@ -75,8 +75,8 @@ def promote_to_lambda(val, var_name=None, type='Rt'):
             if '(t)' in sig:
                 func = lambda t=0.: val(t)
             else:
-                raise StandardError('Signature [%s] of function %s not '+
-                                    'understood.'% (sig, var_name))
+                raise TypeError('Signature [%s] of function %s not '+
+                                'understood.'% (sig, var_name))
 
         return func, sig
 
@@ -101,8 +101,7 @@ class magField(object):
     """
     An object the calculates relevant properties of a static, magnetic field.
     """
-    def __init__(self, func, FieldMag=None, gradFieldMag=None,
-                 gradField=None, eps=1e-5):
+    def __init__(self, func, eps=1e-5):
         self.eps = eps
 
         R = np.random.rand(3) # Pick a random point for testing
@@ -116,112 +115,10 @@ class magField(object):
             len(response) != 3):
             raise StandardError('Magnetic field function must return a vector.')
 
-        # Next, we deal with the field magnitude:
-        # Has it been specified by the user?
-        if FieldMag is None:
-            # No. Specify it using internal functions.
-            self.FieldMagSig = self.FieldSig
-            # Is it constant?
-            if self.FieldMagSig is '()':
-                # Calculate it once and promote to lambda function:
-                self.FieldMag = promote_to_lambda(self.Field(R, 0.), var_name='for field magnitude')
-            else:
-                self.FieldMag = self.internal_FieldMag
-        else:
-            # Yes. Promote it to a lambda func:
-            self.FieldMag, self.FieldMagSig = promote_to_lambda(func, var_name='for field magnitude')
-
-        # Now, test it out and make sure it returns a float:
-        response = self.FieldMag(R, 0.)
-        if not (isinstance(response, float) or (isinstance(response, list) and len(response) != 1)):
-            raise StandardError('Magnetic field magnitude function must ' +
-                                'return a scalar.')
-
-        # Next, we deal with the gradient of the field magnitude:
-        # Has it been specified by the user?
-        if gradFieldMag is None:
-            # No. Specify it using internal functions.
-            self.gradFieldMagSig = self.FieldMagSig
-            # Is it constant?
-            if self.gradFieldMagSig is '()':
-                # Calculate it once and promote to lambda function:
-                self.gradFieldMag = promote_to_lambda(np.array([0., 0., 0.]), var_name='for field magnitude')
-            else:
-                self.gradFieldMag = self.internal_gradFieldMag
-        else:
-            # Yes. Promote it to a lambda func:
-            self.gradFieldMag, self.gradFieldMagSig = promote_to_lambda(FieldMag, var_name='for field magnitude')
-
-        # Test it out:
-        response = self.gradFieldMag(R, 0.)
-        if (isinstance(response, float) or isinstance(response, int) or
-            len(response) != 3):
-            raise StandardError('gradFieldMag field magnitude function must ' +
-                                'return a vector.')
-
-        # Next, we deal with the gradient of the field magnitude:
-        # Has it been specified by the user?
-        if gradFieldMag is None:
-            # No. Specify it using internal functions.
-            self.gradFieldMagSig = self.FieldMagSig
-            # Is it constant?
-            if self.gradFieldMagSig is '()':
-                # Calculate it once and promote to lambda function:
-                self.gradFieldMag = promote_to_lambda(np.array([0., 0., 0.]), var_name='for field magnitude')
-            else:
-                self.gradFieldMag = self.internal_gradFieldMag
-        else:
-            # Yes. Promote it to a lambda func:
-            self.gradFieldMag, self.gradFieldMagSig = promote_to_lambda(gradFieldMag, var_name='for field magnitude')
-
-        response = self.gradFieldMag(R, 0.)
-        if response.shape != (3, ):
-            raise StandardError('Magnetic field gradient function must ' +
-                                'return a matrix.')
-            self.gradField= gradField
-
-        # Next, we deal with the gradient of the field magnitude:
-        # Has it been specified by the user?
-        if gradField is None:
-            # No. Specify it using internal functions.
-            self.gradFieldSig = self.FieldSig
-            # Is it constant?
-            if self.gradFieldSig is '()':
-                # Calculate it once and promote to lambda function:
-                self.gradField = promote_to_lambda(np.zeros((3, 3)), var_name='for field magnitude')
-            else:
-                self.gradField = self.internal_gradField
-        else:
-            # Yes. Promote it to a lambda func:
-            self.gradFieldMag, self.gradFieldMagSig = promote_to_lambda(gradField, var_name='for field magnitude')
-
-        response = self.gradField(R, 0.)
-        if response.shape != (3, 3):
-            raise StandardError('Magnetic field gradient function must ' +
-                                'return a matrix.')
-            self.gradField= gradField
-
-
-    def return_dx_dy_dz(self, R):
-        if R.shape == (3,):
-            dx = np.array([self.eps, 0., 0.])
-            dy = np.array([0., self.eps, 0.])
-            dz = np.array([0., 0., self.eps])
-        else:
-            dx = np.zeros(R.shape)
-            dy = np.zeros(R.shape)
-            dz = np.zeros(R.shape)
-
-            dx[0] = self.eps
-            dy[1] = self.eps
-            dz[2] = self.eps
-
-        return dx, dy, dz
-
-    def internal_FieldMag(self, R=np.array([0., 0., 0.]), t=0):
+    def FieldMag(self, R=np.array([0., 0., 0.]), t=0):
         return np.linalg.norm(self.Field(R, t))
 
-    def internal_gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
+    def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
         dx, dy, dz = return_dx_dy_dz(R, self.eps)
 
         return np.array([
@@ -230,7 +127,7 @@ class magField(object):
             (self.FieldMag(R+dz, t)-self.FieldMag(R-dz, t))/2/self.eps
             ])
 
-    def internal_gradField(self, R=np.array([0., 0., 0.]), t=0):
+    def gradField(self, R=np.array([0., 0., 0.]), t=0):
         dx, dy, dz = return_dx_dy_dz(R, self.eps)
 
         return np.array([
@@ -240,95 +137,125 @@ class magField(object):
             ])
 
 
+def constantMagneticField(magField):
+    def __init__(self, val):
+        super().__init__(lambda R, t: val)
+
+        self.constant_grad_field_mag = np.zeros((3,))
+        self.constant_grad_field = np.zeros((3,3))
+
+    def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
+        return self.constant_grad_field_mag
+
+    def gradField(self, R=np.array([0., 0., 0.]), t=0):
+        return self.constant_grad_field
+
+
+def quadrupoleMagneticField(magField):
+    def __init__(self, alpha, eps=1e-5):
+        super().__init__(lambda R, t: alpha*np.array([-0.5*R[0], -0.5*R[1], R[2]]))
+        self.alpha = alpha
+
+        self.constant_grad_field = alpha*\
+            np.array([[-0.5, 0., 0.], [0., -0.5, 0.], [0., 0., 1.]])
+
+    def gradField(self, R=np.array([0., 0., 0.]), t=0):
+        return self.constant_grad_field
+
 # First, define the laser beam class:
-class laserBeam():
-    def __init__(self, kvec=np.array([1., 0., 0.]), beta = 1.,
-                 pol = 1., delta = 0., pol_coord='cartesian',
-                 phase = 0., eps=1e-5):
-
-        def _test_callable_function(func, str1):
-            """
-            A small, nest functioned  to see what the function gives at a random point:
-            """
-            vec_test = func(np.random.random((3,)))
-            if not np.isclose(np.linalg.norm(vec_test), 1):
-                raise ValueError(str1 + 'function does not return unit vector.')
+class laserBeam(object):
+    def __init__(self, kvec=None, beta=None, pol=None, detuning=None,
+                 phase=0., pol_coord='spherical', eps=1e-5):
+        # Promote it to a lambda func:
+        if not kvec is None:
+            self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
 
         # Promote it to a lambda func:
-        self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
+        if not beta is None:
+            self.beta, self.beta_sig = promote_to_lambda(beta, var_name='beta')
 
-        # Promote it to a lambda func:
-        self.beta, self.beta_sig = promote_to_lambda(beta, var_name='beta')
+        if not pol is None:
+            if not callable(pol):
+                pol = self.__parse_constant_polarization(pol, pol_coord)
 
-        # Promote it to a lambda func:
-        self.detuning, self.detuning_sig = promote_to_lambda(delta, var_name='detuning', type='t')
-
-        if not callable(pol):
-            if isinstance(pol, float) or isinstance(pol, int):
-                """
-                If the polarization is defined by just a single number (+/-1),
-                we assume that the polarization is defined as sigma^+ or sigma^-
-                using the k-vector of the light as the axis defining z.  In this
-                case, we want to project onto the actual z axis, which is
-                relatively simple as there is only one angle.
-                """
-                # Set the polarization in this direction:
-                if np.sign(pol)<0:
-                    self.pol = np.array([1., 0., 0.], dtype='complex')
-                else:
-                    self.pol = np.array([0., 0., 1.], dtype='complex')
-
-                # Promote to lambda:
-                self.pol, self.pol_sig = promote_to_lambda(self.pol, var_name='polarization')
-
-                # Project onto the actual k-vector:
-                self.pol = self.project_pol(self.kvec(), invert=True).astype('complex128')
-
-            elif isinstance(pol, np.ndarray):
-                if pol.shape != (3,):
-                    raise ValueError("pol, when a vector, must be a (3,) array")
-
-                # The user has specified a single polarization vector in
-                # cartesian coordinates:
-                if pol_coord=='cartesian':
-                    # Check for transverseness:
-                    if np.abs(np.dot(self.kvec(), pol)) > 1e-9:
-                        raise ValueError("I'm sorry; light is a transverse wave")
-
-                    # Always store in spherical basis.  Matches Brown and Carrington.
-                    self.pol = cart2spherical(pol).astype('complex128')
-
-                # The user has specified a single polarization vector in
-                # spherical basis:
-                elif pol_coord=='spherical':
-                    pol_cart = spherical2cart(pol)
-
-                    # Check for transverseness:
-                    if np.abs(np.dot(self.kvec(), pol_cart)) > 1e-9:
-                        raise ValueError("I'm sorry; light is a transverse wave")
-
-                    # Save the variable:
-                    self.pol = pol.astype('complex128')
-
-                # Finally, normalize
-                self.pol = self.pol/np.linalg.norm(self.pol)
-            else:
-                raise ValueError("pol must be +1, -1, or a numpy array")
-
-            self.pol, self.pol_sig = promote_to_lambda(self.pol, var_name='polarization')
-        else:
-            # 'Tis a function, so let's save the function:
+            # Now, promote!
             self.pol, self.pol_sig = promote_to_lambda(pol, var_name='polarization')
+
+        # Promote it to a lambda func:
+        if not detuning is None:
+            self.detuning, self.detuning_sig = promote_to_lambda(detuning, var_name='detuning', type='t')
 
         self.phase = phase
         self.eps = eps
 
-        self.infinite_beam = not ('R' in self.kvec_sig or
-                                  'R' in self.beta_sig or
-                                  'R' in self.pol_sig)
+    def __parse_constant_polarization(self, pol, pol_coord):
+        if isinstance(pol, float) or isinstance(pol, int):
+            """
+            If the polarization is defined by just a single number (+/-1),
+            we assume that the polarization is defined as sigma^+ or sigma^-
+            using the k-vector of the light as the axis defining z.  In this
+            case, we want to project onto the actual z axis, which is
+            relatively simple as there is only one angle.
+            """
+            # Set the polarization in this direction:
+            if np.sign(pol)<0:
+                self.pol = np.array([1., 0., 0.], dtype='complex')
+            else:
+                self.pol = np.array([0., 0., 1.], dtype='complex')
 
-        # TODO: add testing of kvec/pol orthogonality.
+            # Promote to lambda:
+            self.pol, self.pol_sig = promote_to_lambda(self.pol, var_name='polarization')
 
+            # Project onto the actual k-vector:
+            self.pol = self.project_pol(self.kvec(), invert=True).astype('complex128')
+
+        elif isinstance(pol, np.ndarray):
+            if pol.shape != (3,):
+                raise ValueError("pol, when a vector, must be a (3,) array")
+
+            # The user has specified a single polarization vector in
+            # cartesian coordinates:
+            if pol_coord=='cartesian':
+                # Check for transverseness:
+                if np.abs(np.dot(self.kvec(), pol)) > 1e-9:
+                    raise ValueError("I'm sorry; light is a transverse wave")
+
+                # Always store in spherical basis.  Matches Brown and Carrington.
+                self.pol = cart2spherical(pol).astype('complex128')
+
+            # The user has specified a single polarization vector in
+            # spherical basis:
+            elif pol_coord=='spherical':
+                pol_cart = spherical2cart(pol)
+
+                # Check for transverseness:
+                if np.abs(np.dot(self.kvec(), pol_cart)) > 1e-9:
+                    raise ValueError("I'm sorry; light is a transverse wave")
+
+                # Save the variable:
+                self.pol = pol.astype('complex128')
+
+            # Finally, normalize
+            self.pol = self.pol/np.linalg.norm(self.pol)
+        else:
+            raise ValueError("pol must be +1, -1, or a numpy array")
+
+        return self.pol
+
+
+    def kvec(self, R=np.array([0., 0., 0.]), t=0.):
+        pass
+
+    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        pass
+
+    def pol(self, R=np.array([0., 0., 0.]), t=0.):
+        pass
+
+    def detuning(self, t=0.):
+        pass
+
+    # TODO: add testing of kvec/pol orthogonality.
     def project_pol(self, quant_axis, R=np.array([0., 0., 0.]), t=0,
                     treat_nans=False, calculate_norm=False, invert=False):
         """
@@ -428,7 +355,7 @@ class laserBeam():
         """
         Returns the polarization in Cartesian coordinates.
         """
-        pol = self.return_pol(R, t)
+        pol = self.pol(R, t)
         return spherical2cart(pol)
 
     def jones_vector(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
@@ -486,7 +413,7 @@ class laserBeam():
         return (psi, chi)
 
 
-    def electric_field(self, R, t, mean_detuning=0):
+    def electric_field(self, R, t):
         """
         Returns the electric field of the laser beam at position R and time t.
         More specifically, this function returns E^\dagger, or so it would
@@ -503,20 +430,16 @@ class laserBeam():
             Eq = pol*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
                                 -1j*self.phase)
         else:
-            Eq = np.multiply(
-                pol.reshape(3, t.size),
-                amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
-                           -1j*self.phase)
-            )
+            Eq = pol.reshape(3, t.size)*\
+            (amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t -1j*self.phase)).reshape(1, t.size)
 
         return Eq
 
 
-    def electric_field_gradient(self, R, t, mean_detuning=0):
+    def electric_field_gradient(self, R, t):
         """
         Returns the gradient of the electric field of the laser beam at
-        position R and time t.  TODO: include effects like gradient of
-        amplitude,  kvec, or individual pol components.
+        position R and time t by numerical computation.
         """
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
@@ -525,46 +448,123 @@ class laserBeam():
 
         amp = np.sqrt(beta/2)
 
-        if self.infinite_beam:
-            if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-                delEq = np.multiply(-kvec.reshape(3, 1), pol.reshape(1, 3))*\
-                     1j*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
-                                              -1j*self.phase)
-            else:
-                delEq = np.multiply(
-                    np.multiply(-kvec.reshape(3, 1, t.size),
-                                pol.reshape(1, 3, t.size)),
-                    1j*amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t +
-                                  -1j*self.phase)
-                )
-        else:
-            (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
-            delEq = np.array([
-                 (self.electric_field(R+dx, t) -
-                  self.electric_field(R-dx, t))/2/self.eps,
-                 (self.electric_field(R+dy, t) -
-                  self.electric_field(R-dy, t))/2/self.eps,
-                 (self.electric_field(R+dz, t) -
-                  self.electric_field(R-dz, t))/2/self.eps
-                ])
+        (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
+        delEq = np.array([
+            (self.electric_field(R+dx, t) -
+             self.electric_field(R-dx, t))/2/self.eps,
+            (self.electric_field(R+dy, t) -
+             self.electric_field(R-dy, t))/2/self.eps,
+            (self.electric_field(R+dz, t) -
+             self.electric_field(R-dz, t))/2/self.eps
+            ])
 
         return delEq
 
 
+class infinitePlaneWaveBeam(laserBeam):
+    def __init__(self, kvec, pol, beta, detuning, **kwargs):
+        if callable(kvec):
+            raise TypeError('kvec cannot be a function for an infinite plane wave.')
 
-class laserBeams(laserBeam):
+        if callable(beta):
+            raise TypeError('Beta cannot be a function for an infinite plane wave.')
+
+        if callable(pol):
+            raise TypeError('Polarization cannot be a function for an infinite plane wave.')
+
+        # Use the super class to define the functions kvec, beta, pol, and detuning.
+        super().__init__(kvec=kvec, beta=beta, pol=pol, detuning=detuning,
+                         **kwargs)
+
+        # Save the constant values (might be useful):
+        self.con_kvec = kvec
+        self.con_beta = beta
+        self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
+
+        self.amp = np.sqrt(self.con_beta/2)
+
+        self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
+                              self.con_pol.reshape(1, 3))
+        self.amp = np.sqrt(self.con_beta/2)
+
+    def electric_field_gradient(self, R, t):
+        """
+        With an infinite plane wave, the derivative is simple.
+        """
+        delta = self.detuning(t)
+
+        if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
+            delEq = self.dEq_prefactor*\
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t -1j*self.phase)
+        else:
+            delEq = self.dEq_prefactor.reshape(3, 3, 1)*\
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t -1j*self.phase).reshape(1, 1, t.size)
+
+        return delEq
+
+
+class gaussianBeam(laserBeam):
+    def __init__(self, kvec, pol, beta_max, detuning, wb, **kwargs):
+        if callable(kvec):
+            raise TypeError('kvec cannot be a function for a Gaussian beam.')
+
+        if callable(pol):
+            raise TypeError('Polarization cannot be a function for an infinite plane wave.')
+
+        # Use super class to define kvec(R, t), pol(R, t), and detuning(t)
+        super().__init__(kvec=kvec, pol=pol, detuning=detuning, **kwargs)
+
+        # Save the constant values (might be useful):
+        self.con_kvec = kvec
+        self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
+
+        # Save the parameters specific to the Gaussian beam:
+        self.beta_max = beta_max
+        self.wb = wb
+        self.__define_rotation_matrix()
+
+    def __define_rotation_matrix(self):
+        # Angles of rotation:
+        th = np.arccos(self.con_kvec[2])
+        phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
+
+        self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
+                               np.cos(phi) + np.cos(th)*np.sin(phi),\
+                               -np.sin(th)])
+
+    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        return self.beta_max*np.exp(-2*(np.dot(self.rvals, R)**2)/self.wb**2)
+
+
+class clippedGaussianBeam(gaussianBeam):
+    def __init__(self, kvec, pol, beta_max, detuning, wb, rs, **kwargs):
+        super().__init__(kvec, pol, beta_max, detuning, wb, **kwargs)
+
+        self.rs = rs # Save the value of the stop.
+
+    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        beta for the slightly more advanced, `clipped' Gaussian beam.
+        """
+        rho_sq = np.dot(self.rvals, R)**2
+
+        return self.beta_max*np.exp(-2*(rho_sq)/wb**2)*(np.sqrt(rho_sq)<self.rs)
+
+
+
+class laserBeams(object):
     """
     Class laserBeams is a collection of laserBeams.  It extends the
     functionality and makes
     """
-    def __init__(self, laserbeamparams=None):
+    def __init__(self, laserbeamparams=None, beam_type=laserBeam):
         if laserbeamparams is not None:
             if not isinstance(laserbeamparams, list):
                 raise ValueError('laserbeamparams must be a list.')
             self.beam_vector = []
             for laserbeamparam in laserbeamparams:
                 if isinstance(laserbeamparam, dict):
-                    self.beam_vector.append(laserBeam(**laserbeamparam))
+                    self.beam_vector.append(beam_type(**laserbeamparam))
                 elif isinstance(laserbeamparam, laserBeam):
                     self.beam_vector.append(laserbeamparam)
                 else:
@@ -606,7 +606,7 @@ class laserBeams(laserBeam):
         return np.array([beam.kvec(R, t) for beam in self.beam_vector])
 
     def detuning(self, t=0):
-        return [beam.detuning(t) for beam in self.beam_vector]
+        return np.array([beam.detuning(t) for beam in self.beam_vector])
 
     def electric_field(self, R=np.array([0., 0., 0.]), t=0., mean_detuning=0):
         return np.array([beam.electric_field(R, t) for beam in self.beam_vector])
@@ -681,6 +681,21 @@ class laserBeams(laserBeam):
         return [beam.polarization_ellipse(xp, yp, R, t) for beam in self.beam_vector]
 
 
+class conventional3DMOTBeams(laserBeams):
+    def __init__(self, *args, **kwargs):
+        super().__init__()
+
+        beam_type = kwargs.pop('beam_type', laserBeam)
+        pol = kwargs.pop('pol', +1)
+
+        self.add_laser(beam_type(np.array([ 1.,  0.,  0.]), -pol, *args, **kwargs))
+        self.add_laser(beam_type(np.array([-1.,  0.,  0.]), -pol, *args, **kwargs))
+        self.add_laser(beam_type(np.array([ 0.,  1.,  0.]), -pol, *args, **kwargs))
+        self.add_laser(beam_type(np.array([ 0., -1.,  0.]), -pol, *args, **kwargs))
+        self.add_laser(beam_type(np.array([ 0.,  0.,  1.]), +pol, *args, **kwargs))
+        self.add_laser(beam_type(np.array([ 0.,  0., -1.]), +pol, *args, **kwargs))
+
+
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
 
@@ -691,9 +706,9 @@ if __name__ == '__main__':
 
     example_beams = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'detuning':-2, 'beta': 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'detuning':-2, 'beta': 1.},
         ])
 
     print(example_beams.beam_vector[0].jones_vector(np.array([1., 0., 0.]), np.array([0., 1., 0.])))
@@ -705,9 +720,22 @@ if __name__ == '__main__':
 
     example_beams_2 = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'detuning':-2, 'beta': lambda R: 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'detuning':-2, 'beta': lambda R: 1.},
         ])
 
     print(example_beams_2.electric_field_gradient(np.array([0., 0., 0.]), 0.5))
+
+    example_beam = gaussianBeam(np.array([1., 0., 0.]), +1, 5, -2, 1000)
+    print(example_beam.beta(np.array([0., 1000/np.sqrt(2), 1000/np.sqrt(2)])))
+
+    example_beam = infinitePlaneWaveBeam(np.array([1., 0., 0.]), +1, 5, -2)
+    print(example_beam.electric_field_gradient(np.array([0., 0., 0.]), 0.))
+
+    R = np.random.rand(3, 101)
+    t = np.linspace(0, 10, 101)
+    print(example_beam.electric_field_gradient(R, t).shape)
+
+    MOT_beams = conventional3DMOTBeams(-2, 1, beam_type=gaussianBeam, wb=1000)
+    MOT_beams.beam_vector[1].kvec()
