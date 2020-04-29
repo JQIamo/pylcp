@@ -45,6 +45,9 @@ class infiniteGratingMOTBeams(laserBeams):
         super().__init__()
 
         self.nr = nr
+        self.thd = thd
+        self.grating_angle = grating_angle
+
         if not eta:
             self.eta = 1/nr
 
@@ -74,22 +77,28 @@ class infiniteGratingMOTBeams(laserBeams):
         self.svec = svec
 
 
-    def __calculate_reflected_kvecs_and_pol(self):
+    def __calculate_reflected_kvecs_and_pol(self, reflected_pol, reflected_pol_basis):
         # Preallocate memory for the polarizations (no need to store kvec or the
         # polarization because those are stored in the laser)
         svec = np.zeros((3, self.nr))
         pvec = np.zeros((3, self.nr))
 
         for ii in range(nr):  # Reflected beams
-            kvec = np.array([-np.sin(thd)*np.cos(2*np.pi*ii/nr+grating_angle),
-                             -np.sin(thd)*np.sin(2*np.pi*ii/nr+grating_angle),
-                             -np.cos(thd)])
-            svec[:, ii] = np.array([-np.sin(2*np.pi*ii/nr+grating_angle),
-                                     np.cos(2*np.pi*ii/nr+grating_angle),
+            kvec = np.array([-np.sin(self.thd)*np.cos(2*np.pi*ii/self.nr
+                                                      +self.grating_angle),
+                             -np.sin(self.thd)*np.sin(2*np.pi*ii/self.nr+
+                                                      self.grating_angle),
+                             -np.cos(self.thd)])
+            svec[:, ii] = np.array([-np.sin(2*np.pi*ii/self.nr+
+                                            self.grating_angle),
+                                     np.cos(2*np.pi*ii/self.nr+
+                                            self.grating_angle),
                                      0.])
-            pvec[:, ii] = np.array([np.cos(thd)*np.cos(2*np.pi*ii/nr+grating_angle),
-                                    np.cos(thd)*np.sin(2*np.pi*ii/nr+grating_angle),
-                                    -np.sin(thd)])
+            pvec[:, ii] = np.array([np.cos(self.thd)*np.cos(2*np.pi*ii/nr+
+                                                            self.grating_angle),
+                                    np.cos(self.thd)*np.sin(2*np.pi*ii/nr+
+                                                            self.grating_angle),
+                                    -np.sin(self.thd)])
 
 
             if reflected_pol_basis == 'poincare':
@@ -104,8 +113,8 @@ class infiniteGratingMOTBeams(laserBeams):
                 raise NotImplementedError("Stokes parameters not yet implemented.")
             elif reflected_pol_basis == 'waveplate':
                 svec_inp = -svec[:, ii]
-                pvec_inp = np.array([np.cos(2*np.pi*ii/nr+grating_angle),
-                                     np.sin(2*np.pi*ii/nr+grating_angle),
+                pvec_inp = np.array([np.cos(2*np.pi*ii/nr+self.grating_angle),
+                                     np.sin(2*np.pi*ii/nr+self.grating_angle),
                                      0.])
 
                 """
@@ -138,15 +147,73 @@ class infiniteGratingMOTBeams(laserBeams):
 
         return kvec, pol_ref, svec, pvec
 
+
 class inputGaussianBeam(clippedGaussianBeam):
+    def __init__(self, center_hole=0.0, zgrating=1.0, grating_angle=0):
+
+        self.center_hole = kwargs.pop('center_hole', 0.0)
+        self.nb = kwargs.pop('nb', 3)
+
+        self.k, s, wb, rs):
+
+        __
+    # Helper Functions for grating_MOT_beams:
+    def beta(self, R, t):
+        """
+        Masks the intensity profile of the input beam after it
+        goes through the chip.
+
+        R: x,y,z coordinates at which to calculate intensity.
+
+        k: normalized k vector of the laser beam.
+        Assumed to be along the z axis!
+
+        s: peak intensity of the laser beam.
+
+        wb: 1/e^2 radius of the input gaussian beam.
+
+        rs: radius of the input beam stop.
+
+        nr: number of reflected beams.
+
+        center_hole: inscribed radius of center hole.
+
+        zgrating: z position of the diffraction grating chip.
+
+        grating_angle: overall azimuthal rotation of the grating.
+        """
+        # Check that k is aligned with z axis:
+        if np.any(np.arccos(k[2]) != 0):
+            raise ValueError('chip_masked_beam must be aligned with z axis')
+        # Determine the center angle of this section:
+        th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
+        # Initialize mask:
+        if isinstance(R[0], np.ndarray):
+            MASK = np.ones(R[0].shape, dtype=bool)
+        else:
+            MASK = True
+        # Add in the center hole:
+        for th_center_i in th_center:
+            MASK = np.bitwise_and(MASK, (R[0]*np.cos(th_center_i) +
+                                         R[1]*np.sin(th_center_i)) <= center_hole)
+        # Make sure that the mask only applies after the chip.
+        MASK = np.bitwise_or(MASK, R[2] <= zgrating)
+
+        # Next, calculate the BETA function:
+        BETA = s*clipped_gaussian_beam(R,k,wb,rs)*MASK.astype(float)
+
+        return BETA
+
 
 class reflectedGaussianBeam(clippedGaussianBeam):
-    def __init__():
+    def __init__(self):
+        pass
+
     def __grating_reflected_beam(R, k, ii, nr, s, eta, thd, k_in, wb, rs,
                                  center_hole=0.0,
                                  outer_radius=10.0,
-                              zgrating=1.0,
-                              grating_angle=0):
+                                 zgrating=1.0,
+                                 grating_angle=0):
             """Intensity profile of the reflected beams from the chip.
             R: x,y,z coordinates at which to calculate intensity.
 
@@ -323,106 +390,3 @@ class maskedGaussianGratingMOTBeams(gratingMOTBeams):
                                                        k_in, wb, rs, center_hole,
                                                        outer_radius, zgrating,
                                                        grating_angle)
-
-    # Helper Functions for grating_MOT_beams:
-    def __chip_masked_beam(R, k, nr, s, wb, rs,
-                          center_hole=0.0,
-                          zgrating=1.0,
-                          grating_angle=0):
-        """
-        Masks the intensity profile of the input beam after it
-        goes through the chip.
-
-        R: x,y,z coordinates at which to calculate intensity.
-
-        k: normalized k vector of the laser beam.
-        Assumed to be along the z axis!
-
-        s: peak intensity of the laser beam.
-
-        wb: 1/e^2 radius of the input gaussian beam.
-
-        rs: radius of the input beam stop.
-
-        nr: number of reflected beams.
-
-        center_hole: inscribed radius of center hole.
-
-        zgrating: z position of the diffraction grating chip.
-
-        grating_angle: overall azimuthal rotation of the grating.
-        """
-        # Check that k is aligned with z axis:
-        if np.any(np.arccos(k[2]) != 0):
-            raise ValueError('chip_masked_beam must be aligned with z axis')
-        # Determine the center angle of this section:
-        th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
-        # Initialize mask:
-        if isinstance(R[0], np.ndarray):
-            MASK = np.ones(R[0].shape, dtype=bool)
-        else:
-            MASK = True
-        # Add in the center hole:
-        for th_center_i in th_center:
-            MASK = np.bitwise_and(MASK, (R[0]*np.cos(th_center_i) +
-                                         R[1]*np.sin(th_center_i)) <= center_hole)
-        # Make sure that the mask only applies after the chip.
-        MASK = np.bitwise_or(MASK, R[2] <= zgrating)
-
-        # Next, calculate the BETA function:
-        BETA = s*clipped_gaussian_beam(R,k,wb,rs)*MASK.astype(float)
-
-        return BETA
-
-    # Helper Functions for grating_MOT_beams:
-    def __chip_masked_reflected_beam(R, k, nr, s, wb, rs,
-                                     eta,
-                                     center_hole=0.0,
-                                     zgrating=1.0,
-                                     grating_angle=0):
-        """Masks the intensity profile of the input beam after it
-        goes through the chip.
-        R: x,y,z coordinates at which to calculate intensity.
-
-        k: normalized k vector of the laser beam.
-        Assumed to be along the z axis!
-
-        s: peak intensity of the laser beam.
-
-        wb: 1/e^2 radius of the input gaussian beam.
-
-        rs: radius of the input beam stop.
-
-        eta: diffraction efficiency for the 0th order beam.
-
-        nr: number of reflected beams.
-
-        center_hole: inscribed radius of center hole.
-
-        zgrating: z position of the diffraction grating chip.
-
-        grating_angle: overall azimuthal rotation of the grating.
-        """
-        # Check that k is aligned with z axis:
-        if np.any(np.arccos(k[2]) != np.pi):
-            raise ValueError('chip_masked_reflected_beam must be aligned opposite the z axis')
-        # Determine the center angle of this section:
-        th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
-        # Initialize mask:
-        if isinstance(R[0], np.ndarray):
-            MASK = np.ones(R[0].shape, dtype=bool)
-        else:
-            MASK = True
-        # Add in the center hole:
-        for th_center_i in th_center:
-            MASK = np.bitwise_and(MASK, (R[0]*np.cos(th_center_i) +
-                                         R[1]*np.sin(th_center_i)) <= center_hole)
-        # Negate the MASK:
-        MASK = np.bitwise_not(MASK)
-        # remove the beam after the chip.
-        MASK = np.bitwise_and(MASK, R[2] <= zgrating)
-
-        # Next, calculate the BETA function:
-        BETA = s*eta*clipped_gaussian_beam(R,k,wb,rs)*MASK.astype(float)
-
-        return BETA
