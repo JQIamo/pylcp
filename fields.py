@@ -442,7 +442,7 @@ class laserBeam(object):
 
 
 class infinitePlaneWaveBeam(laserBeam):
-    def __init__(self, kvec, pol, beta, delta, **kwargs):
+    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for an infinite plane wave.')
 
@@ -460,12 +460,10 @@ class infinitePlaneWaveBeam(laserBeam):
         self.con_kvec = kvec
         self.con_beta = beta
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
-
+        # Define attributes to speed up gradient calculation:
         self.amp = np.sqrt(self.con_beta/2)
-
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
                               self.con_pol.reshape(1, 3))
-        self.amp = np.sqrt(self.con_beta/2)
 
     def electric_field_gradient(self, R, t):
         """
@@ -475,7 +473,7 @@ class infinitePlaneWaveBeam(laserBeam):
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
             delEq = self.dEq_prefactor*\
-            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t -1j*self.phase)
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t - 1j*self.phase)
         else:
             delEq = self.dEq_prefactor.reshape(3, 3, 1)*\
             np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t -1j*self.phase).reshape(1, 1, t.size)
@@ -484,12 +482,12 @@ class infinitePlaneWaveBeam(laserBeam):
 
 
 class gaussianBeam(laserBeam):
-    def __init__(self, kvec, pol, beta_max, delta, wb, **kwargs):
+    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
         if callable(pol):
-            raise TypeError('Polarization cannot be a function for an infinite plane wave.')
+            raise TypeError('Polarization cannot be a function for a Gaussian beam.')
 
         # Use super class to define kvec(R, t), pol(R, t), and delta(t)
         super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
@@ -499,37 +497,37 @@ class gaussianBeam(laserBeam):
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
         # Save the parameters specific to the Gaussian beam:
-        self.beta_max = beta_max
-        self.wb = wb
+        self.beta_max = beta # central saturation parameter
+        self.wb = wb # 1/e^2 radius
         self.__define_rotation_matrix()
 
     def __define_rotation_matrix(self):
         # Angles of rotation:
         th = np.arccos(self.con_kvec[2])
         phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
-
+        # square the rotation to save operation in beta
         self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
                                np.cos(phi) + np.cos(th)*np.sin(phi),\
-                               -np.sin(th)])
+                               -np.sin(th)])**2
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        return self.beta_max*np.exp(-2*(np.dot(self.rvals, R)**2)/self.wb**2)
+        return self.beta_max*np.exp(-2*np.einsum('i,i...->...',self.rvals,\
+                                                  R**2)/self.wb**2)
 
 
 class clippedGaussianBeam(gaussianBeam):
-    def __init__(self, kvec, pol, beta_max, delta, wb, rs, **kwargs):
-        super().__init__(kvec, pol, beta_max, delta, wb, **kwargs)
+    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., rs=2., **kwargs):
+        super().__init__(kvec=kvec, pol=pol, beta=beta, delta=delta, wb=wb, **kwargs)
 
-        self.rs = rs # Save the value of the stop.
+        self.rs = rs # Save the radius of the stop.
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
         """
         beta for the slightly more advanced, `clipped' Gaussian beam.
         """
-        rho_sq = np.dot(self.rvals, R)**2
+        rho_sq = np.einsum('i,i...->...',self.rvals, R**2)
 
-        return self.beta_max*np.exp(-2*(rho_sq)/wb**2)*(np.sqrt(rho_sq)<self.rs)
-
+        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
 
 
 class laserBeams(object):
