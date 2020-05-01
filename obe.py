@@ -667,9 +667,6 @@ class obe():
             f_laser_q = {}
             f_laser = {}
 
-        # Reshape the solution:
-        (t, rho) = self.reshape_sol()
-
         for key in self.laserBeams:
             # First, determine the average mu_q:
             # This returns a (3,) + rho.shape[2:] array
