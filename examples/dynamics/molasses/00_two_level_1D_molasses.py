@@ -11,7 +11,7 @@ import cProfile, pstats, io
 import lmfit
 from pylcp.common import progressBar
 plt.style.use('paper')
-savefigs = True
+savefigs = False
 
 # %%
 """
@@ -129,7 +129,7 @@ for ii in range(N_atom):
 
     v_final[ii] = eqn.sol.y[-6, -1]
 
-    num_of_scatters[ii] = len(eqn.sol.t_events[0])
+    num_of_scatters[ii] = sum(eqn.sol.n_random)
     num_of_steps[ii] = len(eqn.sol.t)
 
 ax.set_xlabel('$\Gamma t$')

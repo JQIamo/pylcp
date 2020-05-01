@@ -8,6 +8,8 @@ from scipy.integrate._ivp.lsoda import LSODA
 from scipy.optimize import OptimizeResult
 from scipy.integrate._ivp.common import EPS, OdeSolution
 from scipy.integrate._ivp.base import OdeSolver
+from scipy.integrate._ivp.ivp import (prepare_events, solve_event_equation,
+                                      handle_events, find_active_events)
 import time
 from .common import progressBar
 
@@ -22,13 +24,16 @@ MESSAGES = {0: "The solver successfully reached the end of the integration inter
             1: "A termination event occurred."}
 
 
-class OdeResult(OptimizeResult):
+class RandomOdeResult(OptimizeResult):
+    """
+    Optimize result is a dictionary where each key becomes an attribute.  Neat.
+    """
     pass
 
 
-def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
-                     dense_output=False, vectorized=False, args=None,
-                     progress_bar=False, **options):
+def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
+                     dense_output=False, events=None, vectorized=False,
+                     args=None, progress_bar=False, **options):
     """Solve an initial value problem for a system of ODEs.
     This function numerically integrates a system of ordinary differential
     equations given an initial value::
@@ -395,9 +400,26 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
         ys = []
 
     interpolants = []
-    t_events = []
-    n_events = []
-    y_events = []
+
+    events, is_terminal, event_dir = prepare_events(events)
+
+    if events is not None:
+        if args is not None:
+            # Wrap user functions in lambdas to hide the additional parameters.
+            # The original event function is passed as a keyword argument to the
+            # lambda to keep the original function in scope (i.e. avoid the
+            # late binding closure "gotcha").
+            events = [lambda t, x, event=event: event(t, x, *args)
+                      for event in events]
+        g = [event(t0, y0) for event in events]
+        t_events = [[] for _ in range(len(events))]
+        y_events = [[] for _ in range(len(events))]
+    else:
+        t_events = None
+        y_events = None
+
+    t_random = []
+    n_random = []
 
     if progress_bar:
         progress = progressBar()
@@ -412,7 +434,8 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
             status = -1
             break
 
-        (event, max_step) = random_func(solver.t, solver.y, solver.step_size)
+        (random_event_number, max_step) = random_func(solver.t, solver.y,
+                                                      solver.step_size)
         if not max_step is None:
             solver.max_step = max_step
 
@@ -420,16 +443,36 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
         t = solver.t
         y = solver.y
 
-        if event:
-            t_events.append(t)
-            n_events.append(int(event))
-            y_events.append(y)
+        if random_event_number>0:
+            t_random.append(t)
+            n_random.append(int(random_event_number))
 
         if dense_output:
             sol = solver.dense_output()
             interpolants.append(sol)
         else:
             sol = None
+
+        if events is not None:
+            g_new = [event(t, y) for event in events]
+            active_events = find_active_events(g, g_new, event_dir)
+            if active_events.size > 0:
+                if sol is None:
+                    sol = solver.dense_output()
+
+                root_indices, roots, terminate = handle_events(
+                    sol, events, active_events, is_terminal, t_old, t)
+
+                for e, te in zip(root_indices, roots):
+                    t_events[e].append(te)
+                    y_events[e].append(sol(te))
+
+                if terminate:
+                    status = 1
+                    t = roots[-1]
+                    y = sol(t)
+
+            g = g_new
 
         if t_eval is None:
             ts.append(t)
@@ -461,6 +504,10 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
 
     message = MESSAGES.get(status, message)
 
+    if t_events is not None:
+        t_events = [np.asarray(te) for te in t_events]
+        y_events = [np.asarray(ye) for ye in y_events]
+
     if t_eval is None:
         ts = np.array(ts)
         ys = np.vstack(ys).T
@@ -468,9 +515,9 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
         ts = np.hstack(ts)
         ys = np.hstack(ys)
 
-    if len(t_events)>0:
-        t_events = np.array(t_events)
-        y_events = np.vstack(y_events).T
+    if len(t_random)>0:
+        t_random = np.array(t_random)
+        n_random = np.vstack(n_random)
 
     if dense_output:
         if t_eval is None:
@@ -480,10 +527,16 @@ def solve_ivp_random(fun, random_func, t_span, y0, method='RK45', t_eval=None,
     else:
         sol = None
 
-    return OdeResult(t=ts, y=ys, sol=sol, t_events=(t_events, n_events),
-                     y_events=y_events, nfev=solver.nfev, njev=solver.njev,
-                     nlu=solver.nlu, status=status, message=message,
-                     success=status >= 0)
+    inds_random = np.zeros(ts.shape, dtype='bool')
+    for t_i in t_random:
+        inds_random = np.bitwise_or(inds_random, ts==t_i)
+
+    return RandomOdeResult(t=ts, y=ys, sol=sol, t_events=t_events,
+                           y_events=y_events, t_random=t_random,
+                           n_random=n_random, inds_random=inds_random,
+                           nfev=solver.nfev, njev=solver.njev,
+                           nlu=solver.nlu, status=status, message=message,
+                           success=status >= 0)
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
@@ -493,14 +546,14 @@ if __name__ == '__main__':
 
     def func2(t, y, dt):
         if np.random.rand()<2*dt:
-            y[1]+=np.random.randn()
+            y[1]+=5*np.random.randn()
             return (True, max(0.1, y[1]))
         else:
             return (False, max(0.1, y[1]))
 
     sol = solve_ivp_random(dydt, func2, [0, 2*np.pi], [0, 1],
                            max_step=0.1, method='RK45')
-    sol.y_events
+
     plt.figure()
     plt.plot(sol.t, sol.y.T)
-    plt.plot(sol.t_events[0], sol.y_events[1], '.')
+    plt.plot(sol.t_random, sol.y[:, sol.inds_random].T, '.')
