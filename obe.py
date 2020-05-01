@@ -662,7 +662,7 @@ class obe():
 
     def force(self, r, t, rho, return_details=False):
         if rho.shape[0] == (self.hamiltonian.n**2,):
-            rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) + rho.shape[1:])
+            rho = self.reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
         if return_details:
