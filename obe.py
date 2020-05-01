@@ -645,11 +645,13 @@ class obe():
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise ValueError('rho must have dimensions (n, n,...), where n '+
                              'corresponds to the number of states in the '+
-                             'generating Hamiltonian.')
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of rho is %s.'%str(rho.shape))
         elif O.shape[-2:]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise ValueError('O must have dimensions (..., n, n), where n '+
                              'corresponds to the number of states in the '+
-                             'generating Hamiltonian.')
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of O is %s.'%str(O.shape)))
         else:
             avO = np.tensordot(O, rho, axes=[(-2, -1),(0, 1)])
             if np.allclose(np.imag(avO), 0):
