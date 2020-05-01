@@ -234,37 +234,37 @@ The optical Bloch equations are equations that govern the evolution of the densi
 \end{equation}
 where the $\rho\mathcal{L}\rho$ superoperator takes into account decays.
 
-The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.
+The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.  
 
 The decay is calculated in terms of the radiation-reaction approximation.  In practice, this means that the decay rate out of a state $\ket{l_i}$ is
 \begin{equation}
     \Gamma_{\ket{l_i}} = \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m<l}\sum_{j=1}^{n_l}\sum_q \left|\Braket{m_j|d_{lm}^{q}|l_i}\right|^2,
 \end{equation}
-where $n_m$ is the number of states in the $m$ manifold.  The real component of coherences between manifolds decay as
+where $n_m$ is the number of states in the $m$ manifold.  The real component of coherences between manifolds decay as 
 \begin{equation}
 	Re[\dot{\rho}_{l_im_j}] = -\frac{\Gamma_{l_i}+\Gamma_{m_j}}{2}\rho_{l_im_j}\ .
 \end{equation}
 Likewise, the population operators evolution with decay is given by
 \begin{equation}
 	\dot{\rho}_{l_il_i} = -\Gamma_l\rho_{l_il_i} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{j=1}^{n_m}\sum_q \left|\Braket{l_i|d_{lm}^{q}|m_j}\right|^2 \rho_{m_jm_j}
-\end{equation}
+\end{equation} 
 Finally, the coherences within a given manifold obey
 \begin{equation}
 	\dot{\rho}_{l_il_j} = -\Gamma_l\rho_{l_il_j} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{n>l}\sum_{k=1}^{n_m}\sum_{l=1}^{n_m}\sum_q \Braket{l_i|d_{lm}^{q}|m_m}\Braket{n_k|d_{lm}^{q}|l_j}\rho_{m_jn_k}
-\end{equation}
+\end{equation} 
 [FIX indecies]
 
 The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
 
-The force exerted by the optical field is given by the derivative of the
+The force exerted by the optical field is given by the derivative of the 
 \begin{equation}
 	f = \frac{d\mathbf{p}}{dt} = -\{\nabla H\} = \sum_{l_i,m_j} \rho_{l_im_j}\left[\nabla(\boldsymbol{d}_{lm}\cdot \mathbf{E}_{lm})\right] + c.c.
 \end{equation}
-Provided that there is no spatial dependence in the $\boldsymbol{\epsilon}$, this expression can be simplified
+Provided that there is no spatial dependence in the $\boldsymbol{\epsilon}$, this expression can be simplified 
 \begin{eqnarray}
 	f = \frac{1}{2}\sum_{l_i,m_j} \rho_{l_im_j}\left(\boldsymbol{d}_{lm}\cdot \boldsymbol{\epsilon}\right) \nabla \left(E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}\right) + c.c.
 \end{eqnarray}
-where now the derivative produces three terms,
+where now the derivative produces three terms, 
 \begin{equation}
 	\left(\frac{\nabla E_{lm}(r,t)}{E_{lm}} + i \nabla (\mathbf{k}(r,t)\cdot \mathbf{r})\right)E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
 \end{equation}
@@ -308,45 +308,11 @@ We represent the rate equations as a matrix $R$ such that
 \end{equation}
 where $N = (N_{g_1},\dots, N_{g_n}, N_{e_1}, \dots, N_{g_n})$.
 
+
+
 \subsection{Random Forces}
-In both the OBE and
 
-\subsection{Units}
-Units in pylcp are determined through the following master evolution equations
-for the OBEs:
-\begin{eqnarray}
-    \dot{\rho} & = & \frac{i}{\hbar}[\rho, H] \\
-    \ddot{\mathbf{r}} & = & -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
-\end{eqnarray}
-where the brackets indicate expectation value, and remind us that the chain rule
-applies [...].  For {\tt pylcp}, $\hbar=1$ so that angular frequencies and
-energies are equivalent.
-
-In practice, the user specifies $H_0/\hbar$, rather than $H_0$. Included
-Hamiltonians normalize each element in the $(d\cdot E)_{ij}$ Hamiltonian
-to $\Gamma_{ij}$ so that a laser with $I/I_{sat}=1$ driving the transition
-yields a Rabi rate of $\Gamma_{ij}/\sqrt{2}$.  Likewise, included Hamiltonians
-also return $\mu$ without the spin, i.e., $\mu = \mu_B \mathbf{F}$, where
-$\mathbf{F}$ is some generalized spin operator.
-
-When forming a complete Hamiltonian using the hamiltonian class, the user has
-the ability to set the units by specifying base units of length $x_0$, time
-$t_0$, magnetic field $B_0$ and mass $m$.  For $d\cdot E$, there are two properties
-to quantify: the asscoiated wavevector $k_{ij}x_0$, important for random forces, 
-and the decay rate $\Gamma t_0$.  For the magnetic Hamiltonian, the user has to 
-specify the Bohr magneton in their preferred units, $\mu_B B_0/\hbar t_0$, in 
-order to determine the preferred units of magnetic field.
-
-For the force, this leaves one additional unit to specify, the mass.  If the
-user specifies the length, time, and magnetic field, then
-\begin{equation}
-    \frac{x_0}{t_0^2} \ddot{\mathbf{r}}' = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
-\end{equation}
-The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
-\begin{equation}
-	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0 m}\left\{ -\nabla' H'\right\} + \mathbf{a}'
-\end{equation}
-which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
+\subsection{A word about units}
 
 \section{Additional details}
 

@@ -584,8 +584,7 @@ class obe():
         """
         def dydt(t, y):
             return np.concatenate((self.drhodt(y[-3:], t, y[:-6]),
-                                   1/self.hamiltonian.mass*self.force(y[-3:], t, y[:-6]) +
-                                   self.constant_accel,
+                                   self.force_from_rho(y[-3:], t, y[:-6]),
                                    y[-6:-3]))
 
         self.sol = solve_ivp(dydt, t_span,
