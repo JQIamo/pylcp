@@ -796,21 +796,19 @@ class obe():
                                  suffix = 'complete', decimals = 1, length = 40,
                                  remaining_time = (it.itersize-it.iterindex)*avgtime)
 
-    def reshape_sol(self):
-        """
-        Reshape the solution to have all the proper parts.
-        """
-        rho = self.sol.y[:-6].astype('complex128')
-
-        v = np.real(self.sol.y[-6:-3])
-        r = np.real(self.sol.y[-3:])
-
+    def reshape_rho(self, rho):
         if self.transform_into_re_im:
-            for jj in range(rho.shape[1]):
-                rho[:, jj] = self.U @ rho[:, jj]
+            rho = rho.astype('complex128')
 
-        rho = rho.reshape(self.hamiltonian.n, self.hamiltonian.n,
-                          self.sol.t.size)
+            if len(rho.shape) == 1:
+                rho = self.U @ rho
+            else:
+                for jj in range(rho.shape[1]):
+                    rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) +
+                          rho.shape[1:])
+
         """# If not:
         if self.transform_into_re_im:
             new_rho = np.zeros(rho.shape, dtype='complex128')
@@ -822,4 +820,13 @@ class obe():
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
             rho = new_rho"""
 
-        return (self.sol.t, r, v, rho)
+        return rho
+
+
+    def reshape_sol(self):
+        """
+        Reshape the solution to have all the proper parts.
+        """
+        rho = self.reshape_rho(self.sol.y[:-6])
+
+        return (self.sol.t, self.sol.y[-3:], self.sol.y[-6:-3], rho)
