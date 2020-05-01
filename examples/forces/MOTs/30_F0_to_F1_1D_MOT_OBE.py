@@ -25,28 +25,22 @@ plt.style.use('paper')
 
 # %% Define the multiple laser beam configurations to start:
 laser_det = 0
-det = -2.5
+ham_det = -2.5
 beta = 1.25
 transform = True
 
 laserBeams = {}
 laserBeams['x'] = pylcp.laserBeams([
-    {'kvec':np.array([1., 0., 0.]), 'pol':-1,
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([-1, 0., 0.]), 'pol':-1,
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta}
+    {'kvec':np.array([ 1., 0., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([-1., 0., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta}
     ])
 laserBeams['y'] = pylcp.laserBeams([
-    {'kvec':np.array([0., 1., 0.]), 'pol':-1,
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([0, -1., 0.]), 'pol':-1,
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta}
+    {'kvec':np.array([0.,  1., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([0., -1., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta}
     ])
 laserBeams['z'] = pylcp.laserBeams([
-    {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([0, 0., -1]), 'pol':np.array([1, 0., 0.]),
-     'pol_coord':'spherical', 'delta':laser_det, 'beta':beta}
+    {'kvec':np.array([0., 0.,  1.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([0., 0., -1.]), 'pol':+1, 'delta':laser_det, 'beta':beta}
     ])
 
 alpha = 1e-4
@@ -56,7 +50,7 @@ magField = lambda R: pylcp.tools.quadrupoleField3D(R, alpha)
 H_g, muq_g = pylcp.hamiltonians.singleF(F=0, gF=0, muB=1)
 H_e, muq_e = pylcp.hamiltonians.singleF(F=1, gF=1, muB=1)
 d_q = pylcp.hamiltonians.dqij_two_bare_hyperfine(0, 1)
-hamiltonian = pylcp.hamiltonian(H_g, det*np.eye(3)+H_e, muq_g, muq_e, d_q)
+hamiltonian = pylcp.hamiltonian(H_g, H_e - ham_det*np.eye(3), muq_g, muq_e, d_q)
 
 obe={}
 rateeq={}
@@ -69,7 +63,7 @@ rateeq['z'] = {}
 First, check to see that the rate equations and OBE agree:
 """
 # Define a v axis:
-z = np.arange(-5.0, 5.01, 0.025)
+z = np.arange(-5.0, 5.01, 0.25)
 
 rateeq['z'] = pylcp.rateeq(laserBeams['z'], magField, hamiltonian)
 rateeq['z'].generate_force_profile(
@@ -94,27 +88,50 @@ print('Total computation time was %.3f s.' % (toc-tic))
 """
 Plot 'er up:
 """
-fig, ax = plt.subplots(1, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 2.75))
-ax[0].plot(obe['z'].profile['MOT_1'].R[2]*alpha,
+fig, ax = plt.subplots(2, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 4.5))
+ax[0, 0].plot(obe['z'].profile['MOT_1'].R[2]*alpha,
            obe['z'].profile['MOT_1'].F[2],
            label='OBE', linewidth=0.5)
-ax[0].plot(rateeq['z'].profile['MOT_1'].R[2]*alpha,
+ax[0, 0].plot(rateeq['z'].profile['MOT_1'].R[2]*alpha,
            rateeq['z'].profile['MOT_1'].F[2],
            label='Rate Eq.', linewidth=0.5)
-ax[0].legend(fontsize=6)
-ax[0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
-ax[0].set_ylabel('$F/(\hbar k \Gamma)$')
+ax[0, 0].legend(fontsize=6)
+ax[0, 0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+ax[0, 0].set_ylabel('$F/(\hbar k \Gamma)$')
 
 types = ['-', '--', '-.']
 for q in range(3):
-    ax[1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 0], types[q],
+    ax[0, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 0], types[q],
             linewidth=0.5, color='C0', label='$+k$, $q=%d$'%(q-1))
-    ax[1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 1], types[q],
+    ax[0, 1].plot(z, obe['z'].profile['MOT_1'].fq['g->e'][2, :, q, 1], types[q],
             linewidth=0.5, color='C1', label='$-k$, $q=%d$'%(q-1))
-ax[1].plot(z, obe['z'].profile['MOT_1'].F[2], 'k-',
+ax[0, 1].plot(z, obe['z'].profile['MOT_1'].F[2], 'k-',
            linewidth=0.75)
-ax[1].legend(fontsize=6)
-ax[1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+ax[0, 1].legend(fontsize=6)
+ax[0, 1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+fig.subplots_adjust(wspace=0.15)
+
+ax[1, 0].plot(z, rateeq['z'].profile['MOT_1'].Neq[:, 0], '--',
+              linewidth=0.5, label='$F=0$')
+for jj in range(3):
+    ind = z<=0
+    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, 3-jj], '-',
+                  linewidth=0.5, color='C%d'%jj, label='$m_F=%d$'%(jj-1))
+    ind = z>=0
+    ax[1, 0].plot(z[ind], rateeq['z'].profile['MOT_1'].Neq[ind, jj+1], '-',
+                  linewidth=0.5, color='C%d'%jj)
+ax[1, 0].legend(fontsize=6)
+ax[1, 0].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
+
+Es = np.zeros((z.size, 4))
+
+for ii, z_i in enumerate(z):
+    Bq = np.array([0., magField(np.array([0., 0., z_i/alpha]))[2], 0])
+    Es[ii, :] = np.diag(hamiltonian.return_full_H({'g->e':np.array([0., 0., 0.])}, Bq))
+
+[ax[1, 1].plot(z, Es[:, 1+jj], label='$m_F=%d$'%(jj-1)) for jj in range(3)]
+ax[1, 1].legend(fontsize=6)
+ax[1, 1].set_xlabel('$z/(\mu_B \hbar B\'/\Gamma)$')
 fig.subplots_adjust(wspace=0.15)
 
 # %% Let's now go along the x and y directions:

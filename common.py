@@ -60,6 +60,21 @@ class progressBar(object):
         if percentage >= 1:
             print()
 
+def cart2spherical(A):
+    return np.array([(A[0]-1j*A[1])/np.sqrt(2), A[2], -(A[0]+1j*A[1])/np.sqrt(2)])
+
+def spherical2cart(A):
+    return np.array([1/np.sqrt(2)*(-A[2]+A[0]), 1j/np.sqrt(2)*(A[2]+A[0]), A[1]])
+
+def spherical_dot(A, B):
+    return np.tensordot(A, np.array([-1., 1., -1.])*B[::-1], axes=(0, 0))
+    #return np.tensordot(A, np.conjugate(B), axes=(0,0))
+
+def random_vector():
+    a, b = np.random.rand(2)
+    th = np.arccos(2*b-1)
+    phi = 2*np.pi*a
+    
 def random_vector(free_axes=[True, True, True]):
     """
     This function returns a random vector with magnitude 1, in either 1D, 2D

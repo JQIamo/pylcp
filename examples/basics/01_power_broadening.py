@@ -33,12 +33,10 @@ for beta in betas:
     for ii, det in enumerate(dets):
         laserBeams = pylcp.laserBeams([{'kvec':np.array([1., 0, 0.]), 'beta':beta,
                                         'pol':-1,  'delta':det}])
-        rateeq = pylcp.rateeq.rateeq(laserBeams, magField, ham)
-        Rev, Rijl_t = rateeq.construct_evolution_matrix(
-            np.array([0., 0., 0.]), np.array([0., 0., 0.])
-        )
-        Rijl[ii] = np.sum(Rijl_t['g->e'], axis=2)[0][0]
-        Neq[ii] = rateeq.equilibrium_populations()
+        rateeq = pylcp.rateeq(laserBeams, magField, ham)
+        Neq[ii] = rateeq.equilibrium_populations(np.array([0., 0., 0.]),
+                                                 np.array([0., 0., 0.]), 0.)
+        Rijl[ii] = np.sum(rateeq.Rijl['g->e'], axis=2)[0][0]
 
     ax.plot(dets, Rijl*(Neq[:, 0]-Neq[:, 1]))
     ax.plot(dets, beta/2/(1+beta+4*dets**2), 'k--', linewidth=0.5)
@@ -60,12 +58,11 @@ for beta in betas:
                                         'beta':beta, 'pol':-1, 'delta':det},
                                        {'kvec':np.array([-1., 0, 0.]),
                                         'beta':beta, 'pol':-1, 'delta':det}])
-        rateeq = pylcp.rateeq.rateeq(laserBeams, magField, ham)
-        Rev, Rijl_t = rateeq.construct_evolution_matrix(
-            np.array([0., 0., 0.]), np.array([0., 0., 0.])
-        )
-        Rijl[ii] = np.sum(Rijl_t['g->e'], axis=2)[:, 0]
-        Neq[ii] = rateeq.equilibrium_populations()
+        rateeq = pylcp.rateeq(laserBeams, magField, ham)
+        Neq[ii] = rateeq.equilibrium_populations(np.array([0., 0., 0.]),
+                                                 np.array([0., 0., 0.]), 0.)
+        Rijl[ii] = np.sum(rateeq.Rijl['g->e'], axis=2)[:, 0]
+
 
     ax.plot(dets, Rijl[:, 0]*(Neq[:, 0]-Neq[:, 1]))
     ax.plot(dets, beta/2/(1+3*beta/2+4*dets**2), 'k--', linewidth=0.5)
