@@ -34,7 +34,7 @@ laserBeams = return_lasers(0., beta)
 # Now define the two level Hamiltonian.  We'll connect it using pi-light.
 def return_hamiltonian(delta):
     Hg = np.array([[0.]])
-    He = np.array([[delta]])
+    He = np.array([[-delta]])
     mu_q = np.zeros((3, 1, 1))
     d_q = np.zeros((3, 1, 1))
     d_q[1, 0, 0] = 1.
@@ -46,11 +46,11 @@ hamiltonian = return_hamiltonian(delta)
 magField = lambda R: np.zeros(R.shape)
 
 # Use this variable to select either a rate-equation or OBE calculation:
-obj = pylcp.rateeq
-extra_args = {}
-#obj = pylcp.obe
-#extra_args = {'progress_bar':True, 'deltat_tmax':2*np.pi*100, 'deltat_v':4,
-#              'itermax':1000, 'rel':1e-4, 'abs':1e-6}
+#obj = pylcp.rateeq
+#extra_args = {}
+obj = pylcp.obe
+extra_args = {'progress_bar':True, 'deltat_tmax':2*np.pi*100, 'deltat_v':4,
+              'itermax':1000, 'rel':1e-4, 'abs':1e-6}
 
 eqn = obj(laserBeams, magField, hamiltonian)
 
@@ -66,7 +66,7 @@ eqn.generate_force_profile(np.zeros((3,) + v.shape),
 
 fig, ax = plt.subplots(1, 2, figsize=(6.25, 2.75))
 ax[0].plot(v, eqn.profile['molasses'].F[0])
-ax[1].plot(v, eqn.profile['molasses'].Neq)
+#ax[1].plot(v, eqn.profile['molasses'].Neq)
 
 # %%
 """
@@ -81,7 +81,7 @@ betas = np.array([0.01, 0.1, 1, 10])
 Deltas, Betas = np.meshgrid(deltas, betas)
 
 it = np.nditer([Deltas, Betas, None])
-#progress = progressBar()
+progress = progressBar()
 for (delta, beta, alpha) in it:
     laserBeams = return_lasers(0., beta)
     hamiltonian = return_hamiltonian(delta)
@@ -90,8 +90,9 @@ for (delta, beta, alpha) in it:
     eqn = obj(laserBeams, magField, hamiltonian)
 
     eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([dv, 0., 0.]))
-    alpha[...] = -eqn.find_equilibrium_force()[0]/dv
-    #progress.update((it.iterindex+1)/it.itersize)
+    eqn.set_initial_rho_equally()
+    alpha[...] = -eqn.find_equilibrium_force()[0][0]/dv
+    progress.update((it.iterindex+1)/it.itersize)
 
 fig, ax = plt.subplots(1, 1)
 ax.plot(deltas, it.operands[2].T, linewidth=0.75)
@@ -109,8 +110,16 @@ if savefigs:
 Now, we want to run with a whole bunch of atoms for about 1000 or so Gamma to
 generate some histograms and understand what velocities we obtain, etc.
 """
+beta = 1.
+delta = -2.
+
+lasersBeams = return_lasers(0., beta)
+hamiltonian = return_hamiltonian(delta)
+
+eqn = obj(laserBeams, magField, hamiltonian)
+
 vR = 0.05
-N_atom = 100
+N_atom = 10
 v_final = np.zeros((N_atom,))
 num_of_scatters = np.zeros((N_atom,), dtype='int')
 num_of_steps = np.zeros((N_atom,), dtype='int')
@@ -118,10 +127,12 @@ num_of_steps = np.zeros((N_atom,), dtype='int')
 fig, ax = plt.subplots(1, 1)
 progress = progressBar()
 for ii in range(N_atom):
-    eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([0., 0., 0.]))
-    eqn.set_initial_pop_from_equilibrium()
-    eqn.evolve_motion([0., 1000.], random_recoil=True, recoil_velocity=vR,
-                      max_scatter_probability=0.25, freeze_axis=[False, True, True])
+    eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([0.1, 0., 0.]))
+    #eqn.set_initial_pop_from_equilibrium()
+    eqn.set_initial_rho_from_rateeq()
+
+    eqn.evolve_motion([0., 10.], random_recoil=True, recoil_velocity=vR,
+                      max_scatter_probability=0.05, freeze_axis=[False, True, True])
     progress.update((ii+1.)/N_atom)
 
     if ii<10:
@@ -129,9 +140,9 @@ for ii in range(N_atom):
 
     v_final[ii] = eqn.sol.y[-6, -1]
 
-    num_of_scatters[ii] = sum(eqn.sol.n_random)
+    #num_of_scatters[ii] = sum(eqn.sol.n_random)
     num_of_steps[ii] = len(eqn.sol.t)
-
+eqn.sol.y[:2,:]
 ax.set_xlabel('$\Gamma t$')
 ax.set_ylabel('$v/(\Gamma/k)$')
 if savefigs:
