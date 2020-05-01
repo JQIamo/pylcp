@@ -651,7 +651,7 @@ class obe():
             raise ValueError('O must have dimensions (..., n, n), where n '+
                              'corresponds to the number of states in the '+
                              'generating Hamiltonian. ' +
-                             'Instead, shape of O is %s.'%str(O.shape)))
+                             'Instead, shape of O is %s.'%str(O.shape))
         else:
             avO = np.tensordot(O, rho, axes=[(-2, -1),(0, 1)])
             if np.allclose(np.imag(avO), 0):
@@ -661,7 +661,7 @@ class obe():
 
 
     def force(self, r, t, rho, return_details=False):
-        if rho.shape[0] == (self.hamiltonian.n**2,):
+        if rho.shape[0] == self.hamiltonian.n**2:
             rho = self.reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
