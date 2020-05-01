@@ -574,7 +574,7 @@ class obe():
         def dydt(t, y):
             return np.concatenate((
                 self.drhodt(y[-3:], t, y[:-6]),
-                recoil_velocity*self.force_from_rho(y[-3:], t, y[:-6])*free_axes,
+                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes,
                 y[-6:-3]))
 
         def random_recoil(t, y, dt):
@@ -599,7 +599,7 @@ class obe():
             new_dt_max = (max_scatter_probability/np.sum(P))*dt
             return (num_of_scatters, new_dt_max)
 
-        if not random_recoil:
+        if not random_recoil_flag:
             self.sol = solve_ivp(
                 dydt, t_span, np.concatenate((self.rho0, self.v0, self.r0)),
                 **kwargs)
