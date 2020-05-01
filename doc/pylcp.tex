@@ -254,29 +254,50 @@ Finally, the coherences within a given manifold obey
 \end{equation}
 [FIX indecies]
 
-The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
-
-The force exerted by the optical field is given by the derivative of the
+The particle's semiclassical motion can be calculated through
 \begin{equation}
-	f = \frac{d\mathbf{p}}{dt} = -\{\nabla H\} = \sum_{l_i,m_j} \rho_{l_im_j}\left[\nabla(\boldsymbol{d}_{lm}\cdot \mathbf{E}_{lm})\right] + c.c.
+	\ddot{\mathbf{r}} = -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
 \end{equation}
-Provided that there is no spatial dependence in the $\boldsymbol{\epsilon}$, this expression can be simplified
-\begin{eqnarray}
-	f = \frac{1}{2}\sum_{l_i,m_j} \rho_{l_im_j}\left(\boldsymbol{d}_{lm}\cdot \boldsymbol{\epsilon}\right) \nabla \left(E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}\right) + c.c.
-\end{eqnarray}
-where now the derivative produces three terms,
-\begin{equation}
-	\left(\frac{\nabla E_{lm}(r,t)}{E_{lm}} + i \nabla (\mathbf{k}(r,t)\cdot \mathbf{r})\right)E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
-\end{equation}
-Likewise, the magnetic field produces a force [...]
+where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant acceleration, and [...].
 
-Of importance in almost any is the momentum diffusion tensor of $\mathcal{D}$.
+For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent.  In practice, the user specifies $H_0/\hbar$, rather than $H_0$. 
+When forming a complete Hamiltonian using the hamiltonian class, the user has
+the ability to set the units by specifying base units of length $x_0$, time
+$t_0$, magnetic field $B_0$ and mass $m$.  For $d\cdot E$, there are two properties
+to quantify: the asscoiated wavevector $k_{ij}x_0$, important for random forces, 
+and the decay rate $\Gamma t_0$.  For the magnetic Hamiltonian, the user has to 
+specify the Bohr magneton in their preferred units, $\mu_B B_0/\hbar t_0$, in 
+order to determine the preferred units of magnetic field.  By default, a two-manifold system uses units $t_0=1/\Gamma$ and $x_0=1/k$. 
 
-For the lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
+For lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
 \begin{equation}
     I_\text{sat} = \frac{\pi h c \Gamma}{3\lambda^3} = \frac{2\pi^2 \hbar \omega^3 c \Gamma}{3(2\pi)^3 c^3} = \frac{\hbar \omega^3 \Gamma}{12 \pi c^2}
 \end{equation}
-the result being that the electric field $E_{lm}(r,t) = \sqrt{I/2I_\text{sat}} = \sqrt{\beta/2}$.  [Show more of the derivation]?
+the result being that the electric field $E_{lm}(r,t) = \sqrt{I/2I_\text{sat}} = \sqrt{\beta/2}$.
+Included Hamiltonians normalize each element in the $(d\cdot E)_{ij}$ Hamiltonian
+to $\Gamma_{ij}$ so that a laser with $I/I_{sat}=1$ driving the transition
+yields a Rabi rate of $\Gamma_{ij}/\sqrt{2}$.  Likewise, included Hamiltonians
+also return $\mu$ without the spin, i.e., $\mu = \mu_B \mathbf{F}$, where
+$\mathbf{F}$ is some generalized spin operator.
+
+
+For the force, this leaves one additional unit to specify, the mass.  If the
+user specifies the length, time, and magnetic field, then
+\begin{equation}
+    \frac{x_0}{t_0^2} \ddot{\mathbf{r}}' = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
+\end{equation}
+The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
+\begin{equation}
+	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0 m}\left\{ -\nabla' H'\right\} + \mathbf{a}'
+\end{equation}
+which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
+
+
+
+
+
+
+The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
 
 \subsection{The Rate Equations}
 In order to do a rate equation model, we first consider that we have a set of
@@ -318,35 +339,6 @@ for the OBEs:
     \dot{\rho} & = & \frac{i}{\hbar}[\rho, H] \\
     \ddot{\mathbf{r}} & = & -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
 \end{eqnarray}
-where the brackets indicate expectation value, and remind us that the chain rule
-applies [...].  For {\tt pylcp}, $\hbar=1$ so that angular frequencies and
-energies are equivalent.
-
-In practice, the user specifies $H_0/\hbar$, rather than $H_0$. Included
-Hamiltonians normalize each element in the $(d\cdot E)_{ij}$ Hamiltonian
-to $\Gamma_{ij}$ so that a laser with $I/I_{sat}=1$ driving the transition
-yields a Rabi rate of $\Gamma_{ij}/\sqrt{2}$.  Likewise, included Hamiltonians
-also return $\mu$ without the spin, i.e., $\mu = \mu_B \mathbf{F}$, where
-$\mathbf{F}$ is some generalized spin operator.
-
-When forming a complete Hamiltonian using the hamiltonian class, the user has
-the ability to set the units by specifying base units of length $x_0$, time
-$t_0$, magnetic field $B_0$ and mass $m$.  For $d\cdot E$, there are two properties
-to quantify: the asscoiated wavevector $k_{ij}x_0$, important for random forces, 
-and the decay rate $\Gamma t_0$.  For the magnetic Hamiltonian, the user has to 
-specify the Bohr magneton in their preferred units, $\mu_B B_0/\hbar t_0$, in 
-order to determine the preferred units of magnetic field.
-
-For the force, this leaves one additional unit to specify, the mass.  If the
-user specifies the length, time, and magnetic field, then
-\begin{equation}
-    \frac{x_0}{t_0^2} \ddot{\mathbf{r}}' = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
-\end{equation}
-The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
-\begin{equation}
-	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0 m}\left\{ -\nabla' H'\right\} + \mathbf{a}'
-\end{equation}
-which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
 
 \section{Additional details}
 
