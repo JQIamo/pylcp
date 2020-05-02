@@ -499,9 +499,9 @@ class gaussianBeam(laserBeam):
         # Save the parameters specific to the Gaussian beam:
         self.beta_max = beta # central saturation parameter
         self.wb = wb # 1/e^2 radius
-        self.__define_rotation_matrix()
+        self.define_rotation_matrix()
 
-    def __define_rotation_matrix(self):
+    def define_rotation_matrix(self):
         # Angles of rotation:
         th = np.arccos(self.con_kvec[2])
         phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
