@@ -17,7 +17,7 @@ savefigs = False
 """
 Let's start by defining the problem at hand:
 """
-delta = -2
+delta = -1
 beta = 1
 
 # Now, make 1D laser beams:
@@ -46,11 +46,11 @@ hamiltonian = return_hamiltonian(delta)
 magField = lambda R: np.zeros(R.shape)
 
 # Use this variable to select either a rate-equation or OBE calculation:
-#obj = pylcp.rateeq
-#extra_args = {}
-obj = pylcp.obe
-extra_args = {'progress_bar':True, 'deltat_tmax':2*np.pi*100, 'deltat_v':4,
-              'itermax':1000, 'rel':1e-4, 'abs':1e-6}
+obj = pylcp.rateeq
+extra_args = {}
+#obj = pylcp.obe
+#extra_args = {'progress_bar':True, 'deltat_tmax':2*np.pi*100, 'deltat_v':4,
+#              'itermax':1000, 'rel':1e-4, 'abs':1e-6}
 
 eqn = obj(laserBeams, magField, hamiltonian)
 
@@ -66,7 +66,7 @@ eqn.generate_force_profile(np.zeros((3,) + v.shape),
 
 fig, ax = plt.subplots(1, 2, figsize=(6.25, 2.75))
 ax[0].plot(v, eqn.profile['molasses'].F[0])
-#ax[1].plot(v, eqn.profile['molasses'].Neq)
+ax[1].plot(v, eqn.profile['molasses'].Neq)
 
 # %%
 """
@@ -90,8 +90,8 @@ for (delta, beta, alpha) in it:
     eqn = obj(laserBeams, magField, hamiltonian)
 
     eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([dv, 0., 0.]))
-    eqn.set_initial_rho_equally()
-    alpha[...] = -eqn.find_equilibrium_force()[0][0]/dv
+    #eqn.set_initial_rho_equally()
+    alpha[...] = -eqn.find_equilibrium_force()[0]/dv
     progress.update((it.iterindex+1)/it.itersize)
 
 fig, ax = plt.subplots(1, 1)
@@ -111,7 +111,7 @@ Now, we want to run with a whole bunch of atoms for about 1000 or so Gamma to
 generate some histograms and understand what velocities we obtain, etc.
 """
 beta = 1.
-delta = -2.
+delta = -1.
 
 lasersBeams = return_lasers(0., beta)
 hamiltonian = return_hamiltonian(delta)
@@ -119,7 +119,7 @@ hamiltonian = return_hamiltonian(delta)
 eqn = obj(laserBeams, magField, hamiltonian)
 
 vR = 0.05
-N_atom = 10
+N_atom = 100
 v_final = np.zeros((N_atom,))
 num_of_scatters = np.zeros((N_atom,), dtype='int')
 num_of_steps = np.zeros((N_atom,), dtype='int')
@@ -127,12 +127,12 @@ num_of_steps = np.zeros((N_atom,), dtype='int')
 fig, ax = plt.subplots(1, 1)
 progress = progressBar()
 for ii in range(N_atom):
-    eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([0.1, 0., 0.]))
-    #eqn.set_initial_pop_from_equilibrium()
-    eqn.set_initial_rho_from_rateeq()
+    eqn.set_initial_position_and_velocity(np.array([0., 0., 0.]), np.array([0., 0., 0.]))
+    eqn.set_initial_pop_from_equilibrium()
+    #eqn.set_initial_rho_from_rateeq()
 
-    eqn.evolve_motion([0., 10.], random_recoil=True, recoil_velocity=vR,
-                      max_scatter_probability=0.05, freeze_axis=[False, True, True])
+    eqn.evolve_motion([0., 500.], random_recoil=True, recoil_velocity=vR,
+                      max_scatter_probability=0.25, freeze_axis=[False, True, True])
     progress.update((ii+1.)/N_atom)
 
     if ii<10:
@@ -178,7 +178,7 @@ vR = 0.05
 deltas = np.array([-3, -2., -1., -0.5, -0.375, -0.25, -0.125, 0.])
 betas = np.array([0.3, 1, 3])
 
-t0 = 500 # Evolution time at delta=-1 detuning, beta=-1
+t0 = 500 # Evolution time at delta=-1 detuning, beta=1
 Deltas, Betas = np.meshgrid(deltas, betas)
 
 it = np.nditer([Deltas, Betas, None, None])
