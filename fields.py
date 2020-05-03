@@ -117,7 +117,7 @@ class magField(object):
             ])
 
 
-def constantMagneticField(magField):
+class constantMagneticField(magField):
     def __init__(self, val):
         super().__init__(lambda R, t: val)
 
@@ -131,7 +131,7 @@ def constantMagneticField(magField):
         return self.constant_grad_field
 
 
-def quadrupoleMagneticField(magField):
+class quadrupoleMagneticField(magField):
     def __init__(self, alpha, eps=1e-5):
         super().__init__(lambda R, t: alpha*np.array([-0.5*R[0], -0.5*R[1], R[2]]))
         self.alpha = alpha

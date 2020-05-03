@@ -35,7 +35,7 @@ class force_profile(base_force_profile):
             self.Rijl[key][ind] = Rijl[key]
 
 
-class rateeq():
+class rateeq(object):
     """
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
@@ -420,9 +420,11 @@ class rateeq():
 
 
 class trap(rateeq):
-    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10):
-        super(trap, self).__init__(laserBeams, magField, hamiltonian,
-                                   svd_eps=svd_eps)
+    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10,
+                 include_mag_forces=True):
+        super().__init__(laserBeams, magField, hamiltonian,
+                                   svd_eps=svd_eps,
+                                   include_mag_forces=include_mag_forces)
         self.r0 = np.zeros((3,))
 
 
