@@ -8,8 +8,8 @@ import copy
 from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
-from .lasers import laserBeams
-from .common import random_vector
+from .fields import laserBeams, magField
+from .common import random_vector, base_force_profile
 from .integration_tools import solve_ivp_random
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
@@ -355,7 +355,7 @@ class rateeq(object):
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
             if not random_force_flag:
-                F, f_laser = self.force(r, t, Rijl, N)
+                F, f_laser = self.force(r, t, N)
 
                 dydt = np.concatenate((Rev @ N, recoil_velocity*F*free_axes, v))
             else:

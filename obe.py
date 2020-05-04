@@ -9,10 +9,10 @@ import numba
 import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
-from .lasers import laserBeams
-from .common import printProgressBar, random_vector
+from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
-from .common import printProgressBar, random_vector, spherical_dot, cart2spherical, spherical2cart
+from .common import (printProgressBar, random_vector, spherical_dot,
+                     cart2spherical, spherical2cart, base_force_profile)
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -153,6 +153,7 @@ class obe():
         # Finally, update the position and velocity:
         self.set_initial_position_and_velocity(r, v)
 
+
     def __check_consistency_in_lasers_and_d_q(self):
         # Check that laser beam keys and Hamiltonian keys match.
         for laser_key in self.laserBeams.keys():
@@ -160,15 +161,7 @@ class obe():
                 raise ValueError('laserBeams dictionary keys %s ' % laser_key +
                                  'does not have a corresponding key the '+
                                  'Hamiltonian d_q.')
-
-        for key in self.laserBeams:
-            k_ham = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']
-            for kvec in self.laserBeams[key].kvec():
-                if not np.abs(np.linalg.norm(kvec)-k_ham)<1e-15:
-                    raise ValueError('Laser beam driving transition %s '%key +
-                                     'with wavevector k=%s '%str(kvec) +
-                                     'has different magnitude from that '+
-                                     'specified in the Hamiltonian, %s.'%str(k_ham))
+                
 
     def __density_index(self, ii, jj):
         """
