@@ -9,9 +9,10 @@ import numba
 import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
-from .fields import laserBeams, magField
-from .common import (printProgressBar, spherical_dot, cart2spherical,
-                     spherical2cart, base_force_profile)
+from .lasers import laserBeams
+from .common import printProgressBar, random_vector
+from .integration_tools import solve_ivp_random
+from .common import printProgressBar, random_vector, spherical_dot, cart2spherical, spherical2cart
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -582,14 +583,49 @@ class obe():
         This function evolves the optical bloch equations for some period of
         time, with all their potential glory!
         """
-        def dydt(t, y):
-            return np.concatenate((self.drhodt(y[-3:], t, y[:-6]),
-                                   self.force_from_rho(y[-3:], t, y[:-6]),
-                                   y[-6:-3]))
+        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
+        random_recoil_flag = kwargs.pop('random_recoil', False)
+        recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
+        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
 
-        self.sol = solve_ivp(dydt, t_span,
-                             np.concatenate((self.rho0, self.v0, self.r0)),
-                             **kwargs)
+        def dydt(t, y):
+            return np.concatenate((
+                self.drhodt(y[-3:], t, y[:-6]),
+                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes,
+                y[-6:-3]))
+
+        def random_recoil(t, y, dt):
+            # Calculate the probability that all excited states can decay.
+            # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
+            # TODO: add in decay time (currently assumed to be one)
+            P = np.zeros((self.hamiltonian.n-self.hamiltonian.ns[0],))
+            for ii in range(self.hamiltonian.ns[0], self.hamiltonian.n):
+                P[ii-self.hamiltonian.ns[0]] = y[self.density_index(ii, ii)]*dt
+            # Roll the dice N times, where $N=\sum(n_i)
+            dice = np.random.rand(len(P))
+
+            # For any random number that is lower than P_i, add a recoil velocity.
+            # TODO: There are potential problems in the way the kvector is defined.
+            # The first is the k-vector is defined in the laser beam (not in the
+            # Hamiltonian).  The second is that we should break this out according
+            # to laser beam in case they do have different k-vectors.
+            num_of_scatters = np.sum(dice<P)
+            for ii in range(num_of_scatters):
+                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+random_vector(free_axes))
+
+            new_dt_max = (max_scatter_probability/np.sum(P))*dt
+            return (num_of_scatters, new_dt_max)
+
+        if not random_recoil_flag:
+            self.sol = solve_ivp(
+                dydt, t_span, np.concatenate((self.rho0, self.v0, self.r0)),
+                **kwargs)
+        else:
+            self.sol = solve_ivp_random(
+                dydt, random_recoil, t_span,
+                np.concatenate((self.rho0, self.v0, self.r0)),
+                **kwargs
+                )
 
 
     def observable(self, O, rho=None):
@@ -626,7 +662,8 @@ class obe():
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise ValueError('rho must have dimensions (n, n,...), where n '+
                              'corresponds to the number of states in the '+
-                             'generating Hamiltonian.')
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of rho is %s.'%str(rho.shape))
         elif O.shape[-2:]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise ValueError('O must have dimensions (..., n, n), where n '+
                              'corresponds to the number of states in the '+
