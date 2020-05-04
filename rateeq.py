@@ -294,9 +294,9 @@ class rateeq(object):
                             ))*gradBmag
                 else:
                     if isinstance(block, tuple):
-                        fmag += np.sum((self.hamiltonian.U[ii].T @
-                                        block[1].matrix[1] @ self.hamiltonian.U[ii])
-                                       @ Npop[ind1:ind2])*gradBmag
+                        fmag += np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block[1].matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
                     elif isinstance(block, self.hamiltonian.vector_block):
                         fmag += np.sum(np.real(
                             self.hamiltonian.U[ii].T @ block.matrix[1] @
