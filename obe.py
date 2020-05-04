@@ -624,13 +624,14 @@ class obe():
             (t, r, v, rho) = self.reshape_sol()
 
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
-            raise StandardError('rho must have dimensions (n, n,...), where n '+
-                                'corresponds to the number of states in the '+
-                                'generating Hamiltonian.')
+            raise ValueError('rho must have dimensions (n, n,...), where n '+
+                             'corresponds to the number of states in the '+
+                             'generating Hamiltonian.')
         elif O.shape[-2:]!=(self.hamiltonian.n, self.hamiltonian.n):
-            raise StandardError('O must have dimensions (..., n, n), where n '+
-                                'corresponds to the number of states in the '+
-                                'generating Hamiltonian.')
+            raise ValueError('O must have dimensions (..., n, n), where n '+
+                             'corresponds to the number of states in the '+
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of O is %s.'%str(O.shape))
         else:
             avO = np.tensordot(O, rho, axes=[(-2, -1),(0, 1)])
             if np.allclose(np.imag(avO), 0):

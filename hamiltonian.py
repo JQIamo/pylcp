@@ -318,9 +318,9 @@ class hamiltonian():
         """
         # Now we get to the meat of it:
         if not (isinstance(B, float) or isinstance(B, int)):
-            raise StandardError('diag_static_field: the field should be given '+
-                                'by a single number, the magnitude (assumed '+
-                                'to be along z).')
+            raise ValueError('diag_static_field: the field should be given '+
+                             'by a single number, the magnitude (assumed '+
+                             'to be along z).')
 
         # If it does not already exist, make an empty Hamiltonian that has
         # the same dimensions as this one.
