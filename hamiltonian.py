@@ -1,5 +1,13 @@
 import numpy as np
 
+def d_q_norm(d_q):
+    d_q_norm = np.zeros(d_q.shape)
+    for ii in range(d_q.shape[0]):
+        for jj in range(d_q.shape[2]):
+            d_q_norm[ii, :, jj] = d_q[ii, :, jj]/\
+                np.linalg.norm(d_q[:, :, jj])
+
+    return d_q_norm
 
 # Next, define a Hamiltonian class to work out the internal states:
 class hamiltonian():
@@ -215,28 +223,38 @@ class hamiltonian():
             ind2 = ind_H_0[0]
             m = self.blocks[ind_H_0][0].n
 
-        ind = (ind1, ind2)
-        label = self.make_elem_label('d_q', [label1, label2])
-
+        # Check the size of d_q, make sure it is right:
         if d_q.shape[1]!=n or d_q.shape[2]!=m:
             raise ValueError('Expected size 3x%dx%d for %s, instead see 3x%dx%d'%
                              (n, m, label, d_q.shape[1], d_q.shape[2]))
 
-        self.blocks[ind] = self.vector_block(label, d_q.astype('complex128'))
+        # what is the block index to store this d_q?
+        ind = (ind1, ind2)
 
+        # If we were given d_q^\dagger, flip it around
+        if ind1>ind2:
+            (label1, label2) = (label2, label1)
+            ind = ind[::-1]
+            d_q = d_q.conj().T
+
+        # Normalize to gamma:
+        d_q = d_q_norm(d_q)/np.sqrt(gamma)
+
+        # Store the matrix d_q:
+        label = self.make_elem_label('d_q', [label1, label2])
+        self.blocks[ind] = self.vector_block(label, d_q.astype('complex128'))
+        self.blocks[ind].parameters['k'] = k
+        self.blocks[ind].parameters['gamma'] = gamma
+
+        # Store the matrix d_q^\dagger
         label = self.make_elem_label('d_q', [label2, label1])
         self.blocks[ind[::-1]] = self.vector_block(
             label,
             np.array([np.conjugate(d_q[ii].T) for ii in range(3)]).astype('complex128')
             )
 
-        if ind1<ind2:
-            self.laser_keys[label1 + '->' + label2] = ind
-        else:
-            self.laser_keys[label2 + '->' + label1] = ind[::-1]
-
-        self.blocks[ind].parameters['k'] = k
-        self.blocks[ind].parameters['gamma'] = gamma
+        # Store the laser key for quick access:
+        self.laser_keys[label1 + '->' + label2] = ind
 
 
     def make_full_matrices(self):
