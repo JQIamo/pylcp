@@ -211,10 +211,12 @@ class obe():
             self.ev_mat['d_q*'][key] = [None]*3
             for q in range(3):
                 self.ev_mat['d_q'][key][q] = self.build_coherent_ev_submatrix(
-                    self.hamiltonian.d_q_bare[key][q]
+                    self.hamiltonian.d_q_bare[key][q]/
+                    np.sqrt(self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma'])
                 )
                 self.ev_mat['d_q*'][key][q] = self.build_coherent_ev_submatrix(
-                    self.hamiltonian.d_q_star[key][q]
+                    self.hamiltonian.d_q_star[key][q]/
+                    np.sqrt(self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma'])
                 )
             self.ev_mat['d_q'][key] = np.array(self.ev_mat['d_q'][key])
             self.ev_mat['d_q*'][key] = np.array(self.ev_mat['d_q*'][key])

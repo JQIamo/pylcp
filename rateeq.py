@@ -197,6 +197,7 @@ class rateeq():
             # Extract the relevant dijq matrix:
             ind = rotated_ham.laser_keys[key]
             dijq = rotated_ham.blocks[ind].matrix
+            gamma = self.hamiltonian.blocks[ind].parameters['gamma']
 
             # Extract the energies:
             E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
@@ -221,7 +222,7 @@ class rateeq():
                             """Rijl[ll, ii, jj] = beam.beta(r)/2*fijq/\
                             (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
                                     np.dot(kvec, v))**2)"""
-                            self.Rijl[key][ll, ii, jj] = beta/2*\
+                            self.Rijl[key][ll, ii, jj] = gamma*beta/2*\
                                 fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2)
 
