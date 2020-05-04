@@ -9,10 +9,10 @@ import numba
 import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
-from .lasers import laserBeams
-from .common import printProgressBar, random_vector
+from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
-from .common import printProgressBar, random_vector, spherical_dot, cart2spherical, spherical2cart
+from .common import (printProgressBar, random_vector, spherical_dot,
+                     cart2spherical, spherical2cart, base_force_profile)
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -27,36 +27,23 @@ def dot_and_add(A, x, b):
     b += A @ x
 
 
-class force_profile():
-    def __init__(self, R, V, num_of_beams, hamiltonian):
-        if not isinstance(R, np.ndarray):
-            R = np.array(R)
-        if not isinstance(V, np.ndarray):
-            V = np.array(V)
+class force_profile(base_force_profile):
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        super().__init__(R, V, laserBeams, hamiltonian)
 
-        if R.shape[0] != 3 or V.shape[0] != 3:
-            raise TypeError('R and V must have first dimension of 3.')
-
-        self.R = copy.copy(R)
-        self.V = copy.copy(V)
-
-        self.iterations = np.zeros(R[0].shape, dtype='int64')
+        self.iterations = np.zeros(self.R[0].shape, dtype='int64')
         self.fq = {}
-        self.f = {}
-        for key in num_of_beams:
-            self.fq[key] = np.zeros(R.shape + (3, num_of_beams[key]))
-            self.f[key] = np.zeros(R.shape + (num_of_beams[key],))
+        for key in laserBeams:
+            self.fq[key] = np.zeros(self.R.shape + (3, len(laserBeams[key].beam_vector)))
 
-        self.F = np.zeros(R.shape)
+    def store_data(self, ind, Neq, F, F_laser, F_mag, iterations, F_laser_q):
+        super().store_data(ind, Neq, F, F_laser, F_mag)
 
-    def store_data(self, ind, F, F_laser, F_laser_q, iterations):
-        self.iterations[ind] = iterations
         for jj in range(3):
-            #self.f[(jj,) + ind] = f[jj]
-            self.F[(jj,) + ind] = F[jj]
             for key in F_laser_q:
-                self.f[key][(jj,) + ind] = F_laser[key][jj]
                 self.fq[key][(jj,) + ind] = F_laser_q[key][jj]
+
+        self.iterations[ind] = iterations
 
 
 class obe():
@@ -65,10 +52,7 @@ class obe():
     for a given position and velocity and provides methods for
     solving them appropriately.
     """
-    def __init__(self, lasers, magField, hamiltonian,
-                 r=np.array([0., 0., 0.]), v=np.array([0., 0., 0.]),
-                 mean_detuning=None, transform_into_re_im=True,
-                 use_sparse_matrices=None):
+    def __init__(self, *args, **kwargs):
         """
         construct_optical_bloch_eqns: this function takes in a hamiltonian, a
         set of laserBeams, and a magField function and an internal hamiltonian
@@ -81,6 +65,71 @@ class obe():
             hamiltonian: the internal hamiltonian of the particle as defined by
                 the hamiltonian class.
         """
+        if len(args) < 3:
+            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
+        elif len(args) == 3:
+            self.constant_accel = np.array([0., 0., 0.])
+        elif len(args) == 4:
+            if not isinstance(args[3], np.ndarray):
+                raise TypeError('Constant acceleration must be an numpy array.')
+            elif args[3].size != 3:
+                raise ValueError('Constant acceleration must have length 3.')
+            else:
+                self.constant_accel = args[3]
+        else:
+            raise ValueError('No more than four positional arguments accepted.')
+
+        # Add the Hamiltonian:
+        self.hamiltonian = copy.copy(args[2])
+        self.hamiltonian.make_full_matrices()
+
+        # Add lasers:
+        self.laserBeams = {} # Laser beams are meant to be dictionary,
+        if isinstance(args[0], list):
+            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
+        elif isinstance(args[0], laserBeams):
+            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
+        elif isinstance(args[0], dict):
+            for key in args[0].keys():
+                if not isinstance(args[0][key], laserBeams):
+                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
+                                     'is in not of type laserBeams.')
+            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
+        else:
+            raise TypeError('laserBeams is not a valid type.')
+
+        # Next, check to see if there is consistency in k:
+        self.__check_consistency_in_lasers_and_d_q()
+
+        # Add in magnetic field:
+        if callable(args[1]) or isinstance(args[1], np.ndarray):
+            self.magField = magField(args[1])
+        elif isinstance(args[1], magField):
+            self.magField = copy.copy(args[1])
+        else:
+            raise TypeError('The magnetic field must be either a lambda ' +
+                            'function or a magField object.')
+
+        # Now handle keyword arguments:
+        r=kwargs.pop('r', np.array([0., 0., 0.]))
+        v=kwargs.pop('v', np.array([0., 0., 0.]))
+
+        self.transform_into_re_im = kwargs.pop('transform_into_re_im', False)
+        use_sparse_matrices = kwargs.pop('use_sparse_matrices', None)
+        if use_sparse_matrices is None:
+            if self.hamiltonian.n>10: # Generally offers a performance increase
+                self.use_sparse_matrices = True
+            else:
+                self.use_sparse_matrices = False
+        else:
+            self.use_sparse_matrices = use_sparse_matrices
+        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
+
+        # Set up a dictionary to store any resulting force profiles.
+        self.profile = {}
+
+        # Reset the current solution to None
+        self.sol = None
 
         """
         There will be time-dependent and time-independent components of the optical
@@ -89,76 +138,39 @@ class obe():
         compute the latter-two directly from the commuatator.
         """
 
-        """
-        First step is to add in the magnetic field:
-        """
-        self.hamiltonian = copy.copy(hamiltonian)
-        self.hamiltonian.make_full_matrices()
+        # Build the matricies that control evolution:
+        self.ev_mat = {}
+        self.__build_decay_ev()
+        self.__build_coherent_ev()
 
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(lasers, list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(lasers)) # Assume label is g->e
-        elif isinstance(lasers, laserBeams):
-            self.laserBeams['g->e'] = copy.copy(lasers) # Again, assume label is g->e
-        elif isinstance(lasers, dict):
-            for key in lasers.keys():
-                if not isinstance(lasers[key], laserBeams):
-                    raise ValueError('Key %s in dictionary lasersBeams ' % key +
-                                     'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(lasers) # Now, assume that everything is the same.
-        else:
-            raise ValueError('laserBeams is not a valid type.')
+        # If necessary, transform the evolution matrices:
+        if self.transform_into_re_im:
+            self.__transform_ev_matrices()
 
+        if self.use_sparse_matrices:
+            self.__convert_to_sparse()
+
+        # Finally, update the position and velocity:
+        self.set_initial_position_and_velocity(r, v)
+
+
+    def __check_consistency_in_lasers_and_d_q(self):
         # Check that laser beam keys and Hamiltonian keys match.
         for laser_key in self.laserBeams.keys():
             if not laser_key in self.hamiltonian.laser_keys.keys():
                 raise ValueError('laserBeams dictionary keys %s ' % laser_key +
                                  'does not have a corresponding key the '+
                                  'Hamiltonian d_q.')
+                
 
-        self.magField = copy.copy(magField)
-        self.transform_into_re_im = transform_into_re_im
-        if use_sparse_matrices is None:
-            if self.hamiltonian.n>10: # Generally offers a performance increase
-                self.use_sparse_matrices = True
-            else:
-                self.use_sparse_matrices = False
-        else:
-            self.use_sparse_matrices = use_sparse_matrices
-
-        # Make a rate equation model too:
-        self.rateeq = rateeq(self.laserBeams, magField, hamiltonian)
-
-        # Set up a dictionary to store any resulting force profiles.
-        self.profile = {}
-
-        # Reset the current solution to None
-        self.sol = None
-
-        # Build the matricies that control evolution:
-        self.ev_mat = {}
-        self.build_decay_ev()
-        self.build_coherent_ev()
-
-        # If necessary, transform the evolution matrices:
-        if self.transform_into_re_im:
-            self.transform_ev_matrices()
-
-        if self.use_sparse_matrices:
-            self.convert_to_sparse()
-
-        # Finally, update the position and velocity:
-        self.set_initial_position_and_velocity(r, v)
-
-
-    def density_index(self, ii, jj):
+    def __density_index(self, ii, jj):
         """
         This function returns the index in the rho vector that corresponds to element rho_{ij}.  If
         """
         return ii + jj*self.hamiltonian.n
 
 
-    def build_coherent_ev_submatrix(self, H):
+    def __build_coherent_ev_submatrix(self, H):
         """
         This method builds the coherent evolution based on a submatrix of the
         Hamiltonian H.  In practice, one must be careful about commutators if
@@ -170,22 +182,22 @@ class obe():
         for ii in range(self.hamiltonian.n):
             for jj in range(self.hamiltonian.n):
                 for kk in range(self.hamiltonian.n):
-                    ev_mat[self.density_index(ii, jj),
-                           self.density_index(ii, kk)] += 1j*H[kk, jj]
-                    ev_mat[self.density_index(ii, jj),
-                           self.density_index(kk, jj)] -= 1j*H[ii, kk]
+                    ev_mat[self.__density_index(ii, jj),
+                           self.__density_index(ii, kk)] += 1j*H[kk, jj]
+                    ev_mat[self.__density_index(ii, jj),
+                           self.__density_index(kk, jj)] -= 1j*H[ii, kk]
 
         return ev_mat
 
 
-    def build_coherent_ev(self):
-        self.ev_mat['H0'] = self.build_coherent_ev_submatrix(
+    def __build_coherent_ev(self):
+        self.ev_mat['H0'] = self.__build_coherent_ev_submatrix(
             self.hamiltonian.H_0
         )
 
         self.ev_mat['B'] = [None]*3
         for q in range(3):
-            self.ev_mat['B'][q] = self.build_coherent_ev_submatrix(
+            self.ev_mat['B'][q] = self.__build_coherent_ev_submatrix(
                 self.hamiltonian.mu_q[q]
             )
         self.ev_mat['B'] = np.array(self.ev_mat['B'])
@@ -196,17 +208,17 @@ class obe():
             self.ev_mat['d_q'][key] = [None]*3
             self.ev_mat['d_q*'][key] = [None]*3
             for q in range(3):
-                self.ev_mat['d_q'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q'][key][q] = self.__build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_bare[key][q]
                 )
-                self.ev_mat['d_q*'][key][q] = self.build_coherent_ev_submatrix(
+                self.ev_mat['d_q*'][key][q] = self.__build_coherent_ev_submatrix(
                     self.hamiltonian.d_q_star[key][q]
                 )
             self.ev_mat['d_q'][key] = np.array(self.ev_mat['d_q'][key])
             self.ev_mat['d_q*'][key] = np.array(self.ev_mat['d_q*'][key])
 
 
-    def build_decay_ev(self):
+    def __build_decay_ev(self):
         self.ev_mat['decay'] = np.zeros((self.hamiltonian.n**2,
                                          self.hamiltonian.n**2),
                                          dtype='complex128')
@@ -242,8 +254,8 @@ class obe():
                     for kk in all_higher_manifolds:
                         for ll in all_higher_manifolds:
                             for q in range(3):
-                                self.ev_mat['decay'][self.density_index(ii, jj),
-                                                     self.density_index(kk, ll)] +=\
+                                self.ev_mat['decay'][self.__density_index(ii, jj),
+                                                     self.__density_index(kk, ll)] +=\
                                 d_q[q, ii, kk]*d_q[q, ll, jj]
 
         # Decay out of a manifold.  Each state and coherence in the manifold
@@ -254,8 +266,8 @@ class obe():
                                   sum(self.hamiltonian.ns[:ll+1]))
             for ii in this_manifold:
                 for jj in this_manifold:
-                    self.ev_mat['decay'][self.density_index(ii, jj),
-                                         self.density_index(ii, jj)] = -decay_rates[ll]
+                    self.ev_mat['decay'][self.__density_index(ii, jj),
+                                         self.__density_index(ii, jj)] = -decay_rates[ll]
 
         # Coherences decay with the average decay rate out of the manifold
         # and into the manifold.
@@ -267,54 +279,54 @@ class obe():
                                        sum(self.hamiltonian.ns[:mm+1]))
                 for ii in this_manifold:
                     for jj in other_manifold:
-                        self.ev_mat['decay'][self.density_index(ii, jj),
-                                             self.density_index(ii, jj)] = \
+                        self.ev_mat['decay'][self.__density_index(ii, jj),
+                                             self.__density_index(ii, jj)] = \
                         -(decay_rates[ll]+decay_rates[mm])/2
-                        self.ev_mat['decay'][self.density_index(jj, ii),
-                                             self.density_index(jj, ii)] = \
+                        self.ev_mat['decay'][self.__density_index(jj, ii),
+                                             self.__density_index(jj, ii)] = \
                         -(decay_rates[ll]+decay_rates[mm])/2
 
 
-    def build_transform_matrices(self):
+    def __build_transform_matrices(self):
         self.U = np.zeros((self.hamiltonian.n**2, self.hamiltonian.n**2),
                      dtype='complex128')
         self.Uinv = np.zeros((self.hamiltonian.n**2, self.hamiltonian.n**2),
                         dtype='complex128')
 
         for ii in range(self.hamiltonian.n):
-            self.U[self.density_index(ii, ii),
-                   self.density_index(ii, ii)] = 1.
-            self.Uinv[self.density_index(ii, ii),
-                      self.density_index(ii, ii)] = 1.
+            self.U[self.__density_index(ii, ii),
+                   self.__density_index(ii, ii)] = 1.
+            self.Uinv[self.__density_index(ii, ii),
+                      self.__density_index(ii, ii)] = 1.
 
         for ii in range(self.hamiltonian.n):
             for jj in range(ii+1, self.hamiltonian.n):
-                    self.U[self.density_index(ii, jj),
-                           self.density_index(ii, jj)] = 1.
-                    self.U[self.density_index(ii, jj),
-                           self.density_index(jj, ii)] = 1j
+                    self.U[self.__density_index(ii, jj),
+                           self.__density_index(ii, jj)] = 1.
+                    self.U[self.__density_index(ii, jj),
+                           self.__density_index(jj, ii)] = 1j
 
-                    self.U[self.density_index(jj, ii),
-                           self.density_index(ii, jj)] = 1.
-                    self.U[self.density_index(jj, ii),
-                           self.density_index(jj, ii)] = -1j
+                    self.U[self.__density_index(jj, ii),
+                           self.__density_index(ii, jj)] = 1.
+                    self.U[self.__density_index(jj, ii),
+                           self.__density_index(jj, ii)] = -1j
 
         for ii in range(self.hamiltonian.n):
             for jj in range(ii+1, self.hamiltonian.n):
-                    self.Uinv[self.density_index(ii, jj),
-                              self.density_index(ii, jj)] = 0.5
-                    self.Uinv[self.density_index(ii, jj),
-                              self.density_index(jj, ii)] = 0.5
+                    self.Uinv[self.__density_index(ii, jj),
+                              self.__density_index(ii, jj)] = 0.5
+                    self.Uinv[self.__density_index(ii, jj),
+                              self.__density_index(jj, ii)] = 0.5
 
-                    self.Uinv[self.density_index(jj, ii),
-                              self.density_index(ii, jj)] = -0.5*1j
-                    self.Uinv[self.density_index(jj, ii),
-                              self.density_index(jj, ii)] = +0.5*1j
+                    self.Uinv[self.__density_index(jj, ii),
+                              self.__density_index(ii, jj)] = -0.5*1j
+                    self.Uinv[self.__density_index(jj, ii),
+                              self.__density_index(jj, ii)] = +0.5*1j
 
 
-    def transform_ev_matrix(self, ev_mat):
+    def __transform_ev_matrix(self, ev_mat):
         if not hasattr(self, 'U'):
-            self.build_transform_matrices()
+            self.__build_transform_matrices()
 
         ev_mat_new = self.Uinv @ ev_mat @ self.U
 
@@ -325,19 +337,19 @@ class obe():
             raise ValueError('Something went dreadfully wrong.')
 
 
-    def transform_ev_matrices(self):
-        self.ev_mat['decay'] = self.transform_ev_matrix(self.ev_mat['decay'])
-        self.ev_mat['H0'] = self.transform_ev_matrix(self.ev_mat['H0'])
+    def __transform_ev_matrices(self):
+        self.ev_mat['decay'] = self.__transform_ev_matrix(self.ev_mat['decay'])
+        self.ev_mat['H0'] = self.__transform_ev_matrix(self.ev_mat['H0'])
 
         self.ev_mat['reE'] = {}
         self.ev_mat['imE'] = {}
         for key in self.ev_mat['d_q'].keys():
-            self.ev_mat['reE'][key] = np.array([self.transform_ev_matrix(
+            self.ev_mat['reE'][key] = np.array([self.__transform_ev_matrix(
                 self.ev_mat['d_q'][key][jj] + self.ev_mat['d_q*'][key][jj]
                 ) for jj in range(3)])
             # Unclear why the following works, I calculate that there should
             # be a minus sign out front.
-            self.ev_mat['imE'][key] = np.array([self.transform_ev_matrix(
+            self.ev_mat['imE'][key] = np.array([self.__transform_ev_matrix(
                 1j*(self.ev_mat['d_q'][key][jj] - self.ev_mat['d_q*'][key][jj])
                 ) for jj in range(3)])
 
@@ -345,14 +357,14 @@ class obe():
         self.ev_mat['B'] = spherical2cart(self.ev_mat['B'])
 
         for jj in range(3):
-            self.ev_mat['B'][jj] = self.transform_ev_matrix(self.ev_mat['B'][jj])
+            self.ev_mat['B'][jj] = self.__transform_ev_matrix(self.ev_mat['B'][jj])
         self.ev_mat['B'] = np.real(self.ev_mat['B'])
 
         del self.ev_mat['d_q']
         del self.ev_mat['d_q*']
 
 
-    def convert_to_sparse(self):
+    def __convert_to_sparse(self):
         def convert_based_on_shape(matrix):
             # Vector:
             if matrix.shape == (3, self.hamiltonian.n**2, self.hamiltonian.n**2):
@@ -387,18 +399,6 @@ class obe():
         self.v0 = v0
         self.sol = None
 
-
-    def return_magnetic_field(self, t, r):
-        B = self.magField(r)
-
-        if self.transform_into_re_im:
-            return B
-        else:
-            Bq = cart2spherical(B)
-
-            return Bq
-
-
     def set_initial_rho(self, rho0):
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
@@ -418,7 +418,7 @@ class obe():
             self.rho0 = np.zeros((self.hamiltonian.n**2,), dtype='complex128')
 
         for jj in range(self.hamiltonian.ns[0]):
-            self.rho0[self.density_index(jj, jj)] = 1/self.hamiltonian.ns[0]
+            self.rho0[self.__density_index(jj, jj)] = 1/self.hamiltonian.ns[0]
 
     def set_initial_rho_from_populations(self, Npop):
         if self.transform_into_re_im:
@@ -434,9 +434,11 @@ class obe():
 
         Npop = Npop/np.sum(Npop) # Just make sure it is normalized.
         for jj in range(self.hamiltonian.n):
-            self.rho0[self.density_index(jj, jj)] = Npop[jj]
+            self.rho0[self.__density_index(jj, jj)] = Npop[jj]
 
     def set_initial_rho_from_rateeq(self):
+        if not hasattr(self, 'rateeq'):
+            self.rateeq = rateeq(self.laserBeams, self.magField, self.hamiltonian)
         Neq = self.rateeq.equilibrium_populations(self.r0, self.v0, t=0)
         self.set_initial_rho_from_populations(Neq)
 
@@ -454,13 +456,14 @@ class obe():
         for key in self.laserBeams.keys():
             Eq[key] = self.laserBeams[key].total_electric_field(r, t)
 
-        Bq = self.return_magnetic_field(r, t)
+        B = self.magField.Field(r, t)
+        Bq = cart2spherical(B)
 
         H = self.hamiltonian.return_full_H(Bq, Eq)
-        ev_mat = self.build_coherent_ev_submatrix(H)
+        ev_mat = self.__build_coherent_ev_submatrix(H)
 
         if self.transform_into_re_im:
-            return self.transform_ev_matrix(ev_mat + self.ev_mat['decay'])
+            return self.__transform_ev_matrix(ev_mat + self.ev_mat['decay'])
         else:
             return ev_mat + self.ev_mat['decay']
 
@@ -492,9 +495,15 @@ class obe():
                         ev_mat -= 0.5*Eq[ii]*self.ev_mat['d_q*'][key][ii]
 
         # Add in magnetic fields:
-        Bq = self.return_magnetic_field(r, t)
-        for ii in range(3):
-            ev_mat -= spherical_dot(self.ev_mat['B'], Bq)
+        B = self.magField.Field(r, t)
+        for ii, q in enumerate(range(-1, 2)):
+            if self.transform_into_re_im:
+                if np.abs(Bq[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*B[ii] @ rho
+            else:
+                Bq = cart2spherical(B)
+                if np.abs(Bq[2-ii])>1e-10:
+                    drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
         return ev_mat
 
@@ -528,12 +537,13 @@ class obe():
                                    (self.ev_mat['d_q*'][key][ii] @ rho))
 
         # Add in magnetic fields:
-        Bq = self.return_magnetic_field(t, r)
+        B = self.magField.Field(r, t)
         for ii, q in enumerate(range(-1, 2)):
             if self.transform_into_re_im:
-                if np.abs(Bq[ii])>1e-10:
-                    drhodt -= self.ev_mat['B'][ii]*Bq[ii] @ rho
+                if np.abs(B[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*B[ii] @ rho
             else:
+                Bq = cart2spherical(B)
                 if np.abs(Bq[2-ii])>1e-10:
                     drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
 
@@ -661,7 +671,7 @@ class obe():
 
 
     def force(self, r, t, rho, return_details=False):
-        if rho.shape[0] == self.hamiltonian.n**2:
+        if rho.shape[0] != self.hamiltonian.n:
             rho = self.reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
@@ -675,10 +685,7 @@ class obe():
             mu_q_av = self.observable(self.hamiltonian.d_q_bare[key], rho)
 
             if not return_details:
-                if not self.transform_into_re_im:
-                    delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
-                else:
-                    delE = self.laserBeams[key].total_electric_field_gradient(r, t)
+                delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
 
                 for jj, q in enumerate(np.arange(-1., 2., 1.)):
                     f += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
@@ -702,8 +709,28 @@ class obe():
 
                 f+=np.sum(f_laser[key], axis=1)
 
+        # Are we including magnetic forces?
+        if self.include_mag_forces:
+            # This function returns a matrix that (3, 3) with the format:
+            # [dBx/dx, dBy/dx, dBz/dx; dBx/dy, dBy/dy, dBz/dy], and so on.
+            # We need to dot, and su
+            delB = self.magField.gradField(np.real(r))
+
+            # What's the expectation value of mu?
+            av_mu = self.observable(self.hamiltonian.mu, rho)
+
+            # Now dot it into the gradient:
+            f_mag = np.zeros(f.shape)
+            for ii in range(3): # Loop over muxB_x, mu_yB_y, mu_zB_z
+                f_mag += av_mu[ii]*delB[:, ii]
+
+            # Add it into the regular force.
+            f+=f_mag
+        elif return_details:
+            f_mag=np.zeros(f.shape)
+
         if return_details:
-            return f, f_laser, f_laser_q
+            return f, f_laser, f_laser_q, f_mag
         else:
             return f
 
@@ -734,8 +761,8 @@ class obe():
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
             (t, r, v, rho) = self.reshape_sol()
-            f, f_laser, f_laser_q = self.force(r, t, rho,
-                                               return_details=True)
+            f, f_laser, f_laser_q, f_mag = self.force(r, t, rho,
+                                                      return_details=True)
 
             f_avg = np.mean(f, axis=1)
 
@@ -753,13 +780,16 @@ class obe():
                                                        self.sol.y[-6:-3, -1])
                 ii+=1
 
+        f_mag = np.mean(f_mag, axis=1)
+
         f_laser_avg = {}
         f_laser_avg_q = {}
         for key in f_laser:
             f_laser_avg[key] = np.mean(f_laser[key], axis=2)
             f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
-        return f_avg, f_laser_avg, f_laser_avg_q, ii
+        Neq = np.real(np.diagonal(np.mean(rho, axis=2)))
+        return (Neq, f_avg, f_laser_avg, f_laser_avg_q, f_mag, ii)
 
 
     def generate_force_profile(self, R, V,  **kwargs):
@@ -776,11 +806,7 @@ class obe():
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
-        num_of_beams = {}
-        for key in self.laserBeams:
-            num_of_beams[key] = self.laserBeams[key].num_of_beams
-
-        self.profile[name] = force_profile(R, V, num_of_beams, self.hamiltonian)
+        self.profile[name] = force_profile(R, V, self.laserBeams, self.hamiltonian)
 
         it = np.nditer([R[0], R[1], R[2], V[0], V[1], V[2]],
                        flags=['refs_ok', 'multi_index'],
@@ -820,10 +846,10 @@ class obe():
                 else:
                     kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
 
-            F, F_laser, F_laser_q, iterations = self.find_equilibrium_force(**kwargs)
+            Neq, F, F_laser, F_laser_q, F_mag, iterations = self.find_equilibrium_force(**kwargs)
 
-            self.profile[name].store_data(it.multi_index, F, F_laser, F_laser_q,
-                                          iterations)
+            self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
+                                          iterations, F_laser_q)
 
             if progress_bar:
                 toc = time.time()

@@ -77,11 +77,12 @@ two-state solution:
 v = np.arange(-5.0, 5.1, 0.25)
 
 for jj, key in enumerate(laserBeams.keys()):
+    rateeq[key] = pylcp.rateeq(laserBeams[key], magField, ham_F0_to_F1)
     obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
-                         transform_into_re_im=True)
+                         transform_into_re_im=True, include_mag_forces=True)
 
     # Generate a rateeq model of what's going on:
-    obe[key].rateeq.generate_force_profile(
+    rateeq[key].generate_force_profile(
         [np.zeros(v.shape), np.zeros(v.shape), np.zeros(v.shape)],
         [np.zeros(v.shape), np.zeros(v.shape), v],
         name='molasses'
@@ -106,8 +107,8 @@ for jj, key in enumerate(laserBeams.keys()):
     ax[0].plot(obe[key].profile['molasses'].V[2],
                obe[key].profile['molasses'].F[2],
                label=key, linewidth=0.5, color='C%d'%jj)
-    ax[0].plot(obe[key].rateeq.profile['molasses'].V[2],
-               obe[key].rateeq.profile['molasses'].F[2], '--',
+    ax[0].plot(rateeq[key].profile['molasses'].V[2],
+               rateeq[key].profile['molasses'].F[2], '--',
                linewidth=0.5, color='C%d'%jj)
 ax[0].legend(fontsize=6)
 ax[0].set_xlabel('$v/(\Gamma/k)$')
@@ -125,74 +126,6 @@ ax[1].plot(v, obe[key].profile['molasses'].F[2], 'k-',
 ax[1].legend(fontsize=6)
 ax[1].set_xlabel('$v/(\Gamma/k)$')
 fig.subplots_adjust(wspace=0.15)
-
-# %%
-"""
-Let's run along x and y just to make sure that everything is Kosher.
-"""
-laserBeams = {}
-laserBeams['x'] = {}
-laserBeams['x']['$\\sigma^+\\sigma^+$'] = pylcp.laserBeams([
-    {'kvec':np.array([ 1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([-1., 0., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
-    ])
-laserBeams['x']['$\\sigma^+\\sigma^-$'] = pylcp.laserBeams([
-    {'kvec':np.array([ 1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([-1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    ])
-laserBeams['y'] = {}
-laserBeams['y']['$\\sigma^+\\sigma^+$'] = pylcp.laserBeams([
-    {'kvec':np.array([0.,  1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([0., -1., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
-    ])
-laserBeams['y']['$\\sigma^+\\sigma^-$'] = pylcp.laserBeams([
-    {'kvec':np.array([0.,  1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    {'kvec':np.array([0., -1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
-    ])
-
-obe = {}
-for coord_key in laserBeams:
-    obe[coord_key] = {}
-    for pol_key in laserBeams[coord_key]:
-        obe[coord_key][pol_key] = pylcp.obe(laserBeams[coord_key][pol_key],
-                                            magField, ham_F0_to_F1,
-                                            transform_into_re_im=False)
-
-        if coord_key is 'x':
-            V = [v, np.zeros(v.shape), np.zeros(v.shape)]
-        elif coord_key is 'y':
-            V = [np.zeros(v.shape), v, np.zeros(v.shape)]
-        R = np.zeros((3,)+v.shape)
-        # Generate a rateeq model of what's going on:
-        obe[coord_key][pol_key].rateeq.generate_force_profile(
-            R, V, name='molasses'
-        )
-
-        tic = time.time()
-        obe[coord_key][pol_key].generate_force_profile(
-            R, V, name='molasses', deltat_tmax=2*np.pi*100, deltat_v=4,
-            itermax=1000, progress_bar=True
-        )
-        toc=time.time()
-        print('Total computation time for %s along %s is %.3f' % (pol_key, coord_key, toc-tic))
-
-# %%
-"""
-Plot 'er up:
-"""
-fig, ax = plt.subplots(1, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 2.75))
-for ii, coord_key in enumerate(laserBeams.keys()):
-    for jj, pol_key in enumerate(laserBeams[coord_key].keys()):
-        ax[ii].plot(obe[coord_key][pol_key].profile['molasses'].V[ii],
-                   obe[coord_key][pol_key].profile['molasses'].F[ii],
-                   label=pol_key, linewidth=0.5, color='C%d'%jj)
-        ax[ii].plot(obe[coord_key][pol_key].rateeq.profile['molasses'].V[ii],
-                   obe[coord_key][pol_key].rateeq.profile['molasses'].F[ii], '--',
-                   linewidth=0.5, color='C%d'%jj)
-ax[1].legend(fontsize=6)
-ax[0].set_xlabel('$v_x/(\Gamma/k)$')
-ax[1].set_xlabel('$v_y/(\Gamma/k)$')
-ax[1].set_ylabel('$F/(\hbar k \Gamma)$')
 
 # %%
 """
@@ -242,3 +175,76 @@ ax[1, 1].plot(t, obe[key].sol.y[-1], '-', label='$z$')
 ax[1, 1].plot(t, obe[key].sol.y[-4], '--', label='$v_z$')
 ax[1, 1].legend(fontsize=6)
 #ax.plot(v, F_rateeq_F0_to_F1, v, F_obe)
+
+# %%
+"""
+Finally, let's run along x and y just to make sure that everything is Kosher.
+"""
+laserBeams = {}
+laserBeams['x'] = {}
+laserBeams['x']['$\\sigma^+\\sigma^+$'] = pylcp.laserBeams([
+    {'kvec':np.array([ 1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([-1., 0., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
+    ])
+laserBeams['x']['$\\sigma^+\\sigma^-$'] = pylcp.laserBeams([
+    {'kvec':np.array([ 1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([-1., 0., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    ])
+laserBeams['y'] = {}
+laserBeams['y']['$\\sigma^+\\sigma^+$'] = pylcp.laserBeams([
+    {'kvec':np.array([0.,  1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([0., -1., 0.]), 'pol':-1, 'delta':laser_det, 'beta':beta},
+    ])
+laserBeams['y']['$\\sigma^+\\sigma^-$'] = pylcp.laserBeams([
+    {'kvec':np.array([0.,  1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    {'kvec':np.array([0., -1., 0.]), 'pol':+1, 'delta':laser_det, 'beta':beta},
+    ])
+
+obe = {}
+rateeq = {}
+for coord_key in laserBeams:
+    obe[coord_key] = {}
+    rateeq[coord_key] = {}
+    for pol_key in laserBeams[coord_key]:
+        rateeq[coord_key][pol_key] = pylcp.rateeq(laserBeams[coord_key][pol_key],
+                                                  magField, ham_F0_to_F1)
+        obe[coord_key][pol_key] = pylcp.obe(laserBeams[coord_key][pol_key],
+                                            magField, ham_F0_to_F1,
+                                            transform_into_re_im=False,
+                                            include_mag_forces=True)
+
+        if coord_key is 'x':
+            V = [v, np.zeros(v.shape), np.zeros(v.shape)]
+        elif coord_key is 'y':
+            V = [np.zeros(v.shape), v, np.zeros(v.shape)]
+        R = np.zeros((3,)+v.shape)
+        # Generate a rateeq model of what's going on:
+        rateeq[coord_key][pol_key].generate_force_profile(
+            R, V, name='molasses'
+        )
+
+        tic = time.time()
+        obe[coord_key][pol_key].generate_force_profile(
+            R, V, name='molasses', deltat_tmax=2*np.pi*100, deltat_v=4,
+            itermax=1000, progress_bar=True
+        )
+        toc=time.time()
+        print('Total computation time for %s along %s is %.3f' % (pol_key, coord_key, toc-tic))
+
+# %%
+"""
+Plot 'er up:
+"""
+fig, ax = plt.subplots(1, 2, num='Optical Molasses F=0->F1', figsize=(6.5, 2.75))
+for ii, coord_key in enumerate(laserBeams.keys()):
+    for jj, pol_key in enumerate(laserBeams[coord_key].keys()):
+        ax[ii].plot(obe[coord_key][pol_key].profile['molasses'].V[ii],
+                   obe[coord_key][pol_key].profile['molasses'].F[ii],
+                   label=pol_key, linewidth=0.5, color='C%d'%jj)
+        ax[ii].plot(rateeq[coord_key][pol_key].profile['molasses'].V[ii],
+                    rateeq[coord_key][pol_key].profile['molasses'].F[ii], '--',
+                    linewidth=0.5, color='C%d'%jj)
+ax[1].legend(fontsize=6)
+ax[0].set_xlabel('$v_x/(\Gamma/k)$')
+ax[1].set_xlabel('$v_y/(\Gamma/k)$')
+ax[1].set_ylabel('$F/(\hbar k \Gamma)$')

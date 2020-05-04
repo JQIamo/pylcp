@@ -1,5 +1,5 @@
 import numpy as np
-
+from .common import spherical2cart
 
 # Next, define a Hamiltonian class to work out the internal states:
 class hamiltonian():
@@ -275,6 +275,10 @@ class hamiltonian():
         self.d_q = np.zeros((3, self.n, self.n), dtype='complex128')
         for key in self.d_q_bare.keys():
             self.d_q += self.d_q_bare[key] + self.d_q_star[key]
+
+        # Make Cartesian coordinate copies.
+        self.mu = spherical2cart(self.mu_q)
+        self.d = spherical2cart(self.d_q)
 
         return self.H_0, self.mu_q, self.d_q_bare, self.d_q_star
 

@@ -8,63 +8,42 @@ import copy
 from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
-from .lasers import laserBeams
-from .common import random_vector
+from .fields import laserBeams, magField
+from .common import random_vector, base_force_profile
 from .integration_tools import solve_ivp_random
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
     return x.real**2 + x.imag**2
 
-class force_profile():
-    def __init__(self, R, V, laserBeams, hamiltonian,
-                 contents=['Rijl','Neq','f','F']):
-        if not isinstance(R, np.ndarray):
-            R = np.array(R)
-        if not isinstance(V, np.ndarray):
-            V = np.array(V)
+class force_profile(base_force_profile):
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        super().__init__(R, V, laserBeams, hamiltonian)
 
-        if R.shape[0] != 3 or V.shape[0] != 3:
-            raise TypeError('R and V must have first dimension of 3.')
-
-        self.R = copy.copy(R)
-        self.V = copy.copy(V)
-
+        # Add in the specific instance of the Rijl:
         self.Rijl = {}
-        self.f = {}
         for key in laserBeams:
-             self.Rijl[key] = np.zeros(
-                 R[0].shape+(len(laserBeams[key].beam_vector),
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
-                 )
-             self.f[key] = np.zeros(R.shape + (len(laserBeams[key].beam_vector),))
+            self.Rijl[key] = np.zeros(
+                self.R[0].shape+(len(laserBeams[key].beam_vector),
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
+                )
 
-        self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
-        self.F = np.zeros(R.shape)
-
-    def store_data(self, ind, Rijl, Neq, f_laser, F):
-        self.Neq[ind] = Neq
+    def store_data(self, ind, Neq, F, F_laser, F_mag, Rijl):
+        super().store_data(ind, Neq, F, F_laser, F_mag)
 
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
 
-        for key in f_laser:
-            for jj in range(3):
-                self.f[key][(jj,) + ind] = f_laser[key][jj]
 
-        for jj in range(3):
-            self.F[(jj,) + ind] = F[jj]
-
-
-class rateeq():
+class rateeq(object):
     """
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
     """
-    def __init__(self, lasers, magField, hamiltonian,
+    def __init__(self, lasers, mag_field, hamiltonian,
                  r=np.array([0.0, 0.0, 0.0]), v=np.array([0.0, 0.0, 0.0]),
-                 svd_eps=1e-10):
+                 svd_eps=1e-10, include_mag_forces=True):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
@@ -88,7 +67,14 @@ class rateeq():
                                  'a corresponding key the Hamiltonian d_q.' %
                                  laser_key)
 
-        self.magField = copy.copy(magField)
+        if callable(mag_field):
+            self.magField = magField(mag_field)
+        elif isinstance(mag_field, magField):
+            self.magField = copy.copy(mag_field)
+        else:
+            raise TypeError('mag_field must be either a lambda function or a' +
+                            'magField object.')
+        self.include_mag_forces = include_mag_forces
 
         self.svd_eps = svd_eps
 
@@ -100,9 +86,9 @@ class rateeq():
         self.tdepend['det'] = False
         self.tdepend['beta'] = False"""
 
-        if 't' in str(signature(self.magField)):
+        """if 't' in str(signature(self.magField)):
             self.tdepend['B'] = True
-        """for key in self.laserBeams:
+        for key in self.laserBeams:
             for beam in self.laserBeams[key]:
                 if not beam.pol_sig is None and 't' in beam.pol_sig:
                     self.tdepend['pol'] = True
@@ -166,9 +152,9 @@ class rateeq():
         """
         # What is the magnetic field?
         if self.tdepend['B']:
-            B = self.magField(r, t)
+            B = self.magField.Field(r, t)
         else:
-            B = self.magField(r)
+            B = self.magField.Field(r)
 
         # Calculate its magnitude:
         Bmag = np.linalg.norm(B, axis=0)
@@ -207,7 +193,10 @@ class rateeq():
                                       dijq.shape[1:])
 
             # Grab the laser parameters:
-            (kvecs, betas, pols, deltas) = self.laserBeams[key].return_parameters(r, t)
+            kvecs = self.laserBeams[key].kvec(r, t)
+            betas = self.laserBeams[key].beta(r, t)
+            deltas = self.laserBeams[key].delta(t)
+
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 
             # Loop through each laser beam driving this transition:
@@ -265,7 +254,7 @@ class rateeq():
             return Neq
 
 
-    def force(self, r, t, Rijl, Npop):
+    def force(self, r, t, Npop):
         F = np.zeros((3,))
         f = {}
 
@@ -277,17 +266,45 @@ class rateeq():
             m = sum(self.hamiltonian.ns[:ind[1]])
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 # If kvec is callable, evaluate kvec:
-                kvec = beam.return_kvec(r, t)
+                kvec = beam.kvec(r, t)
 
-                for ii in range(Rijl[key].shape[1]):
-                    for jj in range(Rijl[key].shape[2]):
-                        if Rijl[key][ll, ii, jj]>0:
-                            f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
+                for ii in range(self.Rijl[key].shape[1]):
+                    for jj in range(self.Rijl[key].shape[2]):
+                        if self.Rijl[key][ll, ii, jj]>0:
+                            f[key][:, ll] += kvec*self.Rijl[key][ll, ii, jj]*\
                                 (Npop[n+ii] - Npop[m+jj])
 
             F += np.sum(f[key], axis=1)
 
-        return F, f
+        fmag = np.array([0., 0., 0.])
+        if self.include_mag_forces:
+            gradBmag = self.magField.gradFieldMag(r)
+
+            for ii, block in enumerate(np.diag(self.hamiltonian.blocks)):
+                ind1 = int(np.sum(self.hamiltonian.ns[:ii]))
+                ind2 = int(np.sum(self.hamiltonian.ns[:ii+1]))
+                if self.hamiltonian.diagonal[ii]:
+                    if isinstance(block, tuple):
+                        fmag += np.sum(np.real(
+                            block[1].matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag += np.sum(np.real(
+                            block.matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                else:
+                    if isinstance(block, tuple):
+                        fmag += np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block[1].matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag += np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block.matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+
+            F += fmag
+
+        return F, f, fmag
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
@@ -338,7 +355,7 @@ class rateeq():
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
             if not random_force_flag:
-                F, f_laser = self.force(r, t, Rijl, N)
+                F, f_laser = self.force(r, t, N)
 
                 dydt = np.concatenate((Rev @ N, recoil_velocity*F*free_axes, v))
             else:
@@ -421,10 +438,11 @@ class rateeq():
             N_eq, Rev, Rijl = self.equilibrium_populations(
                 self.r0, self.v0, t=0, return_details=True
                 )
-            F_eq, f_eq = self.force(self.r0, 0., Rijl, N_eq)
+
+            F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
 
         if return_details:
-            return F_eq, f_eq, N_eq, Rijl
+            return F_eq, f_eq, N_eq, Rijl, f_mag
         else:
             return F_eq
 
@@ -452,7 +470,7 @@ class rateeq():
             # Update position (use multi_index), populations, and forces.
             self.set_initial_position_and_velocity(r, v)
             try:
-                F, f, Neq, Rijl = self.find_equilibrium_force(
+                F, f, Neq, Rijl, f_mag = self.find_equilibrium_force(
                     return_details=True
                     )
             except:
@@ -462,13 +480,15 @@ class rateeq():
                     "v=({0:0.2f},{1:0.2f},{2:0.2f})".format(vx, vy, vz)
                     )
 
-            self.profile[name].store_data(it.multi_index, Rijl, Neq, f, F)
+            self.profile[name].store_data(it.multi_index, Neq, F, f, f_mag, Rijl)
 
 
 class trap(rateeq):
-    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10):
-        super(trap, self).__init__(laserBeams, magField, hamiltonian,
-                                   svd_eps=svd_eps)
+    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10,
+                 include_mag_forces=True):
+        super().__init__(laserBeams, magField, hamiltonian,
+                                   svd_eps=svd_eps,
+                                   include_mag_forces=include_mag_forces)
         self.r0 = np.zeros((3,))
 
 
