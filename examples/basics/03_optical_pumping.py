@@ -85,13 +85,13 @@ for ii, key in enumerate(laserBeams):
 
     H_sub2 = np.zeros(d_q[0].shape).astype('complex128')
     for kk, q in enumerate(np.arange(-1, 2, 1)):
-        H_sub2 -= 0.5*(-1.)**q*d_q[kk]*laserBeams[key].beam_vector[0].pol()[2-kk]
+        H_sub2 -= 0.5*(-1.)**q*d_q[kk]*laserBeams[key].beam_vector[0].pol[2-kk]
 
     H2 = np.zeros((4, 4)).astype('complex128')
     H2[0, 1:] = H_sub2
     H2[1:, 0] = np.conjugate(H_sub2)
 
-    H3 = hamiltonian.return_full_H({'g->e': laserBeams[key].beam_vector[0].pol()},
+    H3 = hamiltonian.return_full_H({'g->e': laserBeams[key].beam_vector[0].pol},
                                    np.zeros((3,)).astype('complex128'))
     psi0 = np.zeros((4,)).astype('complex128')
     psi0[0] = 1.
@@ -215,7 +215,7 @@ magField = lambda R: np.array([0., 0., 0.])
 fig, ax = plt.subplots(2, 2, figsize=(6.5, 1.75*2.75))
 for ii, key in enumerate(['$\\pi_x$', '$\\pi_y$']):
     d = spherical2cart(d_q)
-    E = spherical2cart(laserBeams[key].beam_vector[0].pol())
+    E = spherical2cart(laserBeams[key].beam_vector[0].pol)
 
     H_sub = -0.5*np.tensordot(d, E, axes=(0, 0))
 
@@ -225,13 +225,13 @@ for ii, key in enumerate(['$\\pi_x$', '$\\pi_y$']):
 
     H_sub2 = np.zeros(d_q[0].shape).astype('complex128')
     for kk, q in enumerate(np.arange(-1, 2, 1)):
-        H_sub2 -= 0.5*(-1.)**q*d_q[kk]*laserBeams[key].beam_vector[0].pol()[2-kk]
+        H_sub2 -= 0.5*(-1.)**q*d_q[kk]*laserBeams[key].beam_vector[0].pol[2-kk]
 
     H2 = np.zeros((4, 4)).astype('complex128')
     H2[0, 1:] = H_sub2
     H2[1:, 0] = np.conjugate(H_sub2)
 
-    H3 = hamiltonian.return_full_H({'g->e': laserBeams[key].beam_vector[0].pol()},
+    H3 = hamiltonian.return_full_H({'g->e': laserBeams[key].beam_vector[0].pol},
                                    np.zeros((3,)).astype('complex128'))
 
     psi0 = np.zeros((4,)).astype('complex128')
@@ -296,13 +296,13 @@ laserBeams['$\\pi_x$']= pylcp.laserBeams([
 magField = lambda R: np.zeros(R.shape)
 
 # Hamiltonian for F=2->F=3
-gamma = 1.0
+gamma = 1
 H_g, muq_g = pylcp.hamiltonians.singleF(F=2, gF=1, muB=1)
 H_e, mue_q = pylcp.hamiltonians.singleF(F=3, gF=1, muB=1)
 d_q = pylcp.hamiltonians.dqij_two_bare_hyperfine(2, 3)
 hamiltonian = pylcp.hamiltonian()
 hamiltonian.add_H_0_block('g', H_g)
-hamiltonian.add_H_0_block('e', H_e-0.*np.eye(He.shape[0]))
+hamiltonian.add_H_0_block('e', H_e-0.*np.eye(H_e.shape[0]))
 hamiltonian.add_d_q_block('g', 'e', d_q, gamma=gamma)
 
 hamiltonian.print_structure()
@@ -317,13 +317,15 @@ obe['$\\pi_z$'] = pylcp.obe(laserBeams['$\\pi_z$'], magField, hamiltonian,
 N0 = np.zeros((rateeq['$\\pi_z$'].hamiltonian.n,))
 N0[0] = 1
 rateeq['$\\pi_z$'].set_initial_pop(N0)
-rateeq['$\\pi_z$'].evolve_populations([0, 2*np.pi*600/gamma])
+rateeq['$\\pi_z$'].evolve_populations([0, 2*np.pi*600/gamma],
+                                      max_step=1/gamma)
 
 rho0 = np.zeros((obe['$\\pi_z$'].hamiltonian.n**2,))
 rho0[0] = 1.
 obe['$\\pi_z$'].set_initial_rho(np.real(rho0))
 tic = time.time()
-obe['$\\pi_z$'].evolve_density(t_span=[0, 2*np.pi*600/gamma])
+obe['$\\pi_z$'].evolve_density(t_span=[0, 2*np.pi*600/gamma],
+                               max_step=1/gamma)
 toc = time.time()
 print('Computation time is  %.2f s.' % (toc-tic))
 
@@ -345,7 +347,6 @@ for jj in range(5):
             linewidth=0.5)
 
 ax.set_xlabel('$\\Gamma t/2\\pi$')
-
 
 # %%
 """
