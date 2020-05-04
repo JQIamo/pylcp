@@ -13,6 +13,20 @@ from .lasers import laserBeams
 from .common import printProgressBar
 from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
 
+"""
+The following is code that will be reintroduced after magnetic_forces branch is
+pulled into master:
+
+for key in self.laserBeams:
+    k_ham = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']
+    for kvec in self.laserBeams[key].kvec():
+        if not np.abs(np.linalg.norm(kvec)-k_ham)<1e-15:
+            raise ValueError('Laser beam driving transition %s '%key +
+                             'with wavevector k=%s '%str(kvec) +
+                             'has different magnitude from that '+
+                             'specified in the Hamiltonian, %s.'%str(k_ham))
+
+"""
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
     return x.real**2 + x.imag**2
