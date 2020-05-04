@@ -202,10 +202,10 @@ where $\hat{H}_\text{internal}$ describes the internal structure of the atom.
 \subsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
 \begin{equation}
-    \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{g_1} \\ \vdots \\ \ket{g_{n_g}} \end{array} \\ \begin{array}{c} \ket{e_1} \\ \vdots \\ \ket{e_{n_e}} \end{array} \end{array}\right)\ ,
+    \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{l_1} \\ \vdots \\ \ket{l_{l_{N_l}}} \end{array} \\ \begin{array}{c} \ket{n_1} \\ \vdots \\ \ket{n_{N_n}} \end{array} \end{array}\right)\ ,
 \end{equation}
-where $\ket{g_i}$ are the eigenstates of the ground manifold and $\ket{e_j}$ are
-the eigenstates of the excited manifold.  With this basis vector, the term $\boldsymbol{\mu}_l\cdot\mathbf{B}$ is the field dependent term that mixes states within a given manifold $l$ and $\vec{d}_{lm}\cdot\mathbf{E}_{lm}$ is the field dependent term that couples states of different manifolds.  Using labels $i=g,e$ for the two extreme manifolds, the Hamiltonian blocks look like
+where $\ket{l_i}$ are the eigenstates of the first (ground) manifold and $\ket{n_k}$ are
+the eigenstates of the most excited manifold.  With this basis vector, the term $\boldsymbol{\mu}_l\cdot\mathbf{B}$ is the field dependent term that mixes states within a given manifold $l$ and $\vec{d}_{lm}\cdot\mathbf{E}_{lm}$ is the field dependent term that couples states of different manifolds.  Using labels $i=g,e$ for the two extreme manifolds, the Hamiltonian blocks look like
 \begin{equation}
     \label{eq:ham_matrix_form}
     H_\text{atom} = \left(
@@ -230,13 +230,30 @@ Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined f
 \subsection{The optical Bloch equations}
 The optical Bloch equations are equations that govern the evolution of the density matrix with the requisite decays.  They are equations that consider the evolution of a given density operator $\rho_{l_im_j} = \ket{l_i}\Bra{m_j}$.  The master equation for their evolution, in the Heisenburg picture, is
 \begin{equation}
-	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H] + \rho\mathcal{L}\rho
+	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H]
 \end{equation}
-where the $\rho\mathcal{L}\rho$ superoperator takes into account decays.
+Specifically, for the $\ket{i_n}\Bra{j_m}$ component,
+\begin{equation}
+	\dot{\rho}^{ij}_{nm} = -\frac{i}{\hbar}[\rho, H]_{i_n, j_m} = -\frac{i}{\hbar}\left[\rho^{ik}_{np}H^{kj}_{pm} - \rho^{ki}_{pm}H^{ik}_{np}\right]
+\end{equation}
+where Einstein summation is assumed.  We include decay through the radiation-reaction approximation.  In this approximation, we take the dipole operator
+\begin{equation}
+	\mathbf{E}_{ij} = \mathbf{E}_{0, ij} + i\sum_{nm}\frac{k_{ij}^3}{6\pi\epsilon_0}\boldsymbol{d}^{ij}_{nm} \rho^{ij}_{nm}.
+\end{equation}
+Then, for the $d^{ij}_{nm}$, the operator becomes
+\begin{eqnarray}
+	\dot{\rho}^{ij}_{nm} & = & -\frac{i}{\hbar}\left[\rho^{ij}_{np}d^{ij}_{pm}(d^{ij}_{mr})^\dagger\rho^{ji}_{mr} - \rho^{ki}_{pm}H^{ik}_{np}\right]
+\end{eqnarray}
+The relevant form the Linblad super operator becomes
+\begin{equation}
+	\rho\mathcal{L}\rho = i\frac{k^3}{3\pi\epsilon_0}\boldsymbol{\mu}^{ij}_{nm} \rho^{ij}_{nm}
+\end{equation}
 
 The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.
 
-The decay is calculated in terms of the radiation-reaction approximation.  In practice, this means that the decay rate out of a state $\ket{l_i}$ is
+
+
+In practice, this means that the decay rate out of a state $\ket{l_i}$ is
 \begin{equation}
     \Gamma_{\ket{l_i}} = \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m<l}\sum_{j=1}^{n_l}\sum_q \left|\Braket{m_j|d_{lm}^{q}|l_i}\right|^2,
 \end{equation}
