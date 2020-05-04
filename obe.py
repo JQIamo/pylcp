@@ -10,8 +10,9 @@ import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .lasers import laserBeams
-from .common import printProgressBar
-from .common import printProgressBar, spherical_dot, cart2spherical, spherical2cart
+from .common import printProgressBar, random_vector
+from .integration_tools import solve_ivp_random
+from .common import printProgressBar, random_vector, spherical_dot, cart2spherical, spherical2cart
 
 """
 The following is code that will be reintroduced after magnetic_forces branch is
@@ -574,20 +575,54 @@ class obe():
                              **kwargs)
 
 
-    def evolve_motion(self, **kwargs):
+    def evolve_motion(self, t_span, **kwargs):
         """
         This function evolves the optical bloch equations for some period of
         time, with all their potential glory!
         """
-        def dydt(t, y):
-            return np.concatenate((self.drhodt(y[-3:], t, y[:-6]),
-                                   1/self.hamiltonian.mass*self.force(y[-3:], t, y[:-6]) +
-                                   self.constant_accel,
-                                   y[-6:-3]))
+        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
+        random_recoil_flag = kwargs.pop('random_recoil', False)
+        recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
+        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
 
-        self.sol = solve_ivp(dydt, t_span,
-                             np.concatenate((self.rho0, self.v0, self.r0)),
-                             **kwargs)
+        def dydt(t, y):
+            return np.concatenate((
+                self.drhodt(y[-3:], t, y[:-6]),
+                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes,
+                y[-6:-3]))
+
+        def random_recoil(t, y, dt):
+            # Calculate the probability that all excited states can decay.
+            # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
+            # TODO: add in decay time (currently assumed to be one)
+            P = np.zeros((self.hamiltonian.n-self.hamiltonian.ns[0],))
+            for ii in range(self.hamiltonian.ns[0], self.hamiltonian.n):
+                P[ii-self.hamiltonian.ns[0]] = y[self.density_index(ii, ii)]*dt
+            # Roll the dice N times, where $N=\sum(n_i)
+            dice = np.random.rand(len(P))
+
+            # For any random number that is lower than P_i, add a recoil velocity.
+            # TODO: There are potential problems in the way the kvector is defined.
+            # The first is the k-vector is defined in the laser beam (not in the
+            # Hamiltonian).  The second is that we should break this out according
+            # to laser beam in case they do have different k-vectors.
+            num_of_scatters = np.sum(dice<P)
+            for ii in range(num_of_scatters):
+                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+random_vector(free_axes))
+
+            new_dt_max = (max_scatter_probability/np.sum(P))*dt
+            return (num_of_scatters, new_dt_max)
+
+        if not random_recoil_flag:
+            self.sol = solve_ivp(
+                dydt, t_span, np.concatenate((self.rho0, self.v0, self.r0)),
+                **kwargs)
+        else:
+            self.sol = solve_ivp_random(
+                dydt, random_recoil, t_span,
+                np.concatenate((self.rho0, self.v0, self.r0)),
+                **kwargs
+                )
 
 
     def observable(self, O, rho=None):
@@ -622,13 +657,15 @@ class obe():
             (t, r, v, rho) = self.reshape_sol()
 
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
-            raise StandardError('rho must have dimensions (n, n,...), where n '+
-                                'corresponds to the number of states in the '+
-                                'generating Hamiltonian.')
+            raise ValueError('rho must have dimensions (n, n,...), where n '+
+                             'corresponds to the number of states in the '+
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of rho is %s.'%str(rho.shape))
         elif O.shape[-2:]!=(self.hamiltonian.n, self.hamiltonian.n):
-            raise StandardError('O must have dimensions (..., n, n), where n '+
-                                'corresponds to the number of states in the '+
-                                'generating Hamiltonian.')
+            raise ValueError('O must have dimensions (..., n, n), where n '+
+                             'corresponds to the number of states in the '+
+                             'generating Hamiltonian. ' +
+                             'Instead, shape of O is %s.'%str(O.shape))
         else:
             avO = np.tensordot(O, rho, axes=[(-2, -1),(0, 1)])
             if np.allclose(np.imag(avO), 0):
@@ -638,8 +675,8 @@ class obe():
 
 
     def force(self, r, t, rho, return_details=False):
-        if rho.shape[0] == (self.hamiltonian.n**2,):
-            rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) + rho.shape[1:])
+        if rho.shape[0] == self.hamiltonian.n**2:
+            rho = self.reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
         if return_details:
@@ -811,21 +848,19 @@ class obe():
                                  suffix = 'complete', decimals = 1, length = 40,
                                  remaining_time = (it.itersize-it.iterindex)*avgtime)
 
-    def reshape_sol(self):
-        """
-        Reshape the solution to have all the proper parts.
-        """
-        rho = self.sol.y[:-6].astype('complex128')
-
-        v = np.real(self.sol.y[-6:-3])
-        r = np.real(self.sol.y[-3:])
-
+    def reshape_rho(self, rho):
         if self.transform_into_re_im:
-            for jj in range(rho.shape[1]):
-                rho[:, jj] = self.U @ rho[:, jj]
+            rho = rho.astype('complex128')
 
-        rho = rho.reshape(self.hamiltonian.n, self.hamiltonian.n,
-                          self.sol.t.size)
+            if len(rho.shape) == 1:
+                rho = self.U @ rho
+            else:
+                for jj in range(rho.shape[1]):
+                    rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) +
+                          rho.shape[1:])
+
         """# If not:
         if self.transform_into_re_im:
             new_rho = np.zeros(rho.shape, dtype='complex128')
@@ -837,4 +872,13 @@ class obe():
                                      1j*np.tril(rho[:, :, jj], k=-1).T)
             rho = new_rho"""
 
-        return (self.sol.t, r, v, rho)
+        return rho
+
+
+    def reshape_sol(self):
+        """
+        Reshape the solution to have all the proper parts.
+        """
+        rho = self.reshape_rho(self.sol.y[:-6])
+
+        return (self.sol.t, self.sol.y[-3:], self.sol.y[-6:-3], rho)
