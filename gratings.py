@@ -155,6 +155,53 @@ class infiniteGratingMOTBeams(laserBeams):
 
         return kvec, pol_ref, svec, pvec, beam_idx
 
+    def jones_vector(self, R=np.array([0., 0., 0.]), t=0):
+        output = []
+        for ii, beam in enumerate(self.beam_vector):
+            if (ii%(self.nr+1))>0:
+                output.append(beam.jones_vector(
+                    self.svec[:, ii%(self.nr+1)-1],
+                    self.pvec[:, ii%(self.nr+1)-1],
+                    R=R, t=t))
+            else:
+                output.append(beam.jones_vector(
+                    np.array([1., 0, 0]),
+                    np.array([0, 1., 0]),
+                    R=R, t=t))
+
+        return output
+
+    def stokes_parameters(self, R=np.array([0., 0., 0.]), t=0):
+        output = []
+        for ii, beam in enumerate(self.beam_vector):
+            if (ii%(self.nr+1))>0:
+                output.append(beam.stokes_parameters(
+                    self.svec[:, ii%(self.nr+1)-1],
+                    self.pvec[:, ii%(self.nr+1)-1],
+                    R=R, t=t))
+            else:
+                output.append(beam.stokes_parameters(
+                    np.array([1., 0, 0]),
+                    np.array([0, 1., 0]),
+                    R=R, t=t))
+
+        return output
+
+    def polarization_ellipse(self, R=np.array([0., 0., 0.]), t=0):
+        output = []
+        for ii, beam in enumerate(self.beam_vector):
+            if (ii%(self.nr+1))>0:
+                output.append(beam.polarization_ellipse(
+                    self.svec[:, ii%(self.nr+1)-1],
+                    self.pvec[:, ii%(self.nr+1)-1],
+                    R=R, t=t))
+            else:
+                output.append(beam.polarization_ellipse(
+                    np.array([1., 0, 0]),
+                    np.array([0, 1., 0]),
+                    R=R, t=t))
+
+        return output
 
 class inputGaussianBeam(clippedGaussianBeam):
     def __init__(self, kvec=np.array([0, 0, 1]), beta=1., delta=-1.,
