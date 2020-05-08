@@ -492,13 +492,13 @@ class trap(rateeq):
         super().__init__(laserBeams, magField, hamiltonian,
                                    svd_eps=svd_eps,
                                    include_mag_forces=include_mag_forces)
-        self.r0 = np.zeros((3,))
+        self.r_eq = np.zeros((3,))
 
 
     def find_equilibrium_position(self, axes=[2], zlim=5., Npts=51,
                                   initial_search=True):
         # Next, find the equilibrium point in z, and evaluate derivatives there:
-        r0i = np.zeros((3,))
+        r_eqi = np.zeros((3,))
         z = np.linspace(-zlim, zlim, Npts)
 
         if initial_search:
@@ -520,9 +520,9 @@ class trap(rateeq):
                         ind = np.argmin(z_possible**2)
                     else:
                         ind = 0
-                    r0i[axis] = z_possible[ind]
+                    r_eqi[axis] = z_possible[ind]
                 else:
-                    r0i[axis] = np.nan
+                    r_eqi[axis] = np.nan
 
                 del self.profile['root_search']
 
@@ -536,15 +536,15 @@ class trap(rateeq):
 
                 return np.sum(F**2)
 
-            if np.sum(np.isnan(r0i)) == 0:
+            if np.sum(np.isnan(r_eqi)) == 0:
                 # Find the center of the trap:
-                result = minimize(simple_wrapper, r0i[axes], method='SLSQP')
+                result = minimize(simple_wrapper, r_eqi[axes], method='SLSQP')
                 if result.success:
-                    self.r0[axes] = result.x
+                    self.r_eq[axes] = result.x
                 else:
-                    self.r0[axes] = np.nan
+                    self.r_eq[axes] = np.nan
             else:
-                self.r0 = np.nan
+                self.r_eq = np.nan
         else:
             def simple_wrapper(r_changing):
                 r_wrap = np.zeros((3,))
@@ -555,12 +555,12 @@ class trap(rateeq):
 
                 return F[axes]
 
-            if np.sum(np.isnan(r0i)) == 0:
-                self.r0[axes] = fsolve(simple_wrapper, r0i[axes])[0]
+            if np.sum(np.isnan(r_eqi)) == 0:
+                self.r_eq[axes] = fsolve(simple_wrapper, r_eqi[axes])[0]
             else:
-                self.r0[axes] = np.nan
+                self.r_eq[axes] = np.nan
 
-        return self.r0
+        return self.r_eq
 
     def trapping_frequencies(self, axes=[0, 2], r=None, eps=0.01):
         self.omega = np.zeros(3,)
@@ -569,7 +569,7 @@ class trap(rateeq):
             eps = np.array([eps]*3)
 
         if r is None:
-            r = self.r0
+            r = self.r_eq
 
         for axis in axes:
             if not np.isnan(r[axis]):
@@ -601,7 +601,7 @@ class trap(rateeq):
             eps = np.array([eps]*3)
 
         if r is None:
-            r = self.r0
+            r = self.r_eq
 
         for axis in axes:
             if not np.isnan(r[axis]):
