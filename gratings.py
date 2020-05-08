@@ -6,7 +6,7 @@ class infiniteGratingMOTBeams(laserBeams):
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  reflected_pol=np.array([np.pi, 0]),
                  reflected_pol_basis='poincare',
-                 eta=None, return_basis_vectors=False, grating_angle=0):
+                 eta=None, grating_angle=0):
         """
         Creates beams that would be made from a grating.
         Parameters:
