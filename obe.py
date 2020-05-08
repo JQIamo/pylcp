@@ -584,7 +584,8 @@ class obe():
         def dydt(t, y):
             return np.concatenate((
                 self.drhodt(y[-3:], t, y[:-6]),
-                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes,
+                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes +
+                self.constant_accel,
                 y[-6:-3]))
 
         def random_recoil(t, y, dt):
