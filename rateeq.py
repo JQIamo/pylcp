@@ -143,7 +143,8 @@ class rateeq(object):
         return self.Rev_decay
 
 
-    def construct_evolution_matrix(self, r, v, t=0.):
+    def construct_evolution_matrix(self, r, v, t=0.,
+                                   default_axis=np.array([0., 0., 1.])):
         """
         Method to generate the rate equation evolution matrix.  Expects
         several arguments:
@@ -160,11 +161,10 @@ class rateeq(object):
         Bmag = np.linalg.norm(B, axis=0)
 
         # Calculate the Bhat direction:
-        if np.abs(Bmag) > 0:
+        if Bmag > 1e-10:
             Bhat = B/Bmag
         else:
-            Bhat = np.zeros(B.shape)
-            Bhat[-1] = 1.0
+            Bhat = default_axis
 
         # Diagonalize at Bmag.  This is required if the Hamiltonian has any
         # non-diagonal elements of the Hamiltonian that are dependent on Bz.
@@ -227,12 +227,14 @@ class rateeq(object):
         return self.Rev, self.Rijl
 
 
-    def equilibrium_populations(self, r, v, t, return_details=False):
+    def equilibrium_populations(self, r, v, t, **kwargs):
         """
         Returns the equilibrium values of the rate equation matrix Rev by
         singular matrix decomposition.
         """
-        Rev, Rijl = self.construct_evolution_matrix(r, v, t)
+        return_details = kwargs.pop('return_details', False)
+
+        Rev, Rijl = self.construct_evolution_matrix(r, v, t, **kwargs)
 
         # Find the singular values:
         U, S, VH = np.linalg.svd(Rev)
@@ -436,7 +438,7 @@ class rateeq(object):
             raise NotImplementedError('Time dependence not yet implemented.')
         else:
             N_eq, Rev, Rijl = self.equilibrium_populations(
-                self.r0, self.v0, t=0, return_details=True
+                self.r0, self.v0, t=0, return_details=True, **kwargs
                 )
 
             F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
@@ -446,11 +448,12 @@ class rateeq(object):
         else:
             return F_eq
 
-    def generate_force_profile(self, R, V, name=None):
+    def generate_force_profile(self, R, V, **kwargs):
         """
         Method that maps out the equilbirium pupming rate, populations,
         and forces:
         """
+        name = kwargs.pop('name', None)
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
@@ -471,7 +474,7 @@ class rateeq(object):
             self.set_initial_position_and_velocity(r, v)
             try:
                 F, f, Neq, Rijl, f_mag = self.find_equilibrium_force(
-                    return_details=True
+                    return_details=True, **kwargs
                     )
             except:
                 raise ValueError(
@@ -504,7 +507,10 @@ class trap(rateeq):
                 r = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
                 r[axis] = z
 
-                self.generate_force_profile(r, v, name='root_search')
+                default_axis=np.zeros((3,))
+                default_axis[axis] = 1.
+                self.generate_force_profile(r, v, name='root_search',
+                                            default_axis=default_axis)
 
                 z_possible = z[np.where(np.diff(np.sign(
                     self.profile['root_search'].F[axis]))<0)[0]]
