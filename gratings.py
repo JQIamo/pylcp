@@ -39,52 +39,41 @@ class infiniteGratingMOTBeams(laserBeams):
         self.nr = nr
         self.thd = thd
         self.grating_angle = grating_angle
-        self.pol = pol
 
         if not eta:
             self.eta = 1/nr
         else:
             self.eta = eta
 
-        if not isinstance(pol, np.ndarray) and not isinstance(pol, list):
-            if pol == 1:
-                pol = np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0])
-            elif pol == -1:
-                pol = np.array([-1/np.sqrt(2), -1j/np.sqrt(2), 0])
-            else:
-                raise ValueError('pol must be a three-vector or +/-1.')
-
         self.add_laser(infinitePlaneWaveBeam(kvec=np.array([0., 0., 1.]),
                                              pol=pol, beta=s, delta=delta,
                                              pol_coord='cartesian'))
 
-            #print(np.dot(pol,pvec_inp), np.dot(pol,svec_inp))
-            #print(kvec, pol_ref, np.dot(kvec, pol_ref))
+        # Store the input polarization as a Carterian coordiante:
+        self.input_pol = self.beam_vector[0].cartesian_pol()
 
         # Calculate the reflected polarizations and k-vectors:
-        kvec_refs, pol_refs, svec, pvec, beam_idx = self.__calculate_reflected_kvecs_and_pol(reflected_pol, reflected_pol_basis)
+        kvec_refs, pol_refs = self._calculate_reflected_kvecs_and_pol(
+            reflected_pol, reflected_pol_basis
+            )
 
-        for ii in beam_idx:
+        for ii in range(self.nr):
             self.add_laser(infinitePlaneWaveBeam(kvec=kvec_refs[:, ii],
                                                  pol=pol_refs[:, ii],
                                                  beta=self.eta*s/np.cos(self.thd),
                                                  delta=delta,
                                                  pol_coord='cartesian'))
 
-        self.pvec = pvec
-        self.svec = svec
-
-    def __calculate_reflected_kvecs_and_pol(self, reflected_pol,
-                                            reflected_pol_basis):
+    def _calculate_reflected_kvecs_and_pol(self, reflected_pol,
+                                           reflected_pol_basis):
         # Preallocate memory for the polarizations (no need to store kvec or the
         # polarization because those are stored in the laser)
         kvec = np.zeros((3, self.nr))
         svec = np.zeros((3, self.nr))
         pvec = np.zeros((3, self.nr))
         pol_ref = np.zeros((3, self.nr), dtype=np.complex128)
-        beam_idx = range(self.nr)
 
-        for ii in beam_idx:  # Reflected beams
+        for ii in range(self.nr):  # Reflected beams
             kvec[:, ii] = np.array([-np.sin(self.thd)
                                     *np.cos(2*np.pi*ii/self.nr
                                             +self.grating_angle),
@@ -111,8 +100,8 @@ class infiniteGratingMOTBeams(laserBeams):
                     np.cos(reflected_pol[0]/2)*np.exp(-1j*reflected_pol[1]/2)*\
                     (svec[:, ii]/np.sqrt(2) - 1j/np.sqrt(2)*pvec[:, ii])
             elif reflected_pol_basis == 'jones_vector':
-                pol_ref[:, ii] = reflected_pol[0]*svec[:, ii] +\
-                    reflected_pol[1]*pvec[:, ii]
+                pol_ref[:, ii] = (reflected_pol[0]*svec[:, ii] +
+                                  reflected_pol[1]*pvec[:, ii])
             elif reflected_pol_basis == 'stokes_parameters':
                 raise NotImplementedError("Stokes parameters not yet implemented.")
             elif reflected_pol_basis == 'waveplate':
@@ -140,20 +129,23 @@ class infiniteGratingMOTBeams(laserBeams):
 
                 # Compute new polarization:
                 pol_after_waveplate = \
-                    np.dot(self.pol, slow_axis) \
+                    np.dot(self.input_pol, slow_axis) \
                     *np.exp(-1j*reflected_pol[1]/2)*slow_axis \
-                    +np.dot(self.pol, fast_axis) \
+                    +np.dot(self.input_pol, fast_axis) \
                     *np.exp(1j*reflected_pol[1]/2)*fast_axis
 
                 # Reproject onto s and p:
                 pol_ref[:, ii] = -pvec[:, ii]*np.dot(pol_after_waveplate, pvec_inp) \
-                          +svec[:, ii]*np.dot(pol_after_waveplate, svec_inp)
+                                 +svec[:, ii]*np.dot(pol_after_waveplate, svec_inp)
             else:
                 raise NotImplementedError(
                     "{0:s} polarization basis not implemented.".format(reflected_pol_basis)
                 )
 
-        return kvec, pol_ref, svec, pvec, beam_idx
+            self.svec = svec
+            self.pvec = pvec
+
+        return kvec, pol_ref
 
     def jones_vector(self, R=np.array([0., 0., 0.]), t=0):
         output = []
@@ -318,7 +310,7 @@ class reflectedGaussianBeam(clippedGaussianBeam):
 
         return BETA
 
-class maskedGaussianGratingMOTBeams(laserBeams):
+class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
     def __init__(self, delta=-1., s=1., nr=3, thd=np.pi/4,
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  reflected_pol=np.array([np.pi, 0]),
@@ -366,8 +358,11 @@ class maskedGaussianGratingMOTBeams(laserBeams):
             zgrating: z position of the diffraction grating chip.
             grating_angle: overall azimuthal rotation of the grating
         """
-        # Turn on a bunch of stuff for making this laser beam collection:
-        super().__init__()
+        # I would like use to do super().super().__init__(), but that does not work.
+        # Nonetheless, these are the only two things that need to be done
+        # from laserBeams.__init__():
+        self.beam_vector = []
+        self.num_of_beams = 0
 
         self.nr = nr
         self.thd = thd
@@ -378,14 +373,6 @@ class maskedGaussianGratingMOTBeams(laserBeams):
         else:
             self.eta = eta
 
-        if not isinstance(pol, np.ndarray) and not isinstance(pol, list):
-            if pol == 1:
-                pol = np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0])
-            elif pol == -1:
-                pol = np.array([-1/np.sqrt(2), -1j/np.sqrt(2), 0])
-            else:
-                raise ValueError('pol must be a three-vector or +/-1.')
-
         self.add_laser(inputGaussianBeam(kvec=np.array([0., 0., 1.]),
                                          pol=pol, beta=s, delta=delta,
                                          pol_coord='cartesian', wb=wb, rs=rs,
@@ -393,9 +380,15 @@ class maskedGaussianGratingMOTBeams(laserBeams):
                                          zgrating=zgrating,
                                          grating_angle=self.grating_angle))
 
+        # Store the input polarization as a Carterian coordiante:
+        self.input_pol = self.beam_vector[0].cartesian_pol()
+
         # Calculate the reflected polarizations and k-vectors:
-        kvec_refs, pol_refs, svec, pvec, beam_idx = self.__calculate_reflected_kvecs_and_pol(reflected_pol, reflected_pol_basis)
-        for ii in beam_idx:
+        kvec_refs, pol_refs = self._calculate_reflected_kvecs_and_pol(
+            reflected_pol, reflected_pol_basis
+            )
+
+        for ii in range(self.nr):
             self.add_laser(reflectedGaussianBeam(kvec=kvec_refs[:, ii],
                                                  pol=pol_refs[:, ii],
                                                  beta=s, delta=delta,
@@ -428,85 +421,3 @@ class maskedGaussianGratingMOTBeams(laserBeams):
             else:
                 raise NotImplementedError("Only Poincare basis is implemented for the zeroth order beam.")
             # add zeroth order later.
-
-
-    def __calculate_reflected_kvecs_and_pol(self, reflected_pol,
-                                            reflected_pol_basis):
-        # Preallocate memory for the polarizations (no need to store kvec or the
-        # polarization because those are stored in the laser)
-        kvec = np.zeros((3, self.nr))
-        svec = np.zeros((3, self.nr))
-        pvec = np.zeros((3, self.nr))
-        pol_ref = np.zeros((3, self.nr), dtype=np.complex128)
-        beam_idx = range(self.nr)
-
-        for ii in beam_idx:  # Reflected beams
-            kvec[:, ii] = np.array([-np.sin(self.thd)
-                                    *np.cos(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                    -np.sin(self.thd)
-                                    *np.sin(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                    -np.cos(self.thd)])
-            svec[:, ii] = np.array([-np.sin(2*np.pi*ii/self.nr+
-                                            self.grating_angle),
-                                    np.cos(2*np.pi*ii/self.nr+
-                                           self.grating_angle),
-                                    0.])
-            pvec[:, ii] = np.array([np.cos(self.thd)
-                                    *np.cos(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                    np.cos(self.thd)
-                                    *np.sin(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                    -np.sin(self.thd)])
-
-            if reflected_pol_basis == 'poincare':
-                pol_ref[:, ii] = np.sin(reflected_pol[0]/2)*np.exp(1j*reflected_pol[1]/2)*\
-                    (svec[:, ii]/np.sqrt(2) + 1j/np.sqrt(2)*pvec[:, ii]) +\
-                    np.cos(reflected_pol[0]/2)*np.exp(-1j*reflected_pol[1]/2)*\
-                    (svec[:, ii]/np.sqrt(2) - 1j/np.sqrt(2)*pvec[:, ii])
-            elif reflected_pol_basis == 'jones_vector':
-                pol_ref[:, ii] = reflected_pol[0]*svec[:, ii] +\
-                    reflected_pol[1]*pvec[:, ii]
-            elif reflected_pol_basis == 'stokes_parameters':
-                raise NotImplementedError("Stokes parameters not yet implemented.")
-            elif reflected_pol_basis == 'waveplate':
-                svec_inp = -svec[:, ii]
-                pvec_inp = np.array([np.cos(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                     np.sin(2*np.pi*ii/self.nr
-                                            +self.grating_angle),
-                                     0.])
-
-                """
-                The action of the waveplate is to induce a phase shift phi between
-                the fast and slow axes of a beam.  We consider the waveplate as
-                doing all the action on the input beam prior to reflection, rather
-                than the complicated procedure of phase shifting, then reflecting
-                then phase shifting again differently because of the angle.  Note
-                that the slow and fast axes are defined relative to the input s and
-                p:
-                """
-                slow_axis = pvec_inp*np.cos(reflected_pol[0]) +\
-                            svec_inp*np.sin(reflected_pol[0])
-
-                fast_axis = -pvec_inp*np.sin(reflected_pol[0]) +\
-                            svec_inp*np.cos(reflected_pol[0])
-
-                # Compute new polarization:
-                pol_after_waveplate = \
-                    np.dot(self.pol, slow_axis) \
-                    *np.exp(-1j*reflected_pol[1]/2)*slow_axis \
-                    +np.dot(self.pol, fast_axis) \
-                    *np.exp(1j*reflected_pol[1]/2)*fast_axis
-
-                # Reproject onto s and p:
-                pol_ref[:, ii] = -pvec[:, ii]*np.dot(pol_after_waveplate, pvec_inp) \
-                          +svec[:, ii]*np.dot(pol_after_waveplate, svec_inp)
-            else:
-                raise NotImplementedError(
-                    "{0:s} polarization basis not implemented.".format(reflected_pol_basis)
-                )
-
-        return kvec, pol_ref, svec, pvec, beam_idx
