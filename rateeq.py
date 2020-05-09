@@ -41,42 +41,59 @@ class rateeq(object):
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
     """
-    def __init__(self, lasers, mag_field, hamiltonian,
-                 r=np.array([0.0, 0.0, 0.0]), v=np.array([0.0, 0.0, 0.0]),
-                 svd_eps=1e-10, include_mag_forces=True):
+    def __init__(self, *args, **kwargs):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
         """
-        self.hamiltonian = copy.copy(hamiltonian)
+        if len(args) < 3:
+            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
+        elif len(args) == 3:
+            self.constant_accel = np.array([0., 0., 0.])
+        elif len(args) == 4:
+            if not isinstance(args[3], np.ndarray):
+                raise TypeError('Constant acceleration must be an numpy array.')
+            elif args[3].size != 3:
+                raise ValueError('Constant acceleration must have length 3.')
+            else:
+                self.constant_accel = args[3]
+        else:
+            raise ValueError('No more than four positional arguments accepted.')
 
+        # Add the Hamiltonian:
+        self.hamiltonian = copy.copy(args[2])
+        self.hamiltonian.make_full_matrices()
+
+        # Add lasers:
         self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(lasers, list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(lasers)) # Assume label is g->e
-        elif isinstance(lasers, laserBeams):
-            self.laserBeams['g->e'] = copy.copy(lasers) # Again, assume label is g->e
-        elif isinstance(lasers, dict):
-            self.laserBeams = copy.copy(lasers) # Now, assume that everything is the same.
+        if isinstance(args[0], list):
+            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
+        elif isinstance(args[0], laserBeams):
+            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
+        elif isinstance(args[0], dict):
+            for key in args[0].keys():
+                if not isinstance(args[0][key], laserBeams):
+                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
+                                     'is in not of type laserBeams.')
+            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
         else:
-            raise ValueError('laserBeams is not a valid type.')
+            raise TypeError('laserBeams is not a valid type.')
 
-        # Check that laser beam keys and Hamiltonian keys match.
-        for laser_key in self.laserBeams.keys():
-            if not laser_key in self.hamiltonian.laser_keys.keys():
-                raise ValueError('laserBeams dictionary keys %s does not have '+
-                                 'a corresponding key the Hamiltonian d_q.' %
-                                 laser_key)
-
-        if callable(mag_field):
-            self.magField = magField(mag_field)
-        elif isinstance(mag_field, magField):
-            self.magField = copy.copy(mag_field)
+        # Add in magnetic field:
+        if callable(args[1]) or isinstance(args[1], np.ndarray):
+            self.magField = magField(args[1])
+        elif isinstance(args[1], magField):
+            self.magField = copy.copy(args[1])
         else:
-            raise TypeError('mag_field must be either a lambda function or a' +
-                            'magField object.')
-        self.include_mag_forces = include_mag_forces
+            raise TypeError('The magnetic field must be either a lambda ' +
+                            'function or a magField object.')
 
-        self.svd_eps = svd_eps
+        # Now handle keyword arguments:
+        r=kwargs.pop('r', np.array([0., 0., 0.]))
+        v=kwargs.pop('v', np.array([0., 0., 0.]))
+
+        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
+        self.svd_eps = kwargs.pop('svd_eps', 1e-10)
 
         # Check function signatures for any time dependence:
         self.tdepend = {}
@@ -256,7 +273,7 @@ class rateeq(object):
             return Neq
 
 
-    def force(self, r, t, Npop):
+    def force(self, r, t, Npop, return_details=True):
         F = np.zeros((3,))
         f = {}
 
@@ -306,7 +323,10 @@ class rateeq(object):
 
             F += fmag
 
-        return F, f, fmag
+        if return_details:
+            return F, f, fmag
+        else:
+            return F
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
@@ -344,7 +364,7 @@ class rateeq(object):
         This method evolves the rate equations and atomic motion while in both
         changing laser fields and magnetic fields.
         """
-        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
+        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
         random_recoil_flag = kwargs.pop('random_recoil', False)
         random_force_flag = kwargs.pop('random_recoil', False)
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
@@ -357,11 +377,16 @@ class rateeq(object):
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
             if not random_force_flag:
-                F, f_laser = self.force(r, t, N)
+                F = self.force(r, t, N, return_details=False)
 
-                dydt = np.concatenate((Rev @ N, recoil_velocity*F*free_axes, v))
+                dydt = np.concatenate((Rev @ N,
+                                       recoil_velocity*F*free_axes+
+                                       self.constant_accel,
+                                       v))
             else:
-                dydt = np.concatenate((Rev @ N, np.zeros((3,)), v))
+                dydt = np.concatenate((Rev @ N,
+                                       self.constant_accel,
+                                       v))
 
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
@@ -487,12 +512,9 @@ class rateeq(object):
 
 
 class trap(rateeq):
-    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10,
-                 include_mag_forces=True):
-        super().__init__(laserBeams, magField, hamiltonian,
-                                   svd_eps=svd_eps,
-                                   include_mag_forces=include_mag_forces)
-        self.r_eq = np.zeros((3,))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.r_eq = None
 
 
     def find_equilibrium_position(self, axes=[2], zlim=5., Npts=51,
