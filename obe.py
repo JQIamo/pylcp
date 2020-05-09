@@ -11,7 +11,7 @@ from scipy.integrate import solve_ivp
 from .rateeq import rateeq
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
-from .common import (printProgressBar, random_vector, spherical_dot,
+from .common import (progressBar, random_vector, spherical_dot,
                      cart2spherical, spherical2cart, base_force_profile)
 
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
@@ -815,7 +815,7 @@ class obe():
                                   ['readonly'], ['readonly'], ['readonly']])
 
         if progress_bar:
-            avgtime = 0.
+            progress = progressBar()
 
         for (x, y, z, vx, vy, vz) in it:
             # Construct the rate equations:
@@ -853,13 +853,7 @@ class obe():
                                           iterations, F_laser_q)
 
             if progress_bar:
-                toc = time.time()
-
-                avgtime = (it.iterindex*avgtime + (toc-tic))/(it.iterindex+1.0)
-
-                printProgressBar(it.iterindex+1, it.itersize, prefix = 'Progress:',
-                                 suffix = 'complete', decimals = 1, length = 40,
-                                 remaining_time = (it.itersize-it.iterindex)*avgtime)
+                progress.update((it.iterindex+1)/it.itersize)
 
     def reshape_rho(self, rho):
         if self.transform_into_re_im:

@@ -2,36 +2,6 @@ import time
 import copy
 import numpy as np
 
-# Define a progress bar for use in the next section of code:
-def printProgressBar(iteration, total, prefix = '', suffix = '', decimals = 1,
-                     length = 100, fill = '█',remaining_time = 0):
-    """
-    Call in a loop to create terminal progress bar
-    @params:
-        iteration   - Required  : current iteration (Int)
-        total       - Required  : total iterations (Int)
-        prefix      - Optional  : prefix string (Str)
-        suffix      - Optional  : suffix string (Str)
-        decimals    - Optional  : positive number of decimals in percent complete (Int)
-        length      - Optional  : character length of bar (Int)
-        fill        - Optional  : bar fill character (Str)
-    """
-    percent = ("{0:." + str(decimals) + "f}").format(100 * (iteration / float(total)))
-    filledLength = int(length * iteration // total)
-    bar = fill * filledLength + '-' * (length - filledLength)
-    if remaining_time > 0:
-        time_str = "{0:d}:{1:02d}:{2:02d}".format(
-                np.floor(remaining_time/3600.0).astype(int),
-                np.floor((remaining_time/60.0)%60.0).astype(int),
-                np.floor((remaining_time%60.0)).astype(int))
-        print('\r%s |%s| %s%% %s; est. time remaining: %s' %
-              (prefix, bar, percent, suffix, time_str), end = '\r')
-    else:
-        print('\r%s |%s| %s%% %s' % (prefix, bar, percent, suffix), end = '\r')
-    # Print New Line on Complete
-    if iteration == total:
-        print()
-
 class progressBar(object):
     def __init__(self, decimals=1, fill='█', prefix='Progress:',
                  suffix='complete', length=40):
@@ -42,23 +12,44 @@ class progressBar(object):
         self.prefix = prefix
         self.suffix = suffix
 
+        self.max_written_length = 0
+
+    def format_time(self, tic_toc):
+        # Print a final time of completion
+        if tic_toc>3600:
+            time_str = "%d:%02d:%02d" % ((tic_toc)/3600.0,
+                                        ((tic_toc)/60.0)%60.0,
+                                        (tic_toc)%60.0)
+        elif tic_toc>60:
+            time_str = "%d:%02d" % ((tic_toc)/60.0,
+                                    (tic_toc)%60.0)
+        else:
+            time_str = "%.2f s" % (tic_toc)
+
+        return time_str
+
+    def print_string(self, str):
+        # Update the maximum length of string written:
+        self.max_written_length = max(self.max_written_length, len(str))
+        pad = ''.join([' ']*(self.max_written_length - len(str)))
+        print('\r' + str + pad, end='\r')
+
     def update(self, percentage):
         toc = time.time()
         percent = ("{0:." + str(self.decimals) + "f}").format(100*percentage)
         filledLength = int(self.length*percentage)
         bar = self.fill*filledLength + '-'*(self.length - filledLength)
-        remaining_time = np.round((1-percentage)*((toc-self.tic)/percentage))
-        if remaining_time>0 and percentage>0:
-            time_str = "%2d:%02d:%02d" % (min(remaining_time/3600.0, 99),
-                                          (remaining_time/60.0)%60.0,
-                                          remaining_time%60.0)
-            print('\r%s |%s| %s%% %s; est. time remaining: %s' %
-                  (self.prefix, bar, percent, self.suffix, time_str), end='\r')
-        else:
-            print('\r%s |%s| %s%% %s' % (self.prefix, bar, percent, self.suffix), end='\r')
-
-        # Print New Line on Complete
-        if percentage >= 1:
+        remaining_time = (1-percentage)*((toc-self.tic)/percentage)
+        if percentage>0 and percentage<1:
+            if remaining_time>0:
+                time_str = self.format_time(remaining_time)
+            else:
+                time_str = "0.00 s"
+            self.print_string('%s |%s| %s%% %s; est. time remaining: %s' %
+                              (self.prefix, bar, percent, self.suffix, time_str))
+        elif percentage>=1:
+            time_str = self.format_time(toc-self.tic)
+            self.print_string('Completed in %s.' % time_str)
             print()
 
 def cart2spherical(A):

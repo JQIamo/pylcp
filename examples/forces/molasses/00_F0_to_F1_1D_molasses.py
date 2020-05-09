@@ -77,6 +77,7 @@ two-state solution:
 v = np.arange(-5.0, 5.1, 0.25)
 
 for jj, key in enumerate(laserBeams.keys()):
+    print('Working on %s:' % key)
     rateeq[key] = pylcp.rateeq(laserBeams[key], magField, ham_F0_to_F1)
     obe[key] = pylcp.obe(laserBeams[key], magField, ham_F0_to_F1,
                          transform_into_re_im=True, include_mag_forces=True)
@@ -88,15 +89,12 @@ for jj, key in enumerate(laserBeams.keys()):
         name='molasses'
     )
 
-    tic = time.time()
     obe[key].generate_force_profile(
         [np.zeros(v.shape), np.zeros(v.shape), np.zeros(v.shape)],
         [np.zeros(v.shape), np.zeros(v.shape), v],
         name='molasses', deltat_tmax=2*np.pi*100, deltat_v=4, itermax=1000,
         progress_bar=True,
     )
-    toc=time.time()
-    print('Total computation time for %s is %.3f' % (key, toc-tic))
 
 # %%
 """
