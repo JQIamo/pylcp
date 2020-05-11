@@ -39,8 +39,8 @@ class progressBar(object):
         percent = ("{0:." + str(self.decimals) + "f}").format(100*percentage)
         filledLength = int(self.length*percentage)
         bar = self.fill*filledLength + '-'*(self.length - filledLength)
-        remaining_time = (1-percentage)*((toc-self.tic)/percentage)
         if percentage>0 and percentage<1:
+            remaining_time = (1-percentage)*((toc-self.tic)/percentage)
             if remaining_time>0:
                 time_str = self.format_time(remaining_time)
             else:
@@ -103,7 +103,7 @@ def random_vector():
     a, b = np.random.rand(2)
     th = np.arccos(2*b-1)
     phi = 2*np.pi*a
-    
+
 def random_vector(free_axes=[True, True, True]):
     """
     This function returns a random vector with magnitude 1, in either 1D, 2D
