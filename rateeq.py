@@ -9,7 +9,7 @@ from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
-from .common import random_vector, base_force_profile
+from .common import random_vector, base_force_profile, progressBar
 from .integration_tools import solve_ivp_random
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
@@ -369,6 +369,10 @@ class rateeq(object):
         random_force_flag = kwargs.pop('random_recoil', False)
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
+        progress_bar = kwargs.pop('progress_bar', False)
+
+        if progress_bar:
+            progress = progressBar()
 
         def motion(t, y):
             N = y[:-6]
@@ -390,6 +394,9 @@ class rateeq(object):
 
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
+
+            if progress_bar:
+                progress.update(t/t_span[-1])
 
             return dydt
 
@@ -479,6 +486,8 @@ class rateeq(object):
         and forces:
         """
         name = kwargs.pop('name', None)
+        progress_bar = kwargs.pop('progress_bar', None)
+
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
@@ -489,6 +498,9 @@ class rateeq(object):
                        flags=['refs_ok', 'multi_index'],
                        op_flags=[['readonly'], ['readonly'], ['readonly'],
                                  ['readonly'], ['readonly'], ['readonly']])
+
+        if progress_bar:
+            progress = progressBar()
 
         for (x, y, z, vx, vy, vz) in it:
             # Construct the rate equations:
@@ -507,6 +519,9 @@ class rateeq(object):
                     "r=({0:0.2f},{1:0.2f},{2:0.2f})".format(x, y, z) + " and " +
                     "v=({0:0.2f},{1:0.2f},{2:0.2f})".format(vx, vy, vz)
                     )
+
+            if progress_bar:
+                progress.update((it.iterindex+1)/it.itersize)
 
             self.profile[name].store_data(it.multi_index, Neq, F, f, f_mag, Rijl)
 
