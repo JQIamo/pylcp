@@ -12,6 +12,7 @@ class progressBar(object):
         self.prefix = prefix
         self.suffix = suffix
 
+        self.finished = False
         self.max_written_length = 0
 
     def format_time(self, tic_toc):
@@ -48,9 +49,12 @@ class progressBar(object):
             self.print_string('%s |%s| %s%% %s; est. time remaining: %s' %
                               (self.prefix, bar, percent, self.suffix, time_str))
         elif percentage>=1:
-            time_str = self.format_time(toc-self.tic)
-            self.print_string('Completed in %s.' % time_str)
-            print()
+            if not self.finished:
+                self.finished = True
+                time_str = self.format_time(toc-self.tic)
+                self.print_string('Completed in %s.' % time_str)
+                print()
+
 
 def cart2spherical(A):
     return np.array([(A[0]-1j*A[1])/np.sqrt(2), A[2], -(A[0]+1j*A[1])/np.sqrt(2)])
