@@ -33,7 +33,7 @@ class RandomOdeResult(OptimizeResult):
 
 def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
                      dense_output=False, events=None, vectorized=False,
-                     args=None, progress_bar=False, **options):
+                     args=None, **options):
     """Solve an initial value problem for a system of ODEs.
     This function numerically integrates a system of ordinary differential
     equations given an initial value::
@@ -421,9 +421,6 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
     t_random = []
     n_random = []
 
-    if progress_bar:
-        progress = progressBar()
-
     status = None
     while status is None:
         message = solver.step()
@@ -498,9 +495,6 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
 
         if t_eval is not None and dense_output:
             ti.append(t)
-
-        if progress_bar:
-            progress.update(t/tf)
 
     message = MESSAGES.get(status, message)
 

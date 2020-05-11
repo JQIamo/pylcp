@@ -161,7 +161,7 @@ class obe():
                 raise ValueError('laserBeams dictionary keys %s ' % laser_key +
                                  'does not have a corresponding key the '+
                                  'Hamiltonian d_q.')
-                
+
 
     def __density_index(self, ii, jj):
         """
@@ -580,8 +580,15 @@ class obe():
         random_recoil_flag = kwargs.pop('random_recoil', False)
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
+        progress_bar = kwargs.pop('progress_bar', False)
+
+        if progress_bar:
+            progress = progressBar()
 
         def dydt(t, y):
+            if progress_bar:
+                progress.update(t/t_span[1])
+
             return np.concatenate((
                 self.drhodt(y[-3:], t, y[:-6]),
                 recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes +
