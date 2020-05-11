@@ -601,7 +601,7 @@ class obe():
             # TODO: add in decay time (currently assumed to be one)
             P = np.zeros((self.hamiltonian.n-self.hamiltonian.ns[0],))
             for ii in range(self.hamiltonian.ns[0], self.hamiltonian.n):
-                P[ii-self.hamiltonian.ns[0]] = y[self.density_index(ii, ii)]*dt
+                P[ii-self.hamiltonian.ns[0]] = np.real(y[self.__density_index(ii, ii)])*dt
             # Roll the dice N times, where $N=\sum(n_i)
             dice = np.random.rand(len(P))
 
