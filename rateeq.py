@@ -534,6 +534,9 @@ class trap(rateeq):
 
     def find_equilibrium_position(self, axes=[2], zlim=5., Npts=51,
                                   initial_search=True):
+        if self.r_eq is None:
+            self.r_eq = np.zeros((3,))
+
         # Next, find the equilibrium point in z, and evaluate derivatives there:
         r_eqi = np.zeros((3,))
         z = np.linspace(-zlim, zlim, Npts)
@@ -563,6 +566,7 @@ class trap(rateeq):
 
                 del self.profile['root_search']
 
+        #print('Initial guess: %s' % r_eqi[axes])
         if len(axes)>1:
             def simple_wrapper(r_changing):
                 r_wrap = np.zeros((3,))
