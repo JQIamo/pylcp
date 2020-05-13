@@ -8,6 +8,7 @@ import time
 import numba
 import scipy.sparse as sparse
 from scipy.integrate import solve_ivp
+from scipy.interpolate import interp1d
 from .rateeq import rateeq
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
@@ -581,19 +582,34 @@ class obe():
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
+        record_force = kwargs.pop('record_force', False)
 
         if progress_bar:
             progress = progressBar()
+
+        if record_force:
+            ts = []
+            Fs = []
 
         def dydt(t, y):
             if progress_bar:
                 progress.update(t/t_span[1])
 
+            if record_force:
+                F = self.force(y[-3:], t, y[:-6], return_details=True)
+
+                ts.append(t)
+                Fs.append(F)
+
+                F = F[0]
+            else:
+                F = self.force(y[-3:], t, y[:-6], return_details=False)
+
             return np.concatenate((
                 self.drhodt(y[-3:], t, y[:-6]),
-                recoil_velocity*self.force(y[-3:], t, y[:-6])*free_axes +
-                self.constant_accel,
-                y[-6:-3]))
+                recoil_velocity*F*free_axes + self.constant_accel,
+                y[-6:-3]
+                ))
 
         def random_recoil(t, y, dt):
             # Calculate the probability that all excited states can decay.
@@ -627,6 +643,23 @@ class obe():
                 np.concatenate((self.rho0, self.v0, self.r0)),
                 **kwargs
                 )
+
+        # Remake the solution:
+        self.reshape_sol()
+
+        # Interpolate the force:
+        if record_force:
+            f = interp1d(ts[:-1], np.array([f[0] for f in Fs[:-1]]).T)
+            self.sol.F = f(self.sol.t)
+
+            f = interp1d(ts[:-1], np.array([f[3] for f in Fs[:-1]]).T)
+            self.sol.fmag = f(self.sol.t)
+
+            self.sol.f = {}
+            for key in Fs[0][1]:
+                f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
+                self.sol.f[key] = f(self.sol.t)
+                self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
 
 
     def observable(self, O, rho=None):
@@ -893,6 +926,10 @@ class obe():
         """
         Reshape the solution to have all the proper parts.
         """
-        rho = self.reshape_rho(self.sol.y[:-6])
+        self.sol.rho = self.reshape_rho(self.sol.y[:-6])
+        self.sol.r = self.sol.y[-3:]
+        self.sol.v = self.sol.y[-6:-3]
 
-        return (self.sol.t, self.sol.y[-3:], self.sol.y[-6:-3], rho)
+        del self.sol.y
+
+        return (self.sol.t, self.sol.r, self.sol.v, self.sol.rho)

@@ -11,6 +11,7 @@ from inspect import signature
 from .fields import laserBeams, magField
 from .common import random_vector, base_force_profile, progressBar
 from .integration_tools import solve_ivp_random
+from scipy.interpolate import interp1d
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
@@ -370,9 +371,14 @@ class rateeq(object):
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
+        record_force = kwargs.pop('record_force', False)
 
         if progress_bar:
             progress = progressBar()
+
+        if record_force:
+            ts = []
+            Fs = []
 
         def motion(t, y):
             N = y[:-6]
@@ -381,7 +387,15 @@ class rateeq(object):
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
             if not random_force_flag:
-                F = self.force(r, t, N, return_details=False)
+                if record_force:
+                    F = self.force(r, t, N, return_details=True)
+
+                    ts.append(t)
+                    Fs.append(F)
+
+                    F = F[0]
+                else:
+                    F = self.force(r, t, N, return_details=False)
 
                 dydt = np.concatenate((Rev @ N,
                                        recoil_velocity*F*free_axes+
@@ -457,6 +471,26 @@ class rateeq(object):
                                         max_step=0.01, **kwargs)
         else:
             self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+
+        # Rearrange the solution:
+        self.sol.N = self.sol.y[-6:]
+        self.sol.v = self.sol.y[-6:-3]
+        self.sol.r = self.sol.y[-3:]
+
+        if record_force:
+            f = interp1d(ts[:-1], np.array([f[0] for f in Fs[:-1]]).T)
+            self.sol.F = f(self.sol.t)
+
+            f = interp1d(ts[:-1], np.array([f[2] for f in Fs[:-1]]).T)
+            self.sol.fmag = f(self.sol.t)
+
+            self.sol.f = {}
+            for key in Fs[0][1]:
+                f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
+                self.sol.f[key] = f(self.sol.t)
+                self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
+
+        del self.sol.y
 
 
     def find_equilibrium_force(self, **kwargs):
