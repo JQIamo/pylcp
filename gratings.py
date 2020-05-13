@@ -402,9 +402,6 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
                                                  zgrating=zgrating,
                                                  grating_angle=self.grating_angle))
 
-        self.pvec = pvec
-        self.svec = svec
-
         if eta0 is not None:
             raise NotImplementedError("Zeroth-order reflected beam has not been implemented yet.")
             # Should be free to choose s and p directions for normal incidence.
