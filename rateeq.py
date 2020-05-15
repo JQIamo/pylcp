@@ -472,6 +472,10 @@ class rateeq(object):
         else:
             self.sol = solve_ivp(motion, t_span, y0, **kwargs)
 
+        if progress_bar:
+            # Just in case the solve_ivp_random terminated due to an event.
+            progress.update(1.)
+
         # Rearrange the solution:
         self.sol.N = self.sol.y[-6:]
         self.sol.v = self.sol.y[-6:-3]

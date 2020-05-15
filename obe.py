@@ -644,6 +644,10 @@ class obe():
                 **kwargs
                 )
 
+        if progress_bar:
+            # Just in case the solve_ivp_random terminated due to an event.
+            progress.update(1.)
+
         # Remake the solution:
         self.reshape_sol()
 
