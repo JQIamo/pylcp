@@ -319,7 +319,6 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
                  eta0=None,
                  wb=10.0,
                  rs=10.0,
-                 return_basis_vectors=False,
                  center_hole=0.0,
                  outer_radius=10.0,
                  zgrating=1.0,
