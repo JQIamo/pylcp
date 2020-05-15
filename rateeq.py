@@ -570,14 +570,14 @@ class trap(rateeq):
         self.r_eq = None
 
 
-    def find_equilibrium_position(self, axes=[2], zlim=5., Npts=51,
-                                  initial_search=True):
+    def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,
+                                  Npts=51, initial_search=True):
         if self.r_eq is None:
             self.r_eq = np.zeros((3,))
 
         # Next, find the equilibrium point in z, and evaluate derivatives there:
         r_eqi = np.zeros((3,))
-        z = np.linspace(-zlim, zlim, Npts)
+        z = np.linspace(lower_lim, upper_lim, Npts)
 
         if initial_search:
             for axis in axes:
