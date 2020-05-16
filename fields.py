@@ -93,7 +93,7 @@ class magField(object):
         response = self.Field(R, 0.)
         if (isinstance(response, float) or isinstance(response, int) or
             len(response) != 3):
-            raise StandardError('Magnetic field function must return a vector.')
+            raise ValueError('Magnetic field function must return a vector.')
 
     def FieldMag(self, R=np.array([0., 0., 0.]), t=0):
         return np.linalg.norm(self.Field(R, t))
