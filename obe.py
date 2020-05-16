@@ -411,6 +411,13 @@ class obe():
             self.rho0 = rho0.astype('complex128')
         else:
             self.rho0 = rho0
+            
+        if self.rho0.shape == (self.hamiltonian.n, self.hamiltonian.n):
+            self.rho0 = self.rho0.flatten()
+        
+        if self.rho0.shape[0] != self.hamiltonian.n**2:
+            raise ValueError('rho0 should have n^2 elements.')
+
 
     def set_initial_rho_equally(self):
         if self.transform_into_re_im:
@@ -570,6 +577,9 @@ class obe():
         self.sol = solve_ivp(dydt, t_span,
                              np.concatenate((self.rho0, self.v0, self.r0)),
                              **kwargs)
+        
+        # Remake the solution:
+        self.reshape_sol()
 
 
     def evolve_motion(self, t_span, **kwargs):
@@ -805,8 +815,7 @@ class obe():
                 kwargs['t_eval'] = np.linspace(ii*deltat, (ii+1)*deltat, int(Npts))
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
-            (t, r, v, rho) = self.reshape_sol()
-            f, f_laser, f_laser_q, f_mag = self.force(r, t, rho,
+            f, f_laser, f_laser_q, f_mag = self.force(self.sol.r, self.sol.t, self.sol.rho,
                                                       return_details=True)
 
             f_avg = np.mean(f, axis=1)
@@ -820,9 +829,9 @@ class obe():
                 break;
             else:
                 old_f_avg = copy.copy(f_avg)
-                self.set_initial_rho(self.sol.y[:-6, -1])
-                self.set_initial_position_and_velocity(self.sol.y[-3:, -1],
-                                                       self.sol.y[-6:-3, -1])
+                self.set_initial_rho(self.sol.rho[:, :, -1])
+                self.set_initial_position_and_velocity(self.sol.r[:, -1],
+                                                       self.sol.v[:, -1])
                 ii+=1
 
         f_mag = np.mean(f_mag, axis=1)
@@ -833,7 +842,7 @@ class obe():
             f_laser_avg[key] = np.mean(f_laser[key], axis=2)
             f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
-        Neq = np.real(np.diagonal(np.mean(rho, axis=2)))
+        Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
         return (Neq, f_avg, f_laser_avg, f_laser_avg_q, f_mag, ii)
 
 
