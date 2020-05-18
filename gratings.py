@@ -1,5 +1,62 @@
 import numpy as np
 from pylcp.fields import laserBeams, infinitePlaneWaveBeam, clippedGaussianBeam
+import numba
+
+@numba.njit
+def reflected_beta_single_point(R, zgrating, back_project_x, back_project_y, cos_th_center,
+                                sin_th_center, center_hole, th_lower, th_upper, r_stop, beta_max, wb):
+    # Calcualte the transformed location back at the grating:
+    Rp = np.array([R[0] - (R[2]-zgrating)*back_project_x,
+                   R[1] - (R[2]-zgrating)*back_project_y,
+                   zgrating])
+    
+    THp = np.arctan2(Rp[1], Rp[0])
+    Radp = np.sqrt(Rp[0]**2 + Rp[1]**2)
+
+    # Are we behind the grating?
+    if R[2] > zgrating:
+        return 0.
+    # Are we in the center hole?
+    elif (Rp[0]*cos_th_center + Rp[1]*sin_th_center) < center_hole:
+        return 0.
+    # Are we in the limit?
+    elif np.sqrt(Rp[0]**2+Rp[1]**2) > r_stop:
+        return 0.
+    # Are we in the right angular range?
+    elif (th_upper < th_lower and (THp > th_upper and THp <= th_lower)):
+        # We extend over the pi branch cut:
+        return 0.
+    elif (th_upper >= th_lower and (THp > th_upper or THp <= th_lower)):
+        return 0.
+    
+    rho_sq = Rp[0]**2+Rp[1]**2
+    
+    return (beta_max*np.exp(-2*rho_sq/wb**2))
+
+
+@numba.njit
+def input_beta_single_point(R, zgrating, center_hole, cos_th_centers,
+                            sin_th_centers, r_stop, beta_max, wb):
+    # Are we behind the grating?
+    if R[2] > zgrating:
+        # Is there a central hole?
+        if center_hole>0:
+            # Then check to see if we are within the hole. 
+            for (cos_th_center, sin_th_center) in zip(cos_th_centers, sin_th_centers):
+                if (R[0]*cos_th_center + R[1]*sin_th_center) > center_hole:
+                    return 0.
+        else:
+            return 0.
+    
+    # Still good? Check to make sure we are within the stop:
+    rho_sq = R[0]**2+R[1]**2
+    
+    if np.sqrt(rho_sq) > r_stop:
+        return 0.
+    else:
+        return beta_max*np.exp(-2*rho_sq/wb**2)
+
+
 
 class infiniteGratingMOTBeams(laserBeams):
     def __init__(self, delta=-1., s=1., nr=3, thd=np.pi/4,
@@ -200,45 +257,57 @@ class inputGaussianBeam(clippedGaussianBeam):
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  pol_coord='cartesian', wb=1., rs=2., nr=3, center_hole=0.0, zgrating=1.0, grating_angle=0, **kwargs):
 
-        if np.arccos(kvec[2]) != 0:
+        if not np.allclose(kvec[:2], 0.):
             raise ValueError('inputGaussianBeam must be aligned with z axis')
 
         self.center_hole = center_hole # inscribed radius of center hole.
         self.zgrating = zgrating # z position of the diffraction grating chip.
         self.grating_angle = grating_angle # azimuthal rotation of the grating.
         self.nb = nr # number of reflected beams.
+        
         # Determine the center angle of each grating section:
         self.th_center = (2*np.pi*np.arange(0, nr)/nr)+grating_angle
+        self.cos_th_center = np.cos(self.th_center)
+        self.sin_th_center = np.sin(self.th_center)
 
         super().__init__(kvec=kvec, pol=pol, pol_coord=pol_coord, beta=beta,
                          delta=delta, wb=wb, rs=rs, **kwargs)
-
-    # Helper Functions for grating_MOT_beams:
+    
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
         """
         Masks the intensity profile of the input beam after it
         goes through the chip.
         """
-        # Initialize mask:
-        if isinstance(R[0], np.ndarray):
-            MASK = np.ones(R[0].shape, dtype=bool)
+        if R.shape == (3,):
+            # Single point:
+            return input_beta_single_point(
+                R, self.zgrating, self.center_hole,
+                self.cos_th_center, self.sin_th_center,
+                self.rs, self.beta_max, self.wb
+            )
         else:
-            MASK = True
-        # Add in the center hole:
-        for th_center_i in self.th_center:
-            MASK = np.bitwise_and(MASK, (R[0]*np.cos(th_center_i) +
-                                         R[1]*np.sin(th_center_i)) <= self.center_hole)
-        # Make sure that the mask only applies after the chip.
-        MASK = np.bitwise_or(MASK, R[2] <= self.zgrating)
-        # Compute radial distance:
-        rho_sq = np.einsum('i,i...->...', self.rvals, R**2)
-        # Next, calculate the BETA function:
-        BETA = (self.beta_max
-                *np.exp(-2*rho_sq/self.wb**2)
-                *(np.sqrt(rho_sq) < self.rs)
-                *MASK.astype(float))
+            # Initialize mask:
+            if isinstance(R[0], np.ndarray):
+                MASK = np.ones(R[0].shape, dtype=bool)
+            else:
+                MASK = True
+            # Add in the center hole:
+            for (cos_th_center_i, sin_th_center_i) in zip(self.cos_th_center, self.sin_th_center):
+                MASK = np.bitwise_and(MASK, (R[0]*cos_th_center_i +
+                                             R[1]*sin_th_center_i) <= self.center_hole)
+            # Make sure that the mask only applies after the chip.
+            MASK = np.bitwise_or(MASK, R[2] <= self.zgrating)
+            
+            # Compute radial distance:
+            rho_sq = R[0]**2+R[1]**2
+            
+            # Next, calculate the BETA function:
+            BETA = (self.beta_max
+                    *np.exp(-2*rho_sq/self.wb**2)
+                    *(np.sqrt(rho_sq) < self.rs)
+                    *MASK.astype(float))
 
-        return BETA
+            return BETA
 
 
 class reflectedGaussianBeam(clippedGaussianBeam):
@@ -246,10 +315,10 @@ class reflectedGaussianBeam(clippedGaussianBeam):
                  beta=1., delta=-1.,
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  pol_coord='cartesian', wb=1., rs=2., nr=3, ii=0, thd=np.pi/4,
-                 kvec_in=np.array([0, 0, 1]), eta=1/3, center_hole=0.0,
+                 kvec_in=np.array([0, 0, 1.]), eta=1/3, center_hole=0.0,
                  outer_radius=10., zgrating=1.0, grating_angle=0, **kwargs):
 
-        if np.arccos(kvec_in[2]) != 0:
+        if not np.allclose(kvec_in[:2], 0.):
             raise ValueError('inputGaussianBeam must be aligned with z axis')
 
         self.center_hole = center_hole # inscribed radius of center hole.
@@ -261,54 +330,97 @@ class reflectedGaussianBeam(clippedGaussianBeam):
         self.thd = thd # 1st order diffraction angle.
         self.k_in = kvec_in # kvec of the input beam.
         self.eta = eta # 1st order diffraction efficiency.
-        # Determine the center angle of the grating section:
+        
+        self.r_stop = np.amin([rs, outer_radius])
+        
+        # Determine the center angle, grating section, and hole parameters:
         self.th_center = (2*np.pi*ii/nr)+grating_angle
-
-        super().__init__(kvec=kvec, pol=pol, pol_coord=pol_coord, beta=beta,
+        self.th_lower = self.wrap(self.th_center-np.pi/self.nb)
+        self.th_upper = self.wrap(self.th_center+np.pi/self.nb)
+        self.cos_th_center = np.cos(self.th_center)
+        self.sin_th_center = np.sin(self.th_center)
+        
+        super().__init__(kvec=kvec, pol=pol, pol_coord=pol_coord, beta=eta*beta/np.cos(thd),
                          delta=delta, wb=wb, rs=rs, **kwargs)
 
-    def define_rotation_matrix(self):
-        # Angles of rotation:
-        th = np.arccos(self.k_in[2])
-        phi = np.arctan2(self.k_in[1], self.k_in[0])
-        # square the rotation to save operation in beta
-        self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
-                               np.cos(phi) + np.cos(th)*np.sin(phi),\
-                               -np.sin(th)])**2
+        self.back_project_x = self.con_kvec[0]/self.con_kvec[2]
+        self.back_project_y = self.con_kvec[1]/self.con_kvec[2]
+        
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        # Make a primed coordinate system that translates X,Y,Z positions back
-        # down to the grating plane.
-        Rp = np.zeros(R.shape)
-        Rp[0] = R[0] - (R[2]-self.zgrating)*self.con_kvec[0]/self.con_kvec[2]
-        Rp[1] = R[1] - (R[2]-self.zgrating)*self.con_kvec[1]/self.con_kvec[2]
-        Rp[2] = self.zgrating
-        # Calculate R and theta for the primed coordinate system:
+    def wrap(self, ang):
+        return (ang + np.pi) % (2 * np.pi) - np.pi
+        
+    def back_project(self, R):
+        if R.shape == (3,):
+            Rp = np.array([R[0] - (R[2]-self.zgrating)*self.back_project_x,
+                           R[1] - (R[2]-self.zgrating)*self.back_project_y,
+                           self.zgrating])
+        else:
+            Rp = np.array([R[0] - (R[2]-self.zgrating)*self.back_project_x,
+                           R[1] - (R[2]-self.zgrating)*self.back_project_y,
+                           np.ones(R[2].shape)*self.zgrating])
+
+        return Rp
+ 
+    def mask(self, Rp, R):
         THp = np.arctan2(Rp[1], Rp[0])
         Radp = np.sqrt(Rp[0]**2 + Rp[1]**2)
-        # Define the mask:
-        wrap = lambda ang: (ang + np.pi) % (2 * np.pi) - np.pi
-        th_lower = wrap(self.th_center-np.pi/self.nb)
-        th_upper = wrap(self.th_center+np.pi/self.nb)
-        if th_upper < th_lower: # We extend over the pi branch cut:
-            MASK = np.bitwise_or(THp < th_upper, THp > th_lower)
-        else:
-            MASK = np.bitwise_and(THp < th_upper, THp > th_lower)
-        MASK = np.bitwise_and(MASK, Radp < self.outer_radius)
-        MASK = np.bitwise_and(MASK, R[2] <= self.zgrating)
-        # Add in the center hole:
-        MASK = np.bitwise_and(MASK, ((Rp[0]*np.cos(self.th_center)
-                                      + Rp[1]*np.sin(self.th_center))
-                                     >= self.center_hole))
-        # Compute radial distance:
-        rho_sq = np.einsum('i,i...->...', self.rvals, Rp**2)
-        # Next, calculate the BETA function:
-        BETA = (self.eta*self.beta_max
-                *np.exp(-2*rho_sq/self.wb**2)
-                *(np.sqrt(rho_sq) < self.rs)
-                *MASK.astype(float)/np.cos(self.thd))
 
-        return BETA
+        if R.shape == (3,):
+            # Are we behind the grating?
+            if R[2] > self.zgrating:
+                return 0.
+            # Are we in the center hole?
+            elif (Rp[0]*self.cos_th_center + Rp[1]*self.sin_th_center) < self.center_hole:
+                return 0.
+            elif (np.sqrt(Rp[0]**2+Rp[1]**2) > r_stop):
+                return 0.
+            # Are we in the right angular range?
+            elif (self.th_upper < self.th_lower and 
+                  (THp > self.th_upper and THp < self.th_lower)):
+                # We extend over the pi branch cut.
+                return 0.
+            elif (self.th_upper >= self.th_lower and
+                  (THp > self.th_upper or THp < self.th_lower)):
+                return 0.
+            else:
+                return 1.
+        else:
+            if self.th_upper < self.th_lower: # We extend over the pi branch cut:
+                MASK = np.bitwise_or(THp < self.th_upper, THp > self.th_lower)
+            else:
+                MASK = np.bitwise_and(THp < self.th_upper, THp > self.th_lower)
+            MASK = np.bitwise_and(MASK, Radp < self.r_stop)
+            MASK = np.bitwise_and(MASK, R[2] <= self.zgrating)
+            # Add in the center hole:
+            MASK = np.bitwise_and(MASK, ((Rp[0]*np.cos(self.th_center)
+                                         + Rp[1]*np.sin(self.th_center))
+                                         >= self.center_hole))
+        
+            return MASK.astype('float')
+     
+    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        if R.shape==(3,):
+            return reflected_beta_single_point(
+                R, self.zgrating, self.back_project_x,
+                self.back_project_y, self.cos_th_center, self.sin_th_center,
+                self.center_hole, self.th_lower, self.th_upper,
+                self.r_stop, self.beta_max, self.wb)
+        else:
+            # Make a primed coordinate system that translates X,Y,Z positions back
+            # down to the grating plane.
+            Rp = self.back_project(R)
+
+            # Define the mask:
+            MASK = self.mask(Rp, R)
+
+            # Compute radial distance:
+            rho_sq = Rp[0]**2 + Rp[1]**2
+
+            # Next, calculate the BETA function:
+            BETA = (self.beta_max*np.exp(-2*rho_sq/self.wb**2)*MASK)
+
+            return BETA
 
 class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
     def __init__(self, delta=-1., s=1., nr=3, thd=np.pi/4,
