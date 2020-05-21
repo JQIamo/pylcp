@@ -29,11 +29,11 @@ class progressBar(object):
 
         return time_str
 
-    def print_string(self, str):
+    def print_string(self, string1):
         # Update the maximum length of string written:
-        self.max_written_length = max(self.max_written_length, len(str))
-        pad = ''.join([' ']*(self.max_written_length - len(str)))
-        print('\r' + str + pad, end='\r')
+        self.max_written_length = max(self.max_written_length, len(string1))
+        pad = ''.join([' ']*(self.max_written_length - len(string1)))
+        print('\r' + string1 + pad, end='')
 
     def update(self, percentage):
         toc = time.time()
