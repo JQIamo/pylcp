@@ -226,22 +226,39 @@ class obe():
 
         d_q = self.hamiltonian.d_q
 
+        # Variables to store partial and total decay rates for each manifold:
+        decay_rates = np.empty(self.hamiltonian.blocks.shape, dtype=object)
+        total_decay_rates = np.zeros((self.hamiltonian.blocks.shape[0],))
+
         # Let's first do a check of the decay rates.  We want to make sure
-        # that all states in a given manifold are, in fact, decaying at the
-        # same rate.
-        decay_rates = np.zeros((self.hamiltonian.blocks.shape[0],))
+        # that all states from a given manifold to another manifold are, in
+        # fact, decaying at the same rate.
         for ll in range(1, self.hamiltonian.blocks.shape[0]):
-            this_manifold = range(sum(self.hamiltonian.ns[:ll]),
-                                  sum(self.hamiltonian.ns[:ll+1]))
-            # We first check to make sure the decay rate is the same for all
-            # states out of the manifold.
-            rates = [np.sum(np.sum(abs2(d_q[:, :ii, ii]))) for ii in this_manifold]
-            rate = np.mean(rates)
-            if not np.allclose(rates, rate, atol=1e-7, rtol=1e-5):
-                raise ValueError('Decay rates are not equal for all states in '+
-                                 'manifold #%d' % ll)
-            else:
-                decay_rates[ll] = rate
+            for mm in range(0, ll):
+                if not self.hamiltonian.blocks[mm, ll] is None:
+                    # We first check to make sure the decay rate is the same for all
+                    # states out of the manifold into any submanifolds.
+                    rates = np.sum(np.sum(
+                        abs2(self.hamiltonian.blocks[mm, ll].matrix),
+                        axis=0),axis=0)
+                    decay_rates[mm, ll] = rates
+
+        # Let's first do a check of the decay rates.  Now sum them up to get
+        # the total decay rate:
+        for ll in range(1, self.hamiltonian.blocks.shape[0]):
+            if not decay_rates[mm, ll] is None:
+                total_decay_rates_from_manifold = np.zeros(decay_rates[mm, ll].shape)
+                for mm in range(0, ll):
+                    total_decay_rates_from_manifold += decay_rates[mm, ll]
+
+                rate = np.mean(total_decay_rates_from_manifold)
+                if not np.allclose(total_decay_rates_from_manifold, rate,
+                                   atol=1e-7, rtol=1e-5):
+                    raise ValueError('Decay rates are not equal for all states in '+
+                                                 'manifold #%d' % ll)
+                else:
+                    total_decay_rates[ll] = rate
+
 
         # Now we start building the evolution matrices.
         # Decay into a manifold.
@@ -268,7 +285,7 @@ class obe():
             for ii in this_manifold:
                 for jj in this_manifold:
                     self.ev_mat['decay'][self.__density_index(ii, jj),
-                                         self.__density_index(ii, jj)] = -decay_rates[ll]
+                                         self.__density_index(ii, jj)] = -total_decay_rates[ll]
 
         # Coherences decay with the average decay rate out of the manifold
         # and into the manifold.
@@ -282,10 +299,14 @@ class obe():
                     for jj in other_manifold:
                         self.ev_mat['decay'][self.__density_index(ii, jj),
                                              self.__density_index(ii, jj)] = \
-                        -(decay_rates[ll]+decay_rates[mm])/2
+                        -(total_decay_rates[ll]+total_decay_rates[mm])/2
                         self.ev_mat['decay'][self.__density_index(jj, ii),
                                              self.__density_index(jj, ii)] = \
-                        -(decay_rates[ll]+decay_rates[mm])/2
+                        -(total_decay_rates[ll]+total_decay_rates[mm])/2
+
+        # Save the decay rates just in case:
+        self.decay_rates = decay_rates
+        self.total_decay_rates = total_decay_rates
 
 
     def __build_transform_matrices(self):
@@ -411,10 +432,10 @@ class obe():
             self.rho0 = rho0.astype('complex128')
         else:
             self.rho0 = rho0
-            
+
         if self.rho0.shape == (self.hamiltonian.n, self.hamiltonian.n):
             self.rho0 = self.rho0.flatten()
-        
+
         if self.rho0.shape[0] != self.hamiltonian.n**2:
             raise ValueError('rho0 should have n^2 elements.')
 
@@ -577,7 +598,7 @@ class obe():
         self.sol = solve_ivp(dydt, t_span,
                              np.concatenate((self.rho0, self.v0, self.r0)),
                              **kwargs)
-        
+
         # Remake the solution:
         self.reshape_sol()
 
@@ -622,25 +643,40 @@ class obe():
                 ))
 
         def random_recoil(t, y, dt):
-            # Calculate the probability that all excited states can decay.
-            # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
-            # TODO: add in decay time (currently assumed to be one)
-            P = np.zeros((self.hamiltonian.n-self.hamiltonian.ns[0],))
-            for ii in range(self.hamiltonian.ns[0], self.hamiltonian.n):
-                P[ii-self.hamiltonian.ns[0]] = np.real(y[self.__density_index(ii, ii)])*dt
-            # Roll the dice N times, where $N=\sum(n_i)
-            dice = np.random.rand(len(P))
+            num_of_scatters = 0
+            total_P = 0.
 
-            # For any random number that is lower than P_i, add a recoil velocity.
-            # TODO: There are potential problems in the way the kvector is defined.
-            # The first is the k-vector is defined in the laser beam (not in the
-            # Hamiltonian).  The second is that we should break this out according
-            # to laser beam in case they do have different k-vectors.
-            num_of_scatters = np.sum(dice<P)
-            for ii in range(num_of_scatters):
-                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+random_vector(free_axes))
+            # Go over each block in the Hamiltonian and compute the decay:
+            for ll, total_decay_rate in enumerate(self.total_decay_rates):
+                if total_decay_rate>0:
+                    for mm, decay_rate in enumerate(self.decay_rates[:ll, ll]):
+                        if not decay_rate is None:
+                            P = np.zeros((self.hamiltonian.ns[ll],))
+                            for ii in range(self.hamiltonian.ns[ll]):
+                                jj = ii + np.sum(self.hamiltonian.ns[:ll])
+                                P[ii] = decay_rate[ii]*\
+                                np.real(y[self.__density_index(jj, jj)])*dt
 
-            new_dt_max = (max_scatter_probability/np.sum(P))*dt
+                            # Roll the dice N times, where $N=\sum(n_i)
+                            dice = np.random.rand(len(P))
+
+                            # For any random number that is lower than P_i, add a
+                            # recoil velocity. TODO: There are potential problems
+                            # in the way the kvector is defined. The first is the
+                            # k-vector is defined in the laser beam (not in the
+                            # Hamiltonian).  The second is that we should break
+                            # this out according to laser beam in case they do have
+                            # different k-vectors.
+                            for ii in range(np.sum(dice<P)):
+                                num_of_scatters += 1
+                                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+
+                                                             random_vector(free_axes))
+
+                            total_P += np.sum(P)
+
+            #print(dt, P)
+            new_dt_max = (max_scatter_probability/total_P)*dt
+
             return (num_of_scatters, new_dt_max)
 
         if not random_recoil_flag:
@@ -705,7 +741,7 @@ class obe():
             observable has shape (O[:-2])+(rho[2:])
         """
         if rho is None:
-            (t, r, v, rho) = self.reshape_sol()
+            rho = self.sol.rho
 
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
             raise ValueError('rho must have dimensions (n, n,...), where n '+
@@ -824,7 +860,8 @@ class obe():
                 print(ii, f_avg, np.sum(f_avg**2))
                 self.piecewise_sols.append(self.sol)
 
-            if (np.sum((old_f_avg-f_avg)**2)/np.sum((f_avg)**2)<rel or
+            if (np.sum((f_avg)**2)<abs or
+                np.sum((old_f_avg-f_avg)**2)/np.sum((f_avg)**2)<rel or
                 np.sum((old_f_avg-f_avg)**2)<abs):
                 break;
             else:
@@ -843,7 +880,7 @@ class obe():
             f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
         Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
-        return (Neq, f_avg, f_laser_avg, f_laser_avg_q, f_mag, ii)
+        return (f_avg, f_laser_avg, f_laser_avg_q, f_mag, Neq, ii)
 
 
     def generate_force_profile(self, R, V,  **kwargs):
@@ -900,7 +937,7 @@ class obe():
                 else:
                     kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
 
-            Neq, F, F_laser, F_laser_q, F_mag, iterations = self.find_equilibrium_force(**kwargs)
+            F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
                                           iterations, F_laser_q)
@@ -940,9 +977,7 @@ class obe():
         Reshape the solution to have all the proper parts.
         """
         self.sol.rho = self.reshape_rho(self.sol.y[:-6])
-        self.sol.r = self.sol.y[-3:]
-        self.sol.v = self.sol.y[-6:-3]
+        self.sol.r = np.real(self.sol.y[-3:])
+        self.sol.v = np.real(self.sol.y[-6:-3])
 
         del self.sol.y
-
-        return (self.sol.t, self.sol.r, self.sol.v, self.sol.rho)
