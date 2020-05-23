@@ -4,16 +4,19 @@ import numpy as np
 
 class progressBar(object):
     def __init__(self, decimals=1, fill='█', prefix='Progress:',
-                 suffix='complete', length=40):
+                 suffix='', time_remaining_prefix=' time left', length=30,
+                 update_rate=0.5):
         self.tic = time.time()
         self.decimals = decimals
         self.fill = fill
         self.length = length
         self.prefix = prefix
         self.suffix = suffix
-
+        self.time_remaining_prefix = time_remaining_prefix
         self.finished = False
         self.max_written_length = 0
+        self.last_update = 0.
+        self.update_rate = update_rate
 
     def format_time(self, tic_toc):
         # Print a final time of completion
@@ -33,21 +36,24 @@ class progressBar(object):
         # Update the maximum length of string written:
         self.max_written_length = max(self.max_written_length, len(string1))
         pad = ''.join([' ']*(self.max_written_length - len(string1)))
-        print('\r' + string1 + pad, end='')
+        print(string1 + pad, end='\r')
 
     def update(self, percentage):
         toc = time.time()
-        percent = ("{0:." + str(self.decimals) + "f}").format(100*percentage)
-        filledLength = int(self.length*percentage)
-        bar = self.fill*filledLength + '-'*(self.length - filledLength)
-        if percentage>0 and percentage<1:
+        if percentage>0 and percentage<1 and (toc-self.last_update)>self.update_rate:
+            percent = ("{0:." + str(self.decimals) + "f}").format(100*percentage)
+            filledLength = int(self.length*percentage)
+            bar = self.fill*filledLength + '-'*(self.length - filledLength)
+        
             remaining_time = (1-percentage)*((toc-self.tic)/percentage)
             if remaining_time>0:
                 time_str = self.format_time(remaining_time)
             else:
                 time_str = "0.00 s"
-            self.print_string('%s |%s| %s%% %s; est. time remaining: %s' %
-                              (self.prefix, bar, percent, self.suffix, time_str))
+            self.print_string('%s |%s| %s%%%s;%s: %s' %
+                              (self.prefix, bar, percent, self.suffix, 
+                               self.time_remaining_prefix, time_str))
+            self.last_update = toc
         elif percentage>=1:
             if not self.finished:
                 self.finished = True
