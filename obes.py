@@ -103,7 +103,7 @@ class obes():
         dim = kwargs.pop('dimension', 3)
         
         self.num = num
-        self.eps = 1e-3
+        self.interaction_eps = 1
 
         self.transform_into_re_im = kwargs.pop('transform_into_re_im', False)
         use_sparse_matrices = kwargs.pop('use_sparse_matrices', None)
@@ -488,7 +488,33 @@ class obes():
         Neq = self.rateeq.equilibrium_populations(self.r0, self.v0, t=0)
         self.set_initial_rho_from_populations(Neq)
 
+    def update_laserBeams(self, new_laserBeams):
+        self.laserBeams = {} # Laser beams are meant to be dictionary,
+        if isinstance(new_laserBeams, list):
+            self.laserBeams['g->e'] = copy.copy(laserBeams(new_laserBeams)) # Assume label is g->e
+        elif isinstance(new_laserBeams, laserBeams):
+            self.laserBeams['g->e'] = copy.copy(new_laserBeams) # Again, assume label is g->e
+        elif isinstance(new_laserBeams, dict):
+            for key in new_laserBeams.keys():
+                if not isinstance(new_laserBeams[key], laserBeams):
+                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
+                                     'is in not of type laserBeams.')
+            self.laserBeams = copy.copy(new_laserBeams) # Now, assume that everything is the same.
+        else:
+            raise TypeError('laserBeams is not a valid type.')
 
+        # Next, check to see if there is consistency in k:
+        self.__check_consistency_in_lasers_and_d_q()
+    
+    def update_magField(self, new_magField):
+        if callable(new_magField) or isinstance(new_magField, np.ndarray):
+            self.magField = magField(new_magField)
+        elif isinstance(new_magField, magField):
+            self.magField = copy.copy(new_magField)
+        else:
+            raise TypeError('The magnetic field must be either a lambda ' +
+                            'function or a magField object.')
+            
     def full_OBE_ev_scratch(self, r, t):
         """
         This function calculates the OBE evolution matrix at position t and r
@@ -642,12 +668,21 @@ class obes():
         This function evolves the optical bloch equations for multiple atoms 
         as evolve_motion function between t_steps and update interaction field
         at t_steps. 
+        Kwargs:
+            random_recoil: Boolean
+            dipole_interaction: Boolean
+            update_laserBeams, update_magField: dict, {'update time1 (int)': 
+                new field class1 (laserBeams/magField), ...}
         """      
-        #TODO: update laser/magfield at t_steps. Then atom in and out.
+        #TODO: Atom in and out. 
+        #TODO: UNIT! phenonmenal parameters for recoil and interaction. gravity.
+        
         progress_bar = kwargs.pop('progress_bar', False)
         random_recoil_flag = kwargs.pop('random_recoil', False)
         dipole_interaction_flag = kwargs.pop('dipole_interaction', False)
-        update_fields_flag = kwargs.pop('update_fields', False)
+        laserBeams_t = kwargs.pop('update_laserBeams', False)
+        magField_t = kwargs.pop('update_magField', False)
+        
         # atom_fly_in_flag = kwargs.pop('fly_in', False)
         # atom_fly_out_flag = kwargs.pop('fly_out', False)
         # moleculization_flag = kwargs.pop('moleculization', False)
@@ -673,11 +708,42 @@ class obes():
         self.vS[0,:,:] = v0S
         self.rhoS[0,:,:] = rho0S
         
+        if laserBeams_t:
+            len_laserBeams = len(laserBeams_t)
+            t_update_laser = np.zeros(len_laserBeams)
+            i = 0
+            for key in laserBeams_t:
+                t_update_laser[i] = int(key)
+                i += 1
+            j1 = 0
+        
+        if magField_t:
+            len_magField = len(magField_t)
+            t_update_mag = np.zeros(len_magField)
+            i = 0
+            for key in magField_t:
+                t_update_mag[i] = int(key)
+                i += 1
+            j2 = 0
+        
+        
         for i in range(t_num):
             
             if dipole_interaction_flag:
                 self.calculate_dipole_moment_all()
                 self.calculate_dipole_field_and_gradient_all()
+            
+            if laserBeams_t:
+                if j1 < len_laserBeams:
+                    if t_update_laser[j1] <= t_steps[i]:
+                        self.update_laserBeams(laserBeams_t[str(int(t_update_laser[j1]))])
+                        j1 += 1
+            
+            if magField_t:
+                if j2 < len_magField:
+                    if t_update_mag[j2] <= t_steps[i]:
+                        self.update_magField(magField_t[str(int(t_update_mag[j2]))])
+                        j2 += 1
             
             self.evolve_motion_all([t_steps[i], t_steps[i+1]], 
                                    random_recoil=random_recoil_flag, dipole_interaction=dipole_interaction_flag)
@@ -700,20 +766,20 @@ class obes():
         
         num = self.num
         for i in range(num):
-            self.r0 = self.rTS[i,:]
-            self.v0 = self.vTS[i,:]
-            self.rho0 = self.rhoTS[i,:]
+            r0 = self.rTS[i,:]
+            v0 = self.vTS[i,:]
+            rho0 = self.rhoTS[i,:]
             if dipole_interaction_flag:
-                self.EI = self.EIS[i,:]
-                self.delEI = self.delEIS[i,:,:]
+                self.EI = np.array(self.EIS[i,:])
+                self.delEI = np.array(self.delEIS[i,:,:])
             
-            self.evolve_motion(t_span, random_recoil=random_recoil_flag, dipole_interaction=dipole_interaction_flag)
-            self.rhoTS[i,:] = self.sol.y[:-6,-1]
-            self.rTS[i,:] = np.real(self.sol.y[-3:,-1])
-            self.vTS[i,:] = np.real(self.sol.y[-6:-3,-1])
+            y = self.evolve_motion(r0, v0, rho0, t_span, random_recoil=random_recoil_flag, dipole_interaction=dipole_interaction_flag)
+            self.rhoTS[i,:] = y[:-6]
+            self.rTS[i,:] = np.real(y[-3:])
+            self.vTS[i,:] = np.real(y[-6:-3])
 
         
-    def evolve_motion(self, t_span, **kwargs):
+    def evolve_motion(self, r0, v0, rho0, t_span, **kwargs):
         """
         This function evolves the optical bloch equations for some period of
         time, with all their potential glory!
@@ -791,13 +857,13 @@ class obes():
             return (num_of_scatters, new_dt_max)
 
         if not random_recoil_flag:
-            self.sol = solve_ivp(
-                dydt, t_span, np.concatenate((self.rho0, self.v0, self.r0)),
+            sol = solve_ivp(
+                dydt, t_span, np.concatenate((rho0, v0, r0)),
                 **kwargs)
         else:
-            self.sol = solve_ivp_random(
+            sol = solve_ivp_random(
                 dydt, random_recoil, t_span,
-                np.concatenate((self.rho0, self.v0, self.r0)),
+                np.concatenate((rho0, v0, r0)),
                 **kwargs
                 )
 
@@ -811,17 +877,18 @@ class obes():
         # Interpolate the force:
         if record_force:
             f = interp1d(ts[:-1], np.array([f[0] for f in Fs[:-1]]).T)
-            self.sol.F = f(self.sol.t)
+            sol.F = f(sol.t)
 
             f = interp1d(ts[:-1], np.array([f[3] for f in Fs[:-1]]).T)
-            self.sol.fmag = f(self.sol.t)
+            sol.fmag = f(sol.t)
 
-            self.sol.f = {}
+            sol.f = {}
             for key in Fs[0][1]:
                 f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
-                self.sol.f[key] = f(self.sol.t)
-                self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
-
+                sol.f[key] = f(sol.t)
+                sol.f[key] = np.swapaxes(sol.f[key], 0, 1)
+        
+        return sol.y[:,-1]
 
     def observable(self, O, rho=None):
         """
@@ -966,7 +1033,7 @@ class obes():
         num = self.num
         pS = self.pTS
         rS = self.rTS
-        eps = self.eps
+        eps = self.interaction_eps
         Eq = np.zeros((3,))
         delEq = np.zeros((3,3))
         
