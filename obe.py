@@ -27,6 +27,17 @@ def dot(A, x):
 def dot_and_add(A, x, b):
     b += A @ x
 
+def cartesian_vector_tensor_dot(a, B):
+    if B.ndim == 2 and a.ndim == 1:
+        # Single point:
+        return np.dot(B, a)
+    elif B.ndim == 2:
+        # Constant B, variable a:
+        return np.sum(a[np.newaxis, ...]*B[..., np.newaxis], axis=1)
+    else:
+        # Varaible a and variable B.  Will throw an error if a.shape[1:] != B.shape[2:]:
+        return np.sum(a[np.newaxis, ...]*B[...], axis=1)
+
 
 class force_profile(base_force_profile):
     def __init__(self, R, V, laserBeams, hamiltonian):
@@ -802,18 +813,17 @@ class obe():
 
         # Are we including magnetic forces?
         if self.include_mag_forces:
-            # This function returns a matrix that (3, 3) with the format:
+            # This function returns a matrix that is either (3, 3) (if constant)
+            # or (3, 3, t.size).  The first two dimensions are like
             # [dBx/dx, dBy/dx, dBz/dx; dBx/dy, dBy/dy, dBz/dy], and so on.
             # We need to dot, and su
             delB = self.magField.gradField(np.real(r))
 
-            # What's the expectation value of mu?
+            # What's the expectation value of mu?  Returns (3,) or (3, t.size)
             av_mu = self.observable(self.hamiltonian.mu, rho)
 
             # Now dot it into the gradient:
-            f_mag = np.zeros(f.shape)
-            for ii in range(3): # Loop over muxB_x, mu_yB_y, mu_zB_z
-                f_mag += av_mu[ii]*delB[:, ii]
+            f_mag = cartesian_vector_tensor_dot(av_mu, delB)
 
             # Add it into the regular force.
             f+=f_mag
