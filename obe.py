@@ -436,19 +436,21 @@ class obe():
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
 
+        if rho0.size != self.hamiltonian.n**2:
+            raise ValueError('rho0 should have n^2 elements.')
+            
+        if rho0.shape == (self.hamiltonian.n, self.hamiltonian.n):
+            rho0 = rho0.flatten()
+            
         if self.transform_into_re_im and rho0.dtype is np.dtype('complex128'):
-            self.rho0 = np.real(rho0)
+            self.rho0 = self.Uinv @ rho0
         elif (not self.transform_into_re_im and
               not rho0.dtype is np.dtype('complex128')):
             self.rho0 = rho0.astype('complex128')
         else:
             self.rho0 = rho0
 
-        if self.rho0.shape == (self.hamiltonian.n, self.hamiltonian.n):
-            self.rho0 = self.rho0.flatten()
 
-        if self.rho0.shape[0] != self.hamiltonian.n**2:
-            raise ValueError('rho0 should have n^2 elements.')
 
 
     def set_initial_rho_equally(self):
