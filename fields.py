@@ -431,13 +431,6 @@ class laserBeam(object):
         Returns the gradient of the electric field of the laser beam at
         position R and time t by numerical computation.
         """
-        kvec = self.kvec(R, t)
-        beta = self.beta(R, t)
-        pol = self.pol(R, t)
-        delta = self.delta(t)
-
-        amp = np.sqrt(beta/2)
-
         (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
         delEq = np.array([
             (self.electric_field(R+dx, t) -
