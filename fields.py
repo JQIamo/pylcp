@@ -4,12 +4,17 @@ from pylcp.common import cart2spherical, spherical2cart
 
 import numba
 
-@numba.jit(nopython=True)
+@numba.njit
 def dot2D(a, b):
     c = np.zeros((a.shape[1],), dtype=a.dtype)
     for ii in range(a.shape[1]):
         c[ii] = np.sum(a[:, ii]*b[:, ii])
     return c
+
+@numba.njit
+def electric_field(r, t, amp, pol, k, delta, phase):
+    return pol*amp*np.exp(-1j*(k[0]*r[0]+k[1]*r[1]+k[2]*r[2])+1j*delta*t + 1j*phase)
+
 
 def return_constant_val(R, t, val):
     if R.shape==(3,):
@@ -416,9 +421,8 @@ class laserBeam(object):
 
         amp = np.sqrt(beta/2)
 
-        if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-            Eq = pol*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
-                                -1j*self.phase)
+        if isinstance(t, float):
+            Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
         else:
             Eq = pol.reshape(3, t.size)*\
             (amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t -1j*self.phase)).reshape(1, t.size)
