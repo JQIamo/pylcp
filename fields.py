@@ -15,11 +15,20 @@ def return_constant_val(R, t, val):
     if R.shape==(3,):
         return val
     elif R.shape[0] == 3:
-        return np.outer(val, np.ones(R[0].shape))
+        return val*np.ones(R[0].shape)
     else:
         raise ValueError('The first dimension of R should have length 3, ' +
                          'not %d.'%R.shape[0])
 
+def return_constant_vector(R, t, vector):
+    if R.shape==(3,):
+        return vector
+    elif R.shape[0] == 3:
+        return np.outer(vector, np.ones(R[0].shape))
+    else:
+        raise ValueError('The first dimension of R should have length 3, ' +
+                         'not %d.'% R.shape[0])
+        
 def return_constant_val_t(t, val):
     if isinstance(t, np.ndarray):
         return val*np.ones(t.shape)
@@ -29,9 +38,10 @@ def return_constant_val_t(t, val):
 def promote_to_lambda(val, var_name=None, type='Rt'):
     if type is 'Rt':
         if not callable(val):
-            if isinstance(val, list):
-                val = np.array(val)
-            func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)
+            if isinstance(val, list) or isinstance(val, np.ndarray):
+                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_vector(R, t, val)
+            else:
+                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)        
             sig = '()'
         else:
             sig = str(signature(val))
