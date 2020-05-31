@@ -4,22 +4,36 @@ from pylcp.common import cart2spherical, spherical2cart
 
 import numba
 
-@numba.jit(nopython=True)
+@numba.njit
 def dot2D(a, b):
     c = np.zeros((a.shape[1],), dtype=a.dtype)
     for ii in range(a.shape[1]):
         c[ii] = np.sum(a[:, ii]*b[:, ii])
     return c
 
+@numba.njit
+def electric_field(r, t, amp, pol, k, delta, phase):
+    return pol*amp*np.exp(-1j*(k[0]*r[0]+k[1]*r[1]+k[2]*r[2])+1j*delta*t + 1j*phase)
+
+
 def return_constant_val(R, t, val):
     if R.shape==(3,):
         return val
     elif R.shape[0] == 3:
-        return np.outer(val, np.ones(R[0].shape))
+        return val*np.ones(R[0].shape)
     else:
         raise ValueError('The first dimension of R should have length 3, ' +
                          'not %d.'%R.shape[0])
 
+def return_constant_vector(R, t, vector):
+    if R.shape==(3,):
+        return vector
+    elif R.shape[0] == 3:
+        return np.outer(vector, np.ones(R[0].shape))
+    else:
+        raise ValueError('The first dimension of R should have length 3, ' +
+                         'not %d.'% R.shape[0])
+        
 def return_constant_val_t(t, val):
     if isinstance(t, np.ndarray):
         return val*np.ones(t.shape)
@@ -29,9 +43,10 @@ def return_constant_val_t(t, val):
 def promote_to_lambda(val, var_name=None, type='Rt'):
     if type is 'Rt':
         if not callable(val):
-            if isinstance(val, list):
-                val = np.array(val)
-            func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)
+            if isinstance(val, list) or isinstance(val, np.ndarray):
+                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_vector(R, t, val)
+            else:
+                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)        
             sig = '()'
         else:
             sig = str(signature(val))
@@ -406,9 +421,8 @@ class laserBeam(object):
 
         amp = np.sqrt(beta/2)
 
-        if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
-            Eq = pol*amp*np.exp(-1j*np.dot(kvec, R) + 1j*delta*t +
-                                -1j*self.phase)
+        if isinstance(t, float):
+            Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
         else:
             Eq = pol.reshape(3, t.size)*\
             (amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t -1j*self.phase)).reshape(1, t.size)
@@ -421,13 +435,6 @@ class laserBeam(object):
         Returns the gradient of the electric field of the laser beam at
         position R and time t by numerical computation.
         """
-        kvec = self.kvec(R, t)
-        beta = self.beta(R, t)
-        pol = self.pol(R, t)
-        delta = self.delta(t)
-
-        amp = np.sqrt(beta/2)
-
         (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
         delEq = np.array([
             (self.electric_field(R+dx, t) -

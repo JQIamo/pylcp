@@ -350,11 +350,11 @@ class hamiltonian():
                 self.U[ii] = np.eye(self.ns[ii])
 
         # Now, are any of the diagonal submatrices not diagonal?
-        if not np.all(self.diagonal):
+        if not np.all(self.diagonal) or B<0:
             # If so, go through all of the diagonal elements:
             for ii, diag_block in enumerate(np.diag(self.blocks)):
                 # It isn't? Diagonalize it:
-                if not self.diagonal[ii]:
+                if not self.diagonal[ii] or B<0:
                     if isinstance(diag_block, tuple):
                         H = (diag_block[0].matrix - B*diag_block[1].matrix[1])
                     elif isinstance(diag_block, self.vector_block):
@@ -391,7 +391,7 @@ class hamiltonian():
             # Now, rotate the d_q:
             for ii in range(self.blocks.shape[0]):
                 for jj in range(ii+1, self.blocks.shape[1]):
-                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj]):
+                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj] or B<0):
                         for kk in range(3):
                             self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
                                 self.U[ii].T @ self.blocks[ii,jj].matrix[kk] @ self.U[jj]

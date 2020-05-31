@@ -97,11 +97,11 @@ class infiniteGratingMOTBeams(laserBeams):
         self.thd = thd
         self.grating_angle = grating_angle
 
-        if not eta:
+        if eta is None:
             self.eta = 1/nr
         else:
             self.eta = eta
-
+        
         self.add_laser(infinitePlaneWaveBeam(kvec=np.array([0., 0., 1.]),
                                              pol=pol, beta=s, delta=delta,
                                              pol_coord='cartesian'))
@@ -479,7 +479,7 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
         self.thd = thd
         self.grating_angle = grating_angle
 
-        if not eta:
+        if eta is None:
             self.eta = 1/nr
         else:
             self.eta = eta
