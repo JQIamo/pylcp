@@ -43,7 +43,7 @@ alpha = 1e-3
 magField = lambda R: pylcp.tools.quadrupoleField3D(R, alpha)
 # magField = lambda R: np.zeros(R.shape)
 
-new_mag = {'3000': lambda R: pylcp.tools.quadrupoleField3D(R, 1e-2)}
+#new_mag = {'3000': lambda R: pylcp.tools.quadrupoleField3D(R, 1e-2)}
 
 # Hamiltonian for F=0->F=1
 H_g, muq_g = pylcp.hamiltonians.singleF(F=0, gF=0, muB=1)
@@ -52,15 +52,15 @@ d_q = pylcp.hamiltonians.dqij_two_bare_hyperfine(0, 1)
 hamiltonian = pylcp.hamiltonian(H_g, det*np.eye(3)+H_e, muq_g, muq_e, d_q)
 
 obes = pylcp.obes(laserBeams, magField, hamiltonian,
-                     transform_into_re_im=transform, atom_number=2, init_r_range=3, init_v_range=0.3)
-obes.set_initial_rhoS_equally()
+                     transform_into_re_im=transform)
+
 
 
 # %% Now try to evolve some initial state!
 
-t = np.arange(0,5001,100)
+t = np.arange(0,501,100)
 
-obes.evolve_motion_interaction(t, random_recoil=False, progress_bar=True, dipole_interaction=False, update_magField = new_mag)
+obes.evolve_motion_interaction(t, random_recoil=False, progress_bar=True, dipole_interaction=False, atom_in_out=True)
 
 # %% Plot 'er up:
 n = 1
