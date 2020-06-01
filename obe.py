@@ -209,9 +209,9 @@ class obe():
             for jj in range(self.hamiltonian.n):
                 for kk in range(self.hamiltonian.n):
                     ev_mat[self.__density_index(ii, jj),
-                           self.__density_index(ii, kk)] += 1j*H[kk, jj]
+                           self.__density_index(kk, jj)] += 1j*H[kk, ii]
                     ev_mat[self.__density_index(ii, jj),
-                           self.__density_index(kk, jj)] -= 1j*H[ii, kk]
+                           self.__density_index(ii, kk)] -= 1j*H[jj, kk]
 
         return ev_mat
 
