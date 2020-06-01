@@ -8,89 +8,93 @@ import copy
 from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
-from .lasers import laserBeams
-from .common import random_vector
+from .fields import laserBeams, magField
+from .common import random_vector, base_force_profile, progressBar
 from .integration_tools import solve_ivp_random
+from scipy.interpolate import interp1d
 
 #@numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
     return x.real**2 + x.imag**2
 
-class force_profile():
-    def __init__(self, R, V, laserBeams, hamiltonian,
-                 contents=['Rijl','Neq','f','F']):
-        if not isinstance(R, np.ndarray):
-            R = np.array(R)
-        if not isinstance(V, np.ndarray):
-            V = np.array(V)
+class force_profile(base_force_profile):
+    def __init__(self, R, V, laserBeams, hamiltonian):
+        super().__init__(R, V, laserBeams, hamiltonian)
 
-        if R.shape[0] != 3 or V.shape[0] != 3:
-            raise TypeError('R and V must have first dimension of 3.')
-
-        self.R = copy.copy(R)
-        self.V = copy.copy(V)
-
+        # Add in the specific instance of the Rijl:
         self.Rijl = {}
-        self.f = {}
         for key in laserBeams:
-             self.Rijl[key] = np.zeros(
-                 R[0].shape+(len(laserBeams[key].beam_vector),
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
-                             hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
-                 )
-             self.f[key] = np.zeros(R.shape + (len(laserBeams[key].beam_vector),))
+            self.Rijl[key] = np.zeros(
+                self.R[0].shape+(len(laserBeams[key].beam_vector),
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].n,
+                hamiltonian.blocks[hamiltonian.laser_keys[key]].m)
+                )
 
-        self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
-        self.F = np.zeros(R.shape)
-
-    def store_data(self, ind, Rijl, Neq, f_laser, F):
-        self.Neq[ind] = Neq
+    def store_data(self, ind, Neq, F, F_laser, F_mag, Rijl):
+        super().store_data(ind, Neq, F, F_laser, F_mag)
 
         for key in Rijl:
             self.Rijl[key][ind] = Rijl[key]
 
-        for key in f_laser:
-            for jj in range(3):
-                self.f[key][(jj,) + ind] = f_laser[key][jj]
 
-        for jj in range(3):
-            self.F[(jj,) + ind] = F[jj]
-
-
-class rateeq():
+class rateeq(object):
     """
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
     """
-    def __init__(self, lasers, magField, hamiltonian,
-                 r=np.array([0.0, 0.0, 0.0]), v=np.array([0.0, 0.0, 0.0]),
-                 svd_eps=1e-10):
+    def __init__(self, *args, **kwargs):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
         """
-        self.hamiltonian = copy.copy(hamiltonian)
-
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(lasers, list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(lasers)) # Assume label is g->e
-        elif isinstance(lasers, laserBeams):
-            self.laserBeams['g->e'] = copy.copy(lasers) # Again, assume label is g->e
-        elif isinstance(lasers, dict):
-            self.laserBeams = copy.copy(lasers) # Now, assume that everything is the same.
+        if len(args) < 3:
+            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
+        elif len(args) == 3:
+            self.constant_accel = np.array([0., 0., 0.])
+        elif len(args) == 4:
+            if not isinstance(args[3], np.ndarray):
+                raise TypeError('Constant acceleration must be an numpy array.')
+            elif args[3].size != 3:
+                raise ValueError('Constant acceleration must have length 3.')
+            else:
+                self.constant_accel = args[3]
         else:
-            raise ValueError('laserBeams is not a valid type.')
+            raise ValueError('No more than four positional arguments accepted.')
 
-        # Check that laser beam keys and Hamiltonian keys match.
-        for laser_key in self.laserBeams.keys():
-            if not laser_key in self.hamiltonian.laser_keys.keys():
-                raise ValueError('laserBeams dictionary keys %s does not have '+
-                                 'a corresponding key the Hamiltonian d_q.' %
-                                 laser_key)
+        # Add the Hamiltonian:
+        self.hamiltonian = copy.copy(args[2])
+        self.hamiltonian.make_full_matrices()
 
-        self.magField = copy.copy(magField)
+        # Add lasers:
+        self.laserBeams = {} # Laser beams are meant to be dictionary,
+        if isinstance(args[0], list):
+            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
+        elif isinstance(args[0], laserBeams):
+            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
+        elif isinstance(args[0], dict):
+            for key in args[0].keys():
+                if not isinstance(args[0][key], laserBeams):
+                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
+                                     'is in not of type laserBeams.')
+            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
+        else:
+            raise TypeError('laserBeams is not a valid type.')
 
-        self.svd_eps = svd_eps
+        # Add in magnetic field:
+        if callable(args[1]) or isinstance(args[1], np.ndarray):
+            self.magField = magField(args[1])
+        elif isinstance(args[1], magField):
+            self.magField = copy.copy(args[1])
+        else:
+            raise TypeError('The magnetic field must be either a lambda ' +
+                            'function or a magField object.')
+
+        # Now handle keyword arguments:
+        r=kwargs.pop('r', np.array([0., 0., 0.]))
+        v=kwargs.pop('v', np.array([0., 0., 0.]))
+
+        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
+        self.svd_eps = kwargs.pop('svd_eps', 1e-10)
 
         # Check function signatures for any time dependence:
         self.tdepend = {}
@@ -100,9 +104,9 @@ class rateeq():
         self.tdepend['det'] = False
         self.tdepend['beta'] = False"""
 
-        if 't' in str(signature(self.magField)):
+        """if 't' in str(signature(self.magField)):
             self.tdepend['B'] = True
-        """for key in self.laserBeams:
+        for key in self.laserBeams:
             for beam in self.laserBeams[key]:
                 if not beam.pol_sig is None and 't' in beam.pol_sig:
                     self.tdepend['pol'] = True
@@ -157,7 +161,8 @@ class rateeq():
         return self.Rev_decay
 
 
-    def construct_evolution_matrix(self, r, v, t=0.):
+    def construct_evolution_matrix(self, r, v, t=0.,
+                                   default_axis=np.array([0., 0., 1.])):
         """
         Method to generate the rate equation evolution matrix.  Expects
         several arguments:
@@ -166,19 +171,18 @@ class rateeq():
         """
         # What is the magnetic field?
         if self.tdepend['B']:
-            B = self.magField(r, t)
+            B = self.magField.Field(r, t)
         else:
-            B = self.magField(r)
+            B = self.magField.Field(r)
 
         # Calculate its magnitude:
         Bmag = np.linalg.norm(B, axis=0)
 
         # Calculate the Bhat direction:
-        if np.abs(Bmag) > 0:
+        if Bmag > 1e-10:
             Bhat = B/Bmag
         else:
-            Bhat = np.zeros(B.shape)
-            Bhat[-1] = 1.0
+            Bhat = default_axis
 
         # Diagonalize at Bmag.  This is required if the Hamiltonian has any
         # non-diagonal elements of the Hamiltonian that are dependent on Bz.
@@ -208,7 +212,10 @@ class rateeq():
                                       dijq.shape[1:])
 
             # Grab the laser parameters:
-            (kvecs, betas, pols, deltas) = self.laserBeams[key].return_parameters(r, t)
+            kvecs = self.laserBeams[key].kvec(r, t)
+            betas = self.laserBeams[key].beta(r, t)
+            deltas = self.laserBeams[key].delta(t)
+
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 
             # Loop through each laser beam driving this transition:
@@ -239,12 +246,14 @@ class rateeq():
         return self.Rev, self.Rijl
 
 
-    def equilibrium_populations(self, r, v, t, return_details=False):
+    def equilibrium_populations(self, r, v, t, **kwargs):
         """
         Returns the equilibrium values of the rate equation matrix Rev by
         singular matrix decomposition.
         """
-        Rev, Rijl = self.construct_evolution_matrix(r, v, t)
+        return_details = kwargs.pop('return_details', False)
+
+        Rev, Rijl = self.construct_evolution_matrix(r, v, t, **kwargs)
 
         # Find the singular values:
         U, S, VH = np.linalg.svd(Rev)
@@ -266,7 +275,7 @@ class rateeq():
             return Neq
 
 
-    def force(self, r, t, Rijl, Npop):
+    def force(self, r, t, Npop, return_details=True):
         F = np.zeros((3,))
         f = {}
 
@@ -278,17 +287,48 @@ class rateeq():
             m = sum(self.hamiltonian.ns[:ind[1]])
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 # If kvec is callable, evaluate kvec:
-                kvec = beam.return_kvec(r, t)
+                kvec = beam.kvec(r, t)
 
-                for ii in range(Rijl[key].shape[1]):
-                    for jj in range(Rijl[key].shape[2]):
-                        if Rijl[key][ll, ii, jj]>0:
-                            f[key][:, ll] += kvec*Rijl[key][ll, ii, jj]*\
+                for ii in range(self.Rijl[key].shape[1]):
+                    for jj in range(self.Rijl[key].shape[2]):
+                        if self.Rijl[key][ll, ii, jj]>0:
+                            f[key][:, ll] += kvec*self.Rijl[key][ll, ii, jj]*\
                                 (Npop[n+ii] - Npop[m+jj])
 
             F += np.sum(f[key], axis=1)
 
-        return F, f
+        fmag = np.array([0., 0., 0.])
+        if self.include_mag_forces:
+            gradBmag = self.magField.gradFieldMag(r)
+
+            for ii, block in enumerate(np.diag(self.hamiltonian.blocks)):
+                ind1 = int(np.sum(self.hamiltonian.ns[:ii]))
+                ind2 = int(np.sum(self.hamiltonian.ns[:ii+1]))
+                if self.hamiltonian.diagonal[ii]:
+                    if isinstance(block, tuple):
+                        fmag += np.sum(np.real(
+                            block[1].matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag += np.sum(np.real(
+                            block.matrix[1] @ Npop[ind1:ind2]
+                            ))*gradBmag
+                else:
+                    if isinstance(block, tuple):
+                        fmag += np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block[1].matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+                    elif isinstance(block, self.hamiltonian.vector_block):
+                        fmag += np.sum(np.real(
+                            self.hamiltonian.U[ii].T @ block.matrix[1] @
+                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+
+            F += fmag
+
+        if return_details:
+            return F, f, fmag
+        else:
+            return F
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
@@ -326,11 +366,20 @@ class rateeq():
         This method evolves the rate equations and atomic motion while in both
         changing laser fields and magnetic fields.
         """
-        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
+        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
         random_recoil_flag = kwargs.pop('random_recoil', False)
         random_force_flag = kwargs.pop('random_recoil', False)
         recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
+        progress_bar = kwargs.pop('progress_bar', False)
+        record_force = kwargs.pop('record_force', False)
+
+        if progress_bar:
+            progress = progressBar()
+
+        if record_force:
+            ts = []
+            Fs = []
 
         def motion(t, y):
             N = y[:-6]
@@ -339,14 +388,30 @@ class rateeq():
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
             if not random_force_flag:
-                F, f_laser = self.force(r, t, Rijl, N)
+                if record_force:
+                    F = self.force(r, t, N, return_details=True)
 
-                dydt = np.concatenate((Rev @ N, recoil_velocity*F*free_axes, v))
+                    ts.append(t)
+                    Fs.append(F)
+
+                    F = F[0]
+                else:
+                    F = self.force(r, t, N, return_details=False)
+
+                dydt = np.concatenate((Rev @ N,
+                                       recoil_velocity*F*free_axes+
+                                       self.constant_accel,
+                                       v))
             else:
-                dydt = np.concatenate((Rev @ N, np.zeros((3,)), v))
+                dydt = np.concatenate((Rev @ N,
+                                       self.constant_accel,
+                                       v))
 
             if np.any(np.isnan(dydt)):
                 raise ValueError('Enountered a NaN!')
+
+            if progress_bar:
+                progress.update(t/t_span[-1])
 
             return dydt
 
@@ -408,6 +473,30 @@ class rateeq():
         else:
             self.sol = solve_ivp(motion, t_span, y0, **kwargs)
 
+        if progress_bar:
+            # Just in case the solve_ivp_random terminated due to an event.
+            progress.update(1.)
+
+        # Rearrange the solution:
+        self.sol.N = self.sol.y[-6:]
+        self.sol.v = self.sol.y[-6:-3]
+        self.sol.r = self.sol.y[-3:]
+
+        if record_force:
+            f = interp1d(ts[:-1], np.array([f[0] for f in Fs[:-1]]).T)
+            self.sol.F = f(self.sol.t)
+
+            f = interp1d(ts[:-1], np.array([f[2] for f in Fs[:-1]]).T)
+            self.sol.fmag = f(self.sol.t)
+
+            self.sol.f = {}
+            for key in Fs[0][1]:
+                f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
+                self.sol.f[key] = f(self.sol.t)
+                self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
+
+        del self.sol.y
+
 
     def find_equilibrium_force(self, **kwargs):
         """
@@ -420,20 +509,24 @@ class rateeq():
             raise NotImplementedError('Time dependence not yet implemented.')
         else:
             N_eq, Rev, Rijl = self.equilibrium_populations(
-                self.r0, self.v0, t=0, return_details=True
+                self.r0, self.v0, t=0, return_details=True, **kwargs
                 )
-            F_eq, f_eq = self.force(self.r0, 0., Rijl, N_eq)
+
+            F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
 
         if return_details:
-            return F_eq, f_eq, N_eq, Rijl
+            return F_eq, f_eq, N_eq, Rijl, f_mag
         else:
             return F_eq
 
-    def generate_force_profile(self, R, V, name=None):
+    def generate_force_profile(self, R, V, **kwargs):
         """
         Method that maps out the equilbirium pupming rate, populations,
         and forces:
         """
+        name = kwargs.pop('name', None)
+        progress_bar = kwargs.pop('progress_bar', None)
+
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
@@ -445,6 +538,9 @@ class rateeq():
                        op_flags=[['readonly'], ['readonly'], ['readonly'],
                                  ['readonly'], ['readonly'], ['readonly']])
 
+        if progress_bar:
+            progress = progressBar()
+
         for (x, y, z, vx, vy, vz) in it:
             # Construct the rate equations:
             r = np.array([x, y, z])
@@ -453,8 +549,8 @@ class rateeq():
             # Update position (use multi_index), populations, and forces.
             self.set_initial_position_and_velocity(r, v)
             try:
-                F, f, Neq, Rijl = self.find_equilibrium_force(
-                    return_details=True
+                F, f, Neq, Rijl, f_mag = self.find_equilibrium_force(
+                    return_details=True, **kwargs
                     )
             except:
                 raise ValueError(
@@ -463,21 +559,26 @@ class rateeq():
                     "v=({0:0.2f},{1:0.2f},{2:0.2f})".format(vx, vy, vz)
                     )
 
-            self.profile[name].store_data(it.multi_index, Rijl, Neq, f, F)
+            if progress_bar:
+                progress.update((it.iterindex+1)/it.itersize)
+
+            self.profile[name].store_data(it.multi_index, Neq, F, f, f_mag, Rijl)
 
 
 class trap(rateeq):
-    def __init__(self, laserBeams, magField, hamiltonian, svd_eps=1e-10):
-        super(trap, self).__init__(laserBeams, magField, hamiltonian,
-                                   svd_eps=svd_eps)
-        self.r0 = np.zeros((3,))
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.r_eq = None
 
 
-    def find_equilibrium_position(self, axes=[2], zlim=5., Npts=51,
-                                  initial_search=True):
+    def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,
+                                  Npts=51, initial_search=True):
+        if self.r_eq is None:
+            self.r_eq = np.zeros((3,))
+
         # Next, find the equilibrium point in z, and evaluate derivatives there:
-        r0i = np.zeros((3,))
-        z = np.linspace(-zlim, zlim, Npts)
+        r_eqi = np.zeros((3,))
+        z = np.linspace(lower_lim, upper_lim, Npts)
 
         if initial_search:
             for axis in axes:
@@ -485,7 +586,10 @@ class trap(rateeq):
                 r = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
                 r[axis] = z
 
-                self.generate_force_profile(r, v, name='root_search')
+                default_axis=np.zeros((3,))
+                default_axis[axis] = 1.
+                self.generate_force_profile(r, v, name='root_search',
+                                            default_axis=default_axis)
 
                 z_possible = z[np.where(np.diff(np.sign(
                     self.profile['root_search'].F[axis]))<0)[0]]
@@ -495,12 +599,13 @@ class trap(rateeq):
                         ind = np.argmin(z_possible**2)
                     else:
                         ind = 0
-                    r0i[axis] = z_possible[ind]
+                    r_eqi[axis] = z_possible[ind]
                 else:
-                    r0i[axis] = np.nan
+                    r_eqi[axis] = np.nan
 
                 del self.profile['root_search']
 
+        #print('Initial guess: %s' % r_eqi[axes])
         if len(axes)>1:
             def simple_wrapper(r_changing):
                 r_wrap = np.zeros((3,))
@@ -511,15 +616,15 @@ class trap(rateeq):
 
                 return np.sum(F**2)
 
-            if np.sum(np.isnan(r0i)) == 0:
+            if np.sum(np.isnan(r_eqi)) == 0:
                 # Find the center of the trap:
-                result = minimize(simple_wrapper, r0i[axes], method='SLSQP')
+                result = minimize(simple_wrapper, r_eqi[axes], method='SLSQP')
                 if result.success:
-                    self.r0[axes] = result.x
+                    self.r_eq[axes] = result.x
                 else:
-                    self.r0[axes] = np.nan
+                    self.r_eq[axes] = np.nan
             else:
-                self.r0 = np.nan
+                self.r_eq = np.nan
         else:
             def simple_wrapper(r_changing):
                 r_wrap = np.zeros((3,))
@@ -530,12 +635,12 @@ class trap(rateeq):
 
                 return F[axes]
 
-            if np.sum(np.isnan(r0i)) == 0:
-                self.r0[axes] = fsolve(simple_wrapper, r0i[axes])[0]
+            if np.sum(np.isnan(r_eqi)) == 0:
+                self.r_eq[axes] = fsolve(simple_wrapper, r_eqi[axes])[0]
             else:
-                self.r0[axes] = np.nan
+                self.r_eq[axes] = np.nan
 
-        return self.r0
+        return self.r_eq
 
     def trapping_frequencies(self, axes=[0, 2], r=None, eps=0.01):
         self.omega = np.zeros(3,)
@@ -544,7 +649,7 @@ class trap(rateeq):
             eps = np.array([eps]*3)
 
         if r is None:
-            r = self.r0
+            r = self.r_eq
 
         for axis in axes:
             if not np.isnan(r[axis]):
@@ -576,7 +681,7 @@ class trap(rateeq):
             eps = np.array([eps]*3)
 
         if r is None:
-            r = self.r0
+            r = self.r_eq
 
         for axis in axes:
             if not np.isnan(r[axis]):

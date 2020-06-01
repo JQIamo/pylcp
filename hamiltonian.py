@@ -1,13 +1,5 @@
 import numpy as np
-
-def d_q_norm(d_q):
-    d_q_norm = np.zeros(d_q.shape)
-    for ii in range(d_q.shape[0]):
-        for jj in range(d_q.shape[2]):
-            d_q_norm[ii, :, jj] = d_q[ii, :, jj]/\
-                np.linalg.norm(d_q[:, :, jj])
-
-    return d_q_norm
+from .common import spherical2cart
 
 # Next, define a Hamiltonian class to work out the internal states:
 class hamiltonian():
@@ -307,6 +299,10 @@ class hamiltonian():
         for key in self.d_q_bare.keys():
             self.d_q += self.d_q_bare[key] + self.d_q_star[key]
 
+        # Make Cartesian coordinate copies.
+        self.mu = spherical2cart(self.mu_q)
+        self.d = spherical2cart(self.d_q)
+
         return self.H_0, self.mu_q, self.d_q_bare, self.d_q_star
 
 
@@ -377,11 +373,11 @@ class hamiltonian():
                 self.U[ii] = np.eye(self.ns[ii])
 
         # Now, are any of the diagonal submatrices not diagonal?
-        if not np.all(self.diagonal):
+        if not np.all(self.diagonal) or B<0:
             # If so, go through all of the diagonal elements:
             for ii, diag_block in enumerate(np.diag(self.blocks)):
                 # It isn't? Diagonalize it:
-                if not self.diagonal[ii]:
+                if not self.diagonal[ii] or B<0:
                     if isinstance(diag_block, tuple):
                         H = (diag_block[0].matrix - B*diag_block[1].matrix[1])
                     elif isinstance(diag_block, self.vector_block):
@@ -418,7 +414,7 @@ class hamiltonian():
             # Now, rotate the d_q:
             for ii in range(self.blocks.shape[0]):
                 for jj in range(ii+1, self.blocks.shape[1]):
-                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj]):
+                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj] or B<0):
                         for kk in range(3):
                             self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
                                 self.U[ii].T @ self.blocks[ii,jj].matrix[kk] @ self.U[jj]

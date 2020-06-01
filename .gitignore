@@ -132,3 +132,6 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+*.fdb_latexmk
+.DS_Store
+*.fls

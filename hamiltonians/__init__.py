@@ -335,7 +335,9 @@ def dqij_two_bare_hyperfine(F, Fp, normalize=True):
 
     # Normalization
     """
-    Normalization involves normalzing each transition |g>->|e> to the norm of all the transitions from the excited state sum(|e>->|g>).   That means summing each column and each
+    Normalization involves normalzing each transition |g>->|e> to the norm of
+    all the transitions from the excited state sum(|e>->|g>).   That means
+    summing each column and each
     """
     if normalize:
         dqij = dqij_norm(dqij)
