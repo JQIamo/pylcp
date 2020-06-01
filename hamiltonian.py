@@ -1,6 +1,15 @@
 import numpy as np
 from .common import spherical2cart
 
+def d_q_norm(d_q):
+    d_q_norm = np.zeros(d_q.shape)
+    for ii in range(d_q.shape[0]):
+        for jj in range(d_q.shape[2]):
+            d_q_norm[ii, :, jj] = d_q[ii, :, jj]/\
+                np.linalg.norm(d_q[:, :, jj])
+
+    return d_q_norm
+
 # Next, define a Hamiltonian class to work out the internal states:
 class hamiltonian():
     """
