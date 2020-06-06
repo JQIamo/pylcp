@@ -174,17 +174,18 @@ The calculation of various quantities in laser cooling is hard.
 
 Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary laser fields, magnetic fields.  The program is broken down
 
-\section{Relevant Physics}
-Here, we consider the generic problem of coupling multiple ground states to
-multiple excited states, as first outlined in Ref.~\cite{Gordon1980} and then
-further expanded in Refs.~\cite{Ungar1989,Tarbutt2015,Devlin2016,Devlin2018}.  We label an individual state $\ket{i_j}$, where $i$ is the index of the manifold to which that state belongs and $j$ is the index of the state within that manifold.
+\section{The optical Bloch equations}
+Here, we consider the generic problem of coupling many states together using laser light.
+We group these states into manifolds.
+A manifold of states is a collection of states that are degenerate or nearly degenerate, e.g., the $^2S_0$ states of an alkali atom, the ro-vibrational states of molecules, etc.
+We denote the $n$th state in the $i$th manifold by $\ket{i, n}$.
 
-The Hamiltonian is given by
+The full Hamiltonian is given by
 \begin{equation}
     \label{eq:obe:generic_hamiltonian}
     \hat{H} = \hat{H}_\text{atom} + \hat{H}_\text{field} -
     \hat{\boldsymbol{d}}\cdot\hat{\mathbf{E}} -
-    \hat{\mathbf{\mu}}\cdot\hat{\mathbf{B}}.
+    \hat{\boldsymbol{\mu}}\cdot\hat{\mathbf{B}}.
 \end{equation}
 The field component of the Hamiltonian is given by
 \begin{equation}
@@ -192,12 +193,95 @@ The field component of the Hamiltonian is given by
     \hat{H}_\text{field} = \int \left(\epsilon_0 \hat{\mathbf{E}} +
     \frac{\hat{\mathbf{B}}}{2}\right)\ dV
 \end{equation}
-where $\hat{\mathbf{E}}$ is the electric field operator, $\hat{\mathbf{B}}$ is
-the magnetic field operator.  Next, we consider the atomic Hamiltonian,
+where $\hat{\mathbf{E}}$ is the electric field operator, $\hat{\mathbf{B}}$ is the magnetic field operator.
+The atomic Hamiltonian,
 \begin{equation}
     \hat{H}_\text{atom} = \frac{P^2}{2M} + \hat{H}_\text{internal}
 \end{equation}
 where $\hat{H}_\text{internal}$ describes the internal structure of the atom.
+In general, it has the form
+\begin{equation}
+	\hat{H}_\text{internal} = \sum_{i,n}\left[\hbar(\omega_{m,i} + \omega_n)\ket{i,n}\Bra{i, n}\right]
+\end{equation}
+where $\omega_{m,i}$ is the offset frequency of the $i$th manifold and $\omega_n$ is the $n$th's state frequency relative to $\omega_{m,i}$.  Manifolds are connected only through $\mathbf{d}\cdot\mathbf{E}$ component of the Hamiltonian; $\hat{H}_{m,i}$ and $\hat{\boldsymbol{\mu}}$ only act on the subspace of each manifold.
+
+Our goal is to find the evolution of the atom operators $\rho^{ij}_{nm} = \ket{i, n}\Bra{j, m}$.   In the Heisenburg picture, the operators $\hat{O}$ evolve as
+\begin{equation}
+	\label{eq:heisenburg_evolution}
+	\frac{\partial \hat{O}}{\partial t}  = \frac{i}{\hbar}[\hat{H}, \hat{O}].
+\end{equation}
+If the fields were treated classically, this equation would have to amended in order to take into account decays.  Instead, if we quantize the electric fields, derive the equations of motion, and then apply appropriate radiation reaction approximations, we can derive the full optical Bloch equations with decay from Eq.~\ref{eq:heisenburg_evolution}.  The magnetic field $\mathbf{B}$ is assumed to be a classical field; we will not consider quantizing it.  We must pay special focus to the electric field, however, for it both shifts the internal Hamiltonian when transformed into the necessary rotating frame(s) and creates the necessary decay channels.
+
+For the electric field, $\mathbf{E}$ could be comprised of multiple modes.  We group those modes by manifold indices $i\rightarrow j$.  Within each manifold, in addition to the mean frequency $\omega_{i\rightarrow j}$, there could then be multiple modes, which we then index by $\omega_k$.  Thus,
+\begin{equation}
+	\mathbf{E} = \sum_{i, j, k} \mathbf{E}_{i\rightarrow j, k} e^{-i (\omega_{i\rightarrow j} +\omega_k) t} + \mathbf{E}_{i\rightarrow j, k}^\dagger e^{i (\omega_{i\rightarrow j} +\omega_k) t}
+\end{equation}
+Here $\mathbf{E}$ represents a destruction operator of the mode $i\rightarrow j, k$.  We similarly expand the dipole operator
+\begin{equation}
+	\mathbf{d} = \sum_{i,j,n,m}\mathbf{d}^{ij}_{nm}\ket{i,n}\Bra{j,m} + \ket{j,m}\Bra{i,n}(\mathbf{d}^{ij}_{nm})^\dagger .
+\end{equation}
+In general, the ${d}^{ij}_{nm}$ are dependent on reduced matrix elements and Clebsch-Gordon coefficients that determine the transitions between manifolds $i$ and $j$.  We will not consider any specific form of $d^{ij}_{nm}$, but instead focus on deriving the optical Bloch equations for any generic form.
+
+For each manifold, we will assume that all states in that manifold rotate at a preferred frequency $\ket{i,n} \rightarrow e^{i \omega_{r,i} t}\ket{i, n}$.  
+We choose the $\omega_{r,i}$ such that their differences $\omega_{r,j}-\omega_{r,i} \approx \omega_{m,j}-\omega_{m,i} \approx \omega_{i\rightarrow j}$ for all combinations of $i$ and $j$.
+This choice places each manifold into an appropriate rotating frame.
+In particular, we define $\delta^H_{i, n} = \omega_{r,i}-(\omega_{m, i}+\omega_n)$.
+Under this transformation of the state vectors, the internal Hamiltonian becomes
+\begin{equation}
+	\hat{H}_\text{internal} = \sum_{i,n}-\hbar \delta^H_{i, n} \ket{i,n}\Bra{i, n},
+\end{equation}
+incorporating the shift into the rotating frame into the internal Hamiltonian.  We also define $\delta^L_{i\rightarrow j, k} = (\omega_{i\rightarrow j} + \omega_k) - (\omega_{r,j} - \omega_{r,i})$.  Making the rotating wave approximation (neglecting terms oscillating at optical frequencies), we find
+\begin{eqnarray}
+	\mathbf{d}\cdot\mathbf{E} & = & \sum_{i, j, k, n, m}\left[\left(\mathbf{d}^{ij}_{nm}\cdot\mathbf{E}^\dagger_{i\rightarrow j,k} \right) e^{-i\delta^L_{i\rightarrow j, k}  t} \ket{i,n}\Bra{j,m} + \right. \nonumber \\
+	& & \left. \ket{j,m}\Bra{i,n} \left((\mathbf{d}^{ij}_{nm})^\dagger \cdot \mathbf{E}_{i\rightarrow j,k}\right)e^{i\delta^L_{i\rightarrow j, k}t}\right]. \label{eq:d_dot_E}
+\end{eqnarray}
+I really dislike ending a paragraph with an equation.
+
+It is perhaps instructive to consider a couple examples of this construction of the rotating frame(s).  Consider first a standard two level system, with indices $i=g$ and $j=e$ and energies $\omega_g=0$ and $\omega_e$, being driven by a single electric field with total frequency $\omega$.   (Here, we drop the $k$, $n$, and $m$ subscripts.)  Let us take $\omega_{r,g}=0$ and $\omega_{r,e}=\omega_r$.  Then the detuning on the Hamiltonian, $\delta^{H}_e = \omega_r - \omega_e$ and $\delta^L_{g\rightarrow e} = \omega - \omega_r$.  The total detuning of the laser from the excited state is then given by $\delta = \delta^L_{g\rightarrow e}+\delta^H_e = \omega-\omega_e$.  In this way, we can split the detuning between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
+
+Next, consider a three-level manifold $\Lambda$-system with a single state in each manifold.  Let us label the manifolds as $g$, $r$ and $e$ in order of overall energy, and we drop the unnecessary substate subscripts.  We address this system with two lasers, one tuned closely to $g\rightarrow e$ with frequency $\omega_{g\rightarrow e}$ and the other tuned closely to $r\rightarrow e$ with frequency $\omega_{r\rightarrow e}$.  We now choose $\omega_{r,g} = 0$, and the relevant detunings are then
+\begin{eqnarray}
+	\delta^H_g & = & 0 \\
+	\delta^H_e & = & \omega_{r,e} - \omega_e \\
+	\delta^H_r & = & \omega_{r,r} - \omega_r \\
+	\delta^L_{g\rightarrow e} & = & \omega_{g\rightarrow e} - \omega_{r,e} \\
+	\delta^L_{r\rightarrow e} & = & \omega_{r\rightarrow e} - (\omega_{r,e}-\omega_{r,r})
+\end{eqnarray}
+By choosing $\omega_{r,e} = \omega_{g\rightarrow e}$ and $\omega_{r,r} = \omega_{g\rightarrow e} - \omega_{r\rightarrow e}$, one recovers the textbook example of the three level system with detunings shifted onto the Hamiltonian.  As with the two level system above, one can split the detunings between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
+
+Before applying the radiation reaction approximation, we must first find the equations of motion.  Inserting Eq.~\ref{eq:d_dot_E} into Eq.~\ref{eq:heisenburg_evolution}, and using $\rho^{ij}_{nm}\rho^{kl}_{pq} = \rho^{il}_{nq}\delta_{jk}\delta_{mp}$, where $\delta_{ij}$ is the Kronicker delta function
+\begin{eqnarray}
+	\frac{\partial \rho^{ij}_{nm}}{\partial t} & = & \sum_{jklmnpq}+i\sigma^{ab}_{kl}(\mathbf{d}^{12}_{ij}\cdot \mathbf{E}^\dagger)\sigma^{12}_{ij} +
+		i\sigma^{ab}_{kl}\sigma^{21}_{ji} ([\mathbf{d}^{12}_{ij}]^\dagger\cdot \mathbf{E})
+\end{eqnarray}
+	\begin{eqnarray}
+		\sigma^{ab}_{kl} = i[H, \sigma^{ab}_{kl}] & = & - i(\mathbf{d}^{12}_{ij}\cdot \mathbf{E}^\dagger )\sigma^{12}_{ij}\sigma^{ab}_{kl} - \sigma^{21}_{ji} ([\mathbf{d}^{12}_{ij}]^\dagger\cdot \mathbf{E}) \sigma^{ab}_{kl} \nonumber \\
+		&  & +i\sigma^{ab}_{kl}(\mathbf{d}^{12}_{ij}\cdot \mathbf{E}^\dagger)\sigma^{12}_{ij} +
+		i\sigma^{ab}_{kl}\sigma^{21}_{ji} ([\mathbf{d}^{12}_{ij}]^\dagger\cdot \mathbf{E})
+	\end{eqnarray}
+
+
+To determine the decays, we must now apply a radiation reaction approximation.  Classicaly, the radiation reaction field is
+\begin{equation}
+	\mathbf{E}_{RR} = \frac{1}{6\pi\epsilon_0 c^3}\frac{d^3\mathbf{d}}{dt^3}.
+\end{equation}
+Classicaly, the frequency of oscillation of the reaction field will be dominated by the frequency closest to resonance.  We make the approximation that the 
+For each mode $\omega_k$ in the manifold, 
+	\begin{eqnarray}
+		\frac{\partial \rho_{ij}}{\partial t} & = & \left[ -i (\mathbf{d}_{ki}\cdot \mathbf{E}^\dagger)\rho_{kj} - i\rho_{kj} (\mathbf{d}_{ki}^\dagger \cdot \mathbf{E}) + i (\mathbf{d}_{jk}\cdot \mathbf{E}^\dagger)\rho_{ik}  + \rho_{ik}(\mathbf{d}_{jk}^\dagger \cdot \mathbf{E})\right] \\
+		& = & \left[
+		-\mathbf{d}_{ki}\cdot \mathbf{d}^\dagger_{lm}\rho_{lm}\rho_{kj} 
+		+\rho_{kj}\mathbf{d}_{ki}^\dagger \cdot \mathbf{d}_{lm}\rho_{lm}  
+		+ \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{lm}\rho_{lm}\rho_{ik}
+		- \rho_{ik}\mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{lm}\rho_{lm}
+		\right] \\
+		& = & \left[
+		-\mathbf{d}_{ki}\cdot \mathbf{d}^\dagger_{lk}\rho_{lj} 
+		+ \mathbf{d}_{ki}^\dagger \cdot \mathbf{d}_{jl}\rho_{kl} 
+		+ \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{li}\rho_{lk}
+		- \mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{kl}\rho_{il}
+		\right]
+	\end{eqnarray}
 
 \subsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
@@ -250,26 +334,6 @@ The relevant form the Linblad super operator becomes
 \end{equation}
 
 The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.
-
-
-
-In practice, this means that the decay rate out of a state $\ket{l_i}$ is
-\begin{equation}
-    \Gamma_{\ket{l_i}} = \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m<l}\sum_{j=1}^{n_l}\sum_q \left|\Braket{m_j|d_{lm}^{q}|l_i}\right|^2,
-\end{equation}
-where $n_m$ is the number of states in the $m$ manifold.  The real component of coherences between manifolds decay as
-\begin{equation}
-	Re[\dot{\rho}_{l_im_j}] = -\frac{\Gamma_{l_i}+\Gamma_{m_j}}{2}\rho_{l_im_j}\ .
-\end{equation}
-Likewise, the population operators evolution with decay is given by
-\begin{equation}
-	\dot{\rho}_{l_il_i} = -\Gamma_l\rho_{l_il_i} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{j=1}^{n_m}\sum_q \left|\Braket{l_i|d_{lm}^{q}|m_j}\right|^2 \rho_{m_jm_j}
-\end{equation}
-Finally, the coherences within a given manifold obey
-\begin{equation}
-	\dot{\rho}_{l_il_j} = -\Gamma_l\rho_{l_il_j} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{n>l}\sum_{k=1}^{n_m}\sum_{l=1}^{n_m}\sum_q \Braket{l_i|d_{lm}^{q}|m_m}\Braket{n_k|d_{lm}^{q}|l_j}\rho_{m_jn_k}
-\end{equation}
-[FIX indecies]
 
 The particle's semiclassical motion can be calculated through
 \begin{equation}
