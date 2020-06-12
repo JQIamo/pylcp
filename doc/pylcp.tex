@@ -230,12 +230,12 @@ Under this transformation of the state vectors, the internal Hamiltonian becomes
 	\hat{H}_\text{internal} = -\hbar \delta^H_{i, n} \ket{i,n}\Bra{i, n},
 \end{equation}
 where we define $\delta^H_{n, i} = \omega_{R,n}-(\omega_{M, n}+\omega_i)$.
-incorporating the shift into the rotating frame into the internal Hamiltonian.  We also define $\delta^L_{n\rightarrow m, p} = (\omega_{n\rightarrow m} + \omega_p) - (\omega_{R,m} - \omega_{R,n})$.  Making the rotating wave approximation (neglecting terms oscillating at optical frequencies), we find
+incorporating the shift into the rotating frame into the internal Hamiltonian.  We also define $\delta^L_{n\rightarrow m, p} = (\omega_{n\rightarrow m} + \omega_p) - (\omega_{R,m} - \omega_{R,n})$.  Making the rotating wave approximation (neglecting terms oscillating at optical frequencies), we find, keeping only energy conserving terms,
 \begin{eqnarray}
 	\mathbf{d}\cdot\mathbf{E} & = & \left(\mathbf{d}^{nm}_{ij}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{i}\Bra{j} +  \nonumber \\
-	& & ~~~~~~ \ket{j}\Bra{i} \left((\mathbf{d}^{nm}_{ij})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \label{eq:d_dot_E}
+	& & ~~~~~~ \ket{j}\Bra{i} \left((\mathbf{d}^{nm}_{ij})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right).\label{eq:d_dot_E}
 \end{eqnarray}
-I really dislike ending a paragraph with an equation.
+Note that we have placed the electric field operators and atomic operators in normal order: the first operator to apply to the wavefunction is the destructor operator of either the atom or the field and the second operator is constructor operator.  This operator ordering is required in order for the radiation reaction approximation to produce the correct decay rate $\Gamma$.
 
 It is perhaps instructive to consider a couple examples of this construction of the rotating frame(s).  Consider first a standard two level system, with indices $i=g$ and $j=e$ and energies $\omega_g=0$ and $\omega_e$, being driven by a single electric field with total frequency $\omega$.   (Here, we drop the $k$, $n$, and $m$ subscripts.)  Let us take $\omega_{R,g}=0$ and $\omega_{R,e}=\omega_r$.  Then the detuning on the Hamiltonian, $\delta^{H}_e = \omega_R - \omega_e$ and $\delta^L_{g\rightarrow e} = \omega - \omega_R$.  The total detuning of the laser from the excited state is then given by $\delta = \delta^L_{g\rightarrow e}+\delta^H_e = \omega-\omega_e$.  In this way, we can split the detuning between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
 
@@ -249,19 +249,16 @@ Next, consider a three-level manifold $\Lambda$-system with a single state in ea
 \end{eqnarray}
 By choosing $\omega_{r,e} = \omega_{g\rightarrow e}$ and $\omega_{r,r} = \omega_{g\rightarrow e} - \omega_{r\rightarrow e}$, one recovers the textbook example of the three level system with detunings shifted onto the Hamiltonian.  As with the two level system above, one can split the detunings between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
 
-Before applying the radiation reaction approximation, we must first find the equations of motion.  We must be careful about operator order, as since the $\mathbf{E}$ will be dependent on the atomic operators, it is not clear that $\mathbf{E}$ will commute with $\rho_{ij}$ in general.  Inserting Eq.~\ref{eq:d_dot_E} into Eq.~\ref{eq:heisenburg_evolution}, and using $\rho_{ij}\rho_{kl} = \rho_{il}\delta_{jk}$, where $\delta_{ij}$ is the Kronicker delta function.
+Before applying the radiation reaction approximation, we must first find the equations of motion.
+Inserting Eq.~\ref{eq:d_dot_E} into Eq.~\ref{eq:heisenburg_evolution}, and using $\rho_{ij}\rho_{kl} = \rho_{il}\delta_{jk}$, where $\delta_{ij}$ is the Kronicker delta function.
 \begin{eqnarray}
-	\hbar\frac{\partial \rho_{ij}}{\partial t} & = & -i\left(\mathbf{d}^{nm}_{kl}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{k}\Braket{l|i}\Bra{j} +  \nonumber \\
-	& & -i \ket{l}\Bra{k} \left((\mathbf{d}^{nm}_{kl})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right)\ket{i}\Bra{j} \nonumber \\
-	& & +i \ket{i}\Bra{j} \left(\mathbf{d}^{nm}_{kl}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{k}\Bra{l} \nonumber \\
-	& & +i \ket{i}\Bra{j} \ket{l}\Bra{k} \left((\mathbf{d}^{nm}_{kl})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \\
-	%
+	\hbar\frac{\partial \rho_{ij}}{\partial t} 
 	& = & -i\left(\mathbf{d}^{nm}_{ki}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{k}\Bra{j} +  \nonumber \\
 	& & -i \ket{k}\Bra{j} \left((\mathbf{d}^{nm}_{ik})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \nonumber \\
 	& & +i \left(\mathbf{d}^{nm}_{jk}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)\ket{i}\Bra{k}  \nonumber \\
 	& & +i \ket{i}\Bra{k} \left((\mathbf{d}^{nm}_{kj})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \label{eq:E_coherent_ev}
 \end{eqnarray}
-{\it I note that this is equivalent to the Unager result.  I have no idea how I arrived at this result.  I somehow was able to pull things through the electric field operator.}
+Once again, we have maintained normal operator order.
 
 To determine the decays, we must now apply a radiation reaction approximation.  Classicaly, the radiation reaction field is
 \begin{equation}
