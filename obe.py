@@ -600,8 +600,8 @@ class obe():
                     drhodt -= self.ev_mat['B'][ii]*B[ii] @ rho
             else:
                 Bq = cart2spherical(B)
-                if np.abs(Bq[2-ii])>1e-10:
-                    drhodt -= (-1)**np.abs(q)*self.ev_mat['B'][ii]*Bq[2-ii] @ rho
+                if np.abs(Bq[ii])>1e-10:
+                    drhodt -= self.ev_mat['B'][ii]*np.conjugate(Bq[ii]) @ rho
 
         return drhodt
 
