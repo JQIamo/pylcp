@@ -216,7 +216,24 @@ For the electric field, $\mathbf{E}$ could be comprised of multiple modes.  We g
 \begin{equation}
 	\mathbf{E} = \mathbf{E}_{n\rightarrow m, p} e^{-i (\omega_{n\rightarrow m} +\omega_p) t} + \mathbf{E}_{n\rightarrow m, p}^\dagger e^{i (\omega_{n\rightarrow m} +\omega_p) t}
 \end{equation}
-Here $\mathbf{E}$ represents a destruction operator of the mode $n\rightarrow m, p$.  We similarly expand the dipole operator
+Here $\mathbf{E}$ represents a destruction operator of the mode $n\rightarrow m, p$.
+To determine the decays, we must apply a radiation reaction approximation.  Classicaly, the radiation reaction field is
+\begin{equation}
+	\mathbf{E}_{RR} = \frac{1}{6\pi\epsilon_0 c^3}\frac{d^3\mathbf{d}}{dt^3}.
+\end{equation}
+The dipole moment $\mathbf{d}$ will oscillate with all frequency components contained in the drive.  Thus, for each frequency mode, we must take $d$ to have an $e^{-i (\omega_{n\rightarrow m}+\omega_p)t}$ oscillation
+\begin{equation}
+	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i (\omega_{n\rightarrow m}+\omega_p)^3}{6\pi\epsilon_0c ^3}e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
+\end{equation}
+where the two atomic operators each contribute their preferred rotation, yielding the total oscillation of $\delta_{n\rightarrow m, p} = (\omega_{n\rightarrow m}+\omega_p)-(\omega_{R,m}-\omega_{R,n})$.
+We then note that for each manifold, $\omega_{n\rightarrow m}\gg \omega_p$, so we make the substitution
+\begin{equation}
+	\label{eq:total_e_field_operator}
+	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i k_{n\rightarrow m}^3}{6\pi\epsilon_0 }e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
+\end{equation}
+where $k_{n\rightarrow m} = \omega_{n\rightarrow m}/c$.  Clearly the $\rho_{ij}$ operators must commute with all $\mathbf{E}_{n\rightarrow m,p}$, as they are different physical observables.  On the other hand, given that $\rho_{ij}$ does not commute with the second term in (\ref{eq:total_e_field_operator}), it must also not commute with the first.
+
+We similarly expand the dipole operator
 \begin{equation}
 	\mathbf{d} = \sum_{n,m}\mathbf{d}^{nm}_{ij}\ket{i}\Bra{j} + \ket{j}\Bra{i}(\mathbf{d}^{nm}_{ij})^\dagger .
 \end{equation}
@@ -235,7 +252,7 @@ incorporating the shift into the rotating frame into the internal Hamiltonian.  
 	\mathbf{d}\cdot\mathbf{E} & = & \left(\mathbf{d}^{nm}_{ij}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{i}\Bra{j} +  \nonumber \\
 	& & ~~~~~~ \ket{j}\Bra{i} \left((\mathbf{d}^{nm}_{ij})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right).\label{eq:d_dot_E}
 \end{eqnarray}
-Note that we have placed the electric field operators and atomic operators in normal order: the first operator to apply to the wavefunction is the destructor operator of either the atom or the field and the second operator is constructor operator.  This operator ordering is required in order for the radiation reaction approximation to produce the correct decay rate $\Gamma$.
+Note that even because $\mathbf{E}$ commutes with $\rho_{ij}$, we can place the operators in any order.  We have chosen normal order: the first operator to apply to the wavefunction is the destructor operator of either the atom or the field and the second operator is constructor operator.  This operator ordering is required in order for the radiation reaction approximation to produce the correct decay rate $\Gamma$. 
 
 It is perhaps instructive to consider a couple examples of this construction of the rotating frame(s).  Consider first a standard two level system, with indices $i=g$ and $j=e$ and energies $\omega_g=0$ and $\omega_e$, being driven by a single electric field with total frequency $\omega$.   (Here, we drop the $k$, $n$, and $m$ subscripts.)  Let us take $\omega_{R,g}=0$ and $\omega_{R,e}=\omega_r$.  Then the detuning on the Hamiltonian, $\delta^{H}_e = \omega_R - \omega_e$ and $\delta^L_{g\rightarrow e} = \omega - \omega_R$.  The total detuning of the laser from the excited state is then given by $\delta = \delta^L_{g\rightarrow e}+\delta^H_e = \omega-\omega_e$.  In this way, we can split the detuning between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
 
@@ -260,20 +277,7 @@ Inserting Eq.~\ref{eq:d_dot_E} into Eq.~\ref{eq:heisenburg_evolution}, and using
 \end{eqnarray}
 Once again, we have maintained normal operator order.
 
-To determine the decays, we must now apply a radiation reaction approximation.  Classicaly, the radiation reaction field is
-\begin{equation}
-	\mathbf{E}_{RR} = \frac{1}{6\pi\epsilon_0 c^3}\frac{d^3\mathbf{d}}{dt^3}.
-\end{equation}
-The dipole moment $\mu$ will oscillate with all frequency components contained in the drive.  Thus, for each frequency mode, we must take $d$ to have an $e^{-i (\omega_{n\rightarrow m}+\omega_p)t}$ oscillation
-\begin{equation}
-	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i (\omega_{n\rightarrow m}+\omega_p)^3}{6\pi\epsilon_0c ^3}e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
-\end{equation}
-where the two atomic operators each contribute their preferred rotation, yielding the total oscillation of $\delta_{n\rightarrow m, p} = (\omega_{n\rightarrow m}+\omega_p)-(\omega_{R,m}-\omega_{R,n})$.
-We then note that for each manifold, $\omega_{n\rightarrow m}\gg \omega_p$, so we make the substitution
-\begin{equation}
-	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i k_{n\rightarrow m}^3}{6\pi\epsilon_0 }e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
-\end{equation}
-where $k_{n\rightarrow m} = \omega_{n\rightarrow m}/c$.  Substituting for each mode $\omega_k$ in the manifold and focusing on the real part of evolution
+Substituting for each mode $\omega_k$ in the manifold and focusing on the real part of evolution
 \begin{eqnarray}
 	\hbar\text{Re}\left[\frac{\partial \rho_{ij}}{\partial t}\right] & = &  \frac{k_{n\rightarrow m}^3}{6\pi\epsilon_0}\left[
 	-\mathbf{d}_{ki}\cdot \mathbf{d}^\dagger_{lm}\rho_{lm}\rho_{kj} 
@@ -287,7 +291,7 @@ where $k_{n\rightarrow m} = \omega_{n\rightarrow m}/c$.  Substituting for each m
 	& & \left. + \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{li}\rho_{lk}
 	- \mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{kl}\rho_{il} \right] \label{eq:decay}
 \end{eqnarray}
-which determines the decays.  The coherent evolution (imaginary part) is determined by directly evaluating the commutator. {\it Note that there is an index flip in the second and fourth terms between (\ref{eq:decays_step_one}) and (\ref{eq:E_coherent_ev}), but that has to do with $(\mathbf{d}^{n\rightarrow m}_{ij})^\dagger = (\mathbf{d}^*)^{n\rightarrow m}_{ji}$ in the code.}
+which determines the decays.  The coherent evolution (imaginary part) is determined by directly evaluating the commutator. {\it Note that there is an index flip in the second and fourth terms between (\ref{eq:decays_step_one}) and (\ref{eq:E_coherent_ev}), but that has to do with $(\mathbf{d}^{n\rightarrow m}_{ij})^\dagger = (\mathbf{d}^*)^{n\rightarrow m}_{ji}$ in the code.  There might be something wrong here: doing the math properly, there is $N$ modes addressing a manifold and so I would nominally expect a factor of $N$ to pop out when I do the sum.}
 
 \subsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
@@ -314,9 +318,9 @@ In its construction, {\tt pylcp} assumes a that the Hamiltonian is written in a 
 \begin{equation}
 	\mathbf{E}_{lm} = \frac{1}{2}\hat{\boldsymbol{\epsilon}}(r, t) E_{lm}(r, t)e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
 \end{equation}
-where the complex conjugate term is neglected by the rotating wave approximation.  The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
-
-Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.  With all of these components, the optical Bloch equations and/or rate equations can be constructed for a given set of parameters.
+where the complex conjugate term is neglected by the rotating wave approximation.  
+The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
+Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
 
 \subsection{Programmatic construction of the OBEs}
 The optical Bloch equations are equations that govern the evolution of the density matrix with the requisite decays.  They are equations that consider the evolution of a given density operator $\rho_{l_im_j} = \ket{l_i}\Bra{m_j}$.  The master equation for their evolution, in the Heisenburg picture, is
@@ -337,15 +341,23 @@ The particle's semiclassical motion can be calculated through
 \end{equation}
 where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant acceleration, and [...].
 
+\subsection{Units}
+
 For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent.  In practice, the user specifies $H_0/\hbar$, rather than $H_0$. 
 When forming a complete Hamiltonian using the hamiltonian class, the user has
 the ability to set the units by specifying base units of length $x_0$, time
-$t_0$, magnetic field $B_0$ and mass $m$.  For $d\cdot E$, there are two properties
+$t_0$, magnetic field $B_0$ and mass $m$.  
+
+To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0$.  Thus, $|d| = \sqrt{3 \pi \epsilon_0 \Gamma/k^3}$.  If $E_0 = \sqrt{2 I/\epsilon_0 c}$, the $\hbar d\cdot E = \sqrt{6 \pi  \Gamma/k^3 c}$.  This suggests that we should normalize $I$ to
+\begin{equation}
+	I_\text{sat} = 6\pi
+\end{equation}
 to quantify: the asscoiated wavevector $k_{ij}x_0$, important for random forces, 
 and the decay rate $\Gamma t_0$.  For the magnetic Hamiltonian, the user has to 
 specify the Bohr magneton in their preferred units, $\mu_B B_0/\hbar t_0$, in 
 order to determine the preferred units of magnetic field.  By default, a two-manifold system uses units $t_0=1/\Gamma$ and $x_0=1/k$. 
 
+For the decay rate, we specify the 
 For lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
 \begin{equation}
     I_\text{sat} = \frac{\pi h c \Gamma}{3\lambda^3} = \frac{2\pi^2 \hbar \omega^3 c \Gamma}{3(2\pi)^3 c^3} = \frac{\hbar \omega^3 \Gamma}{12 \pi c^2}
@@ -357,7 +369,6 @@ yields a Rabi rate of $\Gamma_{ij}/\sqrt{2}$.  Likewise, included Hamiltonians
 also return $\mu$ without the spin, i.e., $\mu = \mu_B \mathbf{F}$, where
 $\mathbf{F}$ is some generalized spin operator.
 
-
 For the force, this leaves one additional unit to specify, the mass.  If the
 user specifies the length, time, and magnetic field, then
 \begin{equation}
@@ -368,11 +379,6 @@ The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=
 	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0 m}\left\{ -\nabla' H'\right\} + \mathbf{a}'
 \end{equation}
 which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
-
-
-
-
-
 
 The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
 
