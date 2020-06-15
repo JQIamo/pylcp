@@ -235,7 +235,7 @@ where $k_{n\rightarrow m} = \omega_{n\rightarrow m}/c$.  Clearly the $\rho_{ij}$
 
 We similarly expand the dipole operator
 \begin{equation}
-	\mathbf{d} = \sum_{n,m}\mathbf{d}^{nm}_{ij}\ket{i}\Bra{j} + \ket{j}\Bra{i}(\mathbf{d}^{nm}_{ij})^\dagger .
+	\mathbf{d} = \sum_{n,m}\mathbf{d}^{nm}_{ij}\ket{i}\Bra{j} + \mathbf{d}^{*nm}_{ji}\ket{j}\Bra{i}.
 \end{equation}
 In general, the ${d}^{nm}_{ij}$ are dependent on reduced matrix elements and Clebsch-Gordon coefficients that determine the transitions between manifolds $n$ and $m$.  The dipole elements are grouped by manifold such that $d^{nm}_{ij}$ only operates on states within the manifolds $n$ and $m$, i.e., $d^{nm}_{ij}=0$ if $i\notin m,n$ or  $j\notin m,n$.  We will not consider any specific form of $d^{nm}_{ij}$, but instead focus on deriving the optical Bloch equations for any generic form.
 
@@ -351,7 +351,7 @@ When forming a complete Hamiltonian using the hamiltonian class, the user has
 the ability to set the units by specifying base units of length $x_0$, time
 $t_0$, magnetic field $B_0$ and mass $m$.  
 
-To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma$.  For the electric field, we measure the intensity relative to the saturation intensity $I_\text{sat}=\hbar \omega^3 \Gamma/(12\pi c^2)$.  Defining this ratio as $\beta=I/I_\text{sat}$, then $E_0 = \sqrt{2 I_\text{sat} \beta/\epsilon_0 c}$, then $dE/\hbar = \Gamma \bar{d}\beta/\sqrt{2}$.  Thus, by using $\bar{d}$ and $\beta$, we can reduce the dipole term to $\Gamma$. 
+To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma/2$.  For the electric field, we use the on-resonant, two-level saturation parameter $s = I/I_\text{sat} = 2|d_0 E|^2/\hbar^2|\gamma|^2 = 8 d_0 |E|^2/\hbar^2\Gamma^2$, where $\gamma = \Gamma/2$ to define the natural units for $E$.  Inverting, we find that $E = \hbar \Gamma \sqrt{s}/(\sqrt{8} d_0)$.  Thus, $d\cdot E/\hbar = (\bar{d} \Gamma/4) \sqrt{2 s}$.
 
 For the force, this leaves one additional unit to specify, the mass.  If the
 user specifies the length, time, and magnetic field, then

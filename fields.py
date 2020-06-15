@@ -419,7 +419,7 @@ class laserBeam(object):
         pol = self.pol(R, t)
         delta = self.delta(t)
 
-        amp = np.sqrt(beta/2)
+        amp = np.sqrt(2*beta)
 
         if isinstance(t, float):
             Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
@@ -468,7 +468,7 @@ class infinitePlaneWaveBeam(laserBeam):
         self.con_beta = beta
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
         # Define attributes to speed up gradient calculation:
-        self.amp = np.sqrt(self.con_beta/2)
+        self.amp = np.sqrt(2*self.con_beta)
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
                               self.con_pol.reshape(1, 3))
 

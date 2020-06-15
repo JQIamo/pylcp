@@ -231,107 +231,79 @@ class obe():
         self.ev_mat['d_q'] = {}
         self.ev_mat['d_q*'] = {}
         for key in self.laserBeams.keys():
+            gamma = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma']
             self.ev_mat['d_q'][key] = [None]*3
             self.ev_mat['d_q*'][key] = [None]*3
             for q in range(3):
                 self.ev_mat['d_q'][key][q] = self.__build_coherent_ev_submatrix(
-                    self.hamiltonian.d_q_bare[key][q]
+                    gamma*self.hamiltonian.d_q_bare[key][q]/4.
                 )
                 self.ev_mat['d_q*'][key][q] = self.__build_coherent_ev_submatrix(
-                    self.hamiltonian.d_q_star[key][q]
+                    gamma*self.hamiltonian.d_q_star[key][q]/4.
                 )
             self.ev_mat['d_q'][key] = np.array(self.ev_mat['d_q'][key])
             self.ev_mat['d_q*'][key] = np.array(self.ev_mat['d_q*'][key])
 
 
     def __build_decay_ev(self):
+        """
+        This method constructs the decay portion of the OBE using the radiation
+        reaction approximation.
+        """
+        d_q_bare = self.hamiltonian.d_q_bare
+        d_q_star = self.hamiltonian.d_q_star
+
+        self.decay_rates = {}
         self.ev_mat['decay'] = np.zeros((self.hamiltonian.n**2,
                                          self.hamiltonian.n**2),
-                                         dtype='complex128')
+                                        dtype='complex128')
 
-        d_q = self.hamiltonian.d_q
+        # Go through each dipole moment and calculate:
+        for key in d_q_bare:
+            ev_mat = np.zeros((self.hamiltonian.n**2, self.hamiltonian.n**2),
+                               dtype='complex128')
+            gamma = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma']
 
-        # Variables to store partial and total decay rates for each manifold:
-        decay_rates = np.empty(self.hamiltonian.blocks.shape, dtype=object)
-        total_decay_rates = np.zeros((self.hamiltonian.blocks.shape[0],))
+            d_q = d_q_bare[key] + d_q_star[key]
 
-        # Let's first do a check of the decay rates.  We want to make sure
-        # that all states from a given manifold to another manifold are, in
-        # fact, decaying at the same rate.
-        for ll in range(1, self.hamiltonian.blocks.shape[0]):
-            for mm in range(0, ll):
-                if not self.hamiltonian.blocks[mm, ll] is None:
-                    # We first check to make sure the decay rate is the same for all
-                    # states out of the manifold into any submanifolds.
-                    rates = np.sum(np.sum(
-                        abs2(self.hamiltonian.blocks[mm, ll].matrix),
-                        axis=0),axis=0)
-                    decay_rates[mm, ll] = rates
+            # The first index we want to capture:
+            for ii in range(self.hamiltonian.n):
+                # The second index we want to capture:
+                for jj in range(self.hamiltonian.n):
+                    # The first sum index:
+                    for kk in range(self.hamiltonian.n):
+                        # The second sum index:
+                        for ll in range(self.hamiltonian.n):
+                            for mm, q in enumerate(np.arange(-1., 2., 1)):
+                                # first term in the commutator, first part:
+                                ev_mat[self.__density_index(ii, jj),
+                                       self.__density_index(ll, jj)] -= \
+                                d_q_star[key][mm, ll, kk]*d_q_bare[key][mm, kk, ii]
+                                # first term in the commutator, second part:
+                                ev_mat[self.__density_index(ii, jj),
+                                       self.__density_index(kk, ll)] += \
+                                d_q_star[key][mm, kk, ii]*d_q_bare[key][mm, jj, ll]
 
-        # Let's first do a check of the decay rates.  Now sum them up to get
-        # the total decay rate:
-        for ll in range(1, self.hamiltonian.blocks.shape[0]):
-            if not decay_rates[mm, ll] is None:
-                total_decay_rates_from_manifold = np.zeros(decay_rates[mm, ll].shape)
-                for mm in range(0, ll):
-                    total_decay_rates_from_manifold += decay_rates[mm, ll]
+                                # second term in the commutator, first part:
+                                ev_mat[self.__density_index(ii, jj),
+                                       self.__density_index(ll, kk)] += \
+                                d_q_star[key][mm, ll, ii]*d_q_bare[key][mm, jj, kk]
+                                # second term in the commutator, second part:
+                                ev_mat[self.__density_index(ii, jj),
+                                       self.__density_index(ii, ll)] -= \
+                                d_q_star[key][mm, jj, kk]*d_q_bare[key][mm, kk, ll]
 
-                rate = np.mean(total_decay_rates_from_manifold)
-                if not np.allclose(total_decay_rates_from_manifold, rate,
-                                   atol=1e-7, rtol=1e-5):
-                    raise ValueError('Decay rates are not equal for all states in '+
-                                                 'manifold #%d' % ll)
-                else:
-                    total_decay_rates[ll] = rate
+            ev_mat = 0.5*gamma*ev_mat
 
+            # Save the decay rates for the evolve_motion function:
+            self.decay_rates[key] = np.array(
+                [ev_mat[self.__density_index(ii, ii), self.__density_index(ii, ii)]
+                 for ii in range(self.hamiltonian.n)]
+                )
 
-        # Now we start building the evolution matrices.
-        # Decay into a manifold.
-        for ll in range(self.hamiltonian.blocks.shape[0]-1):
-            this_manifold = range(sum(self.hamiltonian.ns[:ll]),
-                                  sum(self.hamiltonian.ns[:ll+1]))
-            all_higher_manifolds = range(sum(self.hamiltonian.ns[:ll+1]),
-                                         sum(self.hamiltonian.ns))
-            for ii in this_manifold:
-                for jj in this_manifold:
-                    for kk in all_higher_manifolds:
-                        for ll in all_higher_manifolds:
-                            for q in range(3):
-                                self.ev_mat['decay'][self.__density_index(ii, jj),
-                                                     self.__density_index(kk, ll)] +=\
-                                d_q[q, ii, kk]*d_q[q, ll, jj]
+            self.ev_mat['decay'] += ev_mat
 
-        # Decay out of a manifold.  Each state and coherence in the manifold
-        # decays with whatever the decay rate is.  In the present case, the
-        # state $i$ decays with sum(d_q[:, :ii, ii])**2.
-        for ll in range(1, self.hamiltonian.blocks.shape[0]):
-            this_manifold = range(sum(self.hamiltonian.ns[:ll]),
-                                  sum(self.hamiltonian.ns[:ll+1]))
-            for ii in this_manifold:
-                for jj in this_manifold:
-                    self.ev_mat['decay'][self.__density_index(ii, jj),
-                                         self.__density_index(ii, jj)] = -total_decay_rates[ll]
-
-        # Coherences decay with the average decay rate out of the manifold
-        # and into the manifold.
-        for ll in range(self.hamiltonian.blocks.shape[0]-1):
-            for mm in range(ll+1, self.hamiltonian.blocks.shape[0]):
-                this_manifold = range(sum(self.hamiltonian.ns[:ll]),
-                                      sum(self.hamiltonian.ns[:ll+1]))
-                other_manifold = range(sum(self.hamiltonian.ns[:mm]),
-                                       sum(self.hamiltonian.ns[:mm+1]))
-                for ii in this_manifold:
-                    for jj in other_manifold:
-                        self.ev_mat['decay'][self.__density_index(ii, jj),
-                                             self.__density_index(ii, jj)] = \
-                        -(total_decay_rates[ll]+total_decay_rates[mm])/2
-                        self.ev_mat['decay'][self.__density_index(jj, ii),
-                                             self.__density_index(jj, ii)] = \
-                        -(total_decay_rates[ll]+total_decay_rates[mm])/2
-
-        # Save the decay rates just in case:
-        self.decay_rates = decay_rates
-        self.total_decay_rates = total_decay_rates
+        return self.ev_mat['decay']
 
 
     def __build_transform_matrices(self):
@@ -541,14 +513,14 @@ class obe():
                 Eq = self.laserBeams[key].total_electric_field(r, t)
                 for ii in range(3):
                     if np.abs(Eq[ii])>1e-10:
-                        ev_mat -= 0.5*np.real(Eq[ii])*self.ev_mat['reE'][key][ii]
-                        ev_mat -= 0.5*np.imag(Eq[ii])*self.ev_mat['imE'][key][ii]
+                        ev_mat -= np.real(Eq[ii])*self.ev_mat['reE'][key][ii]
+                        ev_mat -= np.imag(Eq[ii])*self.ev_mat['imE'][key][ii]
             else:
                 Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
                 for ii in range(3):
                     if np.abs(Eq[ii])>1e-10:
-                        ev_mat -= 0.5*np.conjugate(Eq[ii])*self.ev_mat['d_q'][key][ii]
-                        ev_mat -= 0.5*Eq[ii]*self.ev_mat['d_q*'][key][ii]
+                        ev_mat -= np.conjugate(Eq[ii])*self.ev_mat['d_q'][key][ii]
+                        ev_mat -= Eq[ii]*self.ev_mat['d_q*'][key][ii]
 
         # Add in magnetic fields:
         B = self.magField.Field(r, t)
@@ -579,17 +551,17 @@ class obe():
                 Eq = self.laserBeams[key].total_electric_field(r, t)
                 for ii, q in enumerate(np.arange(-1., 2., 1)):
                     if np.abs(Eq[2-ii])>1e-10:
-                        drhodt -= (0.5*(-1.)**q*np.real(Eq[2-ii])*
+                        drhodt -= ((-1.)**q*np.real(Eq[2-ii])*
                                    (self.ev_mat['reE'][key][ii] @ rho))
-                        drhodt -= (0.5*(-1.)**q*np.imag(Eq[2-ii])*
+                        drhodt -= ((-1.)**q*np.imag(Eq[2-ii])*
                                    (self.ev_mat['imE'][key][ii] @ rho))
             else:
                 Eq = self.laserBeams[key].total_electric_field(np.real(r), t)
                 for ii, q in enumerate(np.arange(-1., 2., 1)):
                     if np.abs(Eq[2-ii])>1e-10:
-                        drhodt -= (0.5*(-1.)**q*Eq[2-ii]*
+                        drhodt -= ((-1.)**q*Eq[2-ii]*
                                    (self.ev_mat['d_q'][key][ii] @ rho))
-                        drhodt -= (0.5*(-1.)**q*np.conjugate(Eq[2-ii])*
+                        drhodt -= ((-1.)**q*np.conjugate(Eq[2-ii])*
                                    (self.ev_mat['d_q*'][key][ii] @ rho))
 
         # Add in magnetic fields:

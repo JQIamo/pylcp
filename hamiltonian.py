@@ -238,9 +238,6 @@ class hamiltonian():
             ind = ind[::-1]
             d_q = d_q.conj().T
 
-        # Normalize to gamma:
-        d_q = d_q_norm(d_q)/np.sqrt(gamma)
-
         # Store the matrix d_q:
         label = self.make_elem_label('d_q', [label1, label2])
         self.blocks[ind] = self.vector_block(label, d_q.astype('complex128'))
@@ -294,8 +291,7 @@ class hamiltonian():
                     key = self.state_labels[ii] + '->' + self.state_labels[jj]
                     nstart = int(np.sum(self.ns[:ii]))
                     mstart = int(np.sum(self.ns[:jj]))
-                    self.d_q_bare[key] = (self.blocks[ii, jj].parameters['gamma']*
-                                          self.blocks[ii, jj].return_block_in_place(nstart, mstart, self.n))
+                    self.d_q_bare[key] = self.blocks[ii, jj].return_block_in_place(nstart, mstart, self.n)
 
         self.d_q_star = {}
         for key in self.d_q_bare.keys():
