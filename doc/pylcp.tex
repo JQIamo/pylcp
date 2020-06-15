@@ -320,6 +320,9 @@ In its construction, {\tt pylcp} assumes a that the Hamiltonian is written in a 
 \end{equation}
 where the complex conjugate term is neglected by the rotating wave approximation.  
 The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
+
+Laser beams are collected by which manifold transition they address.
+
 Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
 
 \subsection{Programmatic construction of the OBEs}
@@ -348,31 +351,12 @@ When forming a complete Hamiltonian using the hamiltonian class, the user has
 the ability to set the units by specifying base units of length $x_0$, time
 $t_0$, magnetic field $B_0$ and mass $m$.  
 
-To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0$.  Thus, $|d| = \sqrt{3 \pi \epsilon_0 \Gamma/k^3}$.  If $E_0 = \sqrt{2 I/\epsilon_0 c}$, the $\hbar d\cdot E = \sqrt{6 \pi  \Gamma/k^3 c}$.  This suggests that we should normalize $I$ to
-\begin{equation}
-	I_\text{sat} = 6\pi
-\end{equation}
-to quantify: the asscoiated wavevector $k_{ij}x_0$, important for random forces, 
-and the decay rate $\Gamma t_0$.  For the magnetic Hamiltonian, the user has to 
-specify the Bohr magneton in their preferred units, $\mu_B B_0/\hbar t_0$, in 
-order to determine the preferred units of magnetic field.  By default, a two-manifold system uses units $t_0=1/\Gamma$ and $x_0=1/k$. 
-
-For the decay rate, we specify the 
-For lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
-\begin{equation}
-    I_\text{sat} = \frac{\pi h c \Gamma}{3\lambda^3} = \frac{2\pi^2 \hbar \omega^3 c \Gamma}{3(2\pi)^3 c^3} = \frac{\hbar \omega^3 \Gamma}{12 \pi c^2}
-\end{equation}
-the result being that the electric field $E_{lm}(r,t) = \sqrt{I/2I_\text{sat}} = \sqrt{\beta/2}$.
-Included Hamiltonians normalize each element in the $(d\cdot E)_{ij}$ Hamiltonian
-to $\Gamma_{ij}$ so that a laser with $I/I_{sat}=1$ driving the transition
-yields a Rabi rate of $\Gamma_{ij}/\sqrt{2}$.  Likewise, included Hamiltonians
-also return $\mu$ without the spin, i.e., $\mu = \mu_B \mathbf{F}$, where
-$\mathbf{F}$ is some generalized spin operator.
+To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma$.  For the electric field, we measure the intensity relative to the saturation intensity $I_\text{sat}=\hbar \omega^3 \Gamma/(12\pi c^2)$.  Defining this ratio as $\beta=I/I_\text{sat}$, then $E_0 = \sqrt{2 I_\text{sat} \beta/\epsilon_0 c}$, then $dE/\hbar = \Gamma \bar{d}\beta/\sqrt{2}$.  Thus, by using $\bar{d}$ and $\beta$, we can reduce the dipole term to $\Gamma$. 
 
 For the force, this leaves one additional unit to specify, the mass.  If the
 user specifies the length, time, and magnetic field, then
 \begin{equation}
-    \frac{x_0}{t_0^2} \ddot{\mathbf{r}}' = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
+    \frac{x_0}{t_0^2} \ddot{\bar{\mathbf{r}}} = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
 \end{equation}
 The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
 \begin{equation}
@@ -382,7 +366,7 @@ which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
 
 The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
 
-\subsection{The Rate Equations}
+\section{The Rate Equations}
 In order to do a rate equation model, we first consider that we have a set of
 eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal.  We
 follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and,
