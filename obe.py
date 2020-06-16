@@ -179,7 +179,6 @@ class obe():
         # Finally, update the position and velocity:
         self.set_initial_position_and_velocity(r, v)
 
-
     def __check_consistency_in_lasers_and_d_q(self):
         # Check that laser beam keys and Hamiltonian keys match.
         for laser_key in self.laserBeams.keys():
@@ -254,6 +253,8 @@ class obe():
         d_q_star = self.hamiltonian.d_q_star
 
         self.decay_rates = {}
+        self.decay_rates_truncated = {}
+        self.decay_rho_indices ={}
         self.ev_mat['decay'] = np.zeros((self.hamiltonian.n**2,
                                          self.hamiltonian.n**2),
                                         dtype='complex128')
@@ -263,8 +264,6 @@ class obe():
             ev_mat = np.zeros((self.hamiltonian.n**2, self.hamiltonian.n**2),
                                dtype='complex128')
             gamma = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma']
-
-            d_q = d_q_bare[key] + d_q_star[key]
 
             # The first index we want to capture:
             for ii in range(self.hamiltonian.n):
@@ -293,13 +292,22 @@ class obe():
                                        self.__density_index(ii, ll)] -= \
                                 d_q_star[key][mm, jj, kk]*d_q_bare[key][mm, kk, ll]
 
+            # Normalize:
             ev_mat = 0.5*gamma*ev_mat
 
             # Save the decay rates for the evolve_motion function:
-            self.decay_rates[key] = np.array(
+            self.decay_rates[key] = -np.real(np.array(
                 [ev_mat[self.__density_index(ii, ii), self.__density_index(ii, ii)]
                  for ii in range(self.hamiltonian.n)]
-                )
+                ))
+
+            # These are useful for the random evolution part:
+            self.decay_rates_truncated[key] = self.decay_rates[key][self.decay_rates[key]>0]
+            self.decay_rho_indices[key] = np.array([self.__density_index(ii, ii)
+                for ii, rate in enumerate(self.decay_rates[key]) if rate>0]
+            )
+            self.recoil_velocity[key] = self.hamiltonian.mass*\
+                self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']
 
             self.ev_mat['decay'] += ev_mat
 
@@ -609,7 +617,6 @@ class obe():
         """
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
         random_recoil_flag = kwargs.pop('random_recoil', False)
-        recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
         record_force = kwargs.pop('record_force', False)
@@ -637,7 +644,7 @@ class obe():
 
             return np.concatenate((
                 self.drhodt(y[-3:], t, y[:-6]),
-                recoil_velocity*F*free_axes + self.constant_accel,
+                F*free_axes/self.hamiltonian.mass + self.constant_accel,
                 y[-6:-3]
                 ))
 
@@ -646,34 +653,24 @@ class obe():
             total_P = 0.
 
             # Go over each block in the Hamiltonian and compute the decay:
-            for ll, total_decay_rate in enumerate(self.total_decay_rates):
-                if total_decay_rate>0:
-                    for mm, decay_rate in enumerate(self.decay_rates[:ll, ll]):
-                        if not decay_rate is None:
-                            P = np.zeros((self.hamiltonian.ns[ll],))
-                            for ii in range(self.hamiltonian.ns[ll]):
-                                jj = ii + np.sum(self.hamiltonian.ns[:ll])
-                                P[ii] = decay_rate[ii]*\
-                                np.real(y[self.__density_index(jj, jj)])*dt
+            for key in self.decay_rates:
+                P = dt*self.decay_rates_truncated[key]*np.real(y[self.decay_rho_indices[key]])
 
-                            # Roll the dice N times, where $N=\sum(n_i)
-                            dice = np.random.rand(len(P))
+                # Roll the dice N times, where $N=\sum(n_i)
+                dice = np.random.rand(len(P))
 
-                            # For any random number that is lower than P_i, add a
-                            # recoil velocity. TODO: There are potential problems
-                            # in the way the kvector is defined. The first is the
-                            # k-vector is defined in the laser beam (not in the
-                            # Hamiltonian).  The second is that we should break
-                            # this out according to laser beam in case they do have
-                            # different k-vectors.
-                            for ii in range(np.sum(dice<P)):
-                                num_of_scatters += 1
-                                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+
-                                                             random_vector(free_axes))
+                # For any random number that is lower than P_i, add a
+                # recoil velocity.
+                for ii in range(np.sum(dice<P)):
+                    num_of_scatters += 1
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes)+
+                                                           random_vector(free_axes))
 
-                            total_P += np.sum(P)
+                # Save the total probability of a scatter:
+                total_P += np.sum(P)
 
-            #print(dt, P)
+            # Calculate a new maximum dt to make sure we evolve while not
+            # exceeding dt max:
             new_dt_max = (max_scatter_probability/total_P)*dt
 
             return (num_of_scatters, new_dt_max)
