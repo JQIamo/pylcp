@@ -254,7 +254,9 @@ class obe():
 
         self.decay_rates = {}
         self.decay_rates_truncated = {}
-        self.decay_rho_indices ={}
+        self.decay_rho_indices = {}
+        self.recoil_velocity = {}
+
         self.ev_mat['decay'] = np.zeros((self.hamiltonian.n**2,
                                          self.hamiltonian.n**2),
                                         dtype='complex128')
@@ -306,8 +308,9 @@ class obe():
             self.decay_rho_indices[key] = np.array([self.__density_index(ii, ii)
                 for ii, rate in enumerate(self.decay_rates[key]) if rate>0]
             )
-            self.recoil_velocity[key] = self.hamiltonian.mass*\
-                self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']
+            self.recoil_velocity[key] = \
+                self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
+                /self.hamiltonian.mass
 
             self.ev_mat['decay'] += ev_mat
 
