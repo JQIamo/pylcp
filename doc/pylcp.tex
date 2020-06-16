@@ -291,7 +291,25 @@ Substituting for each mode $\omega_k$ in the manifold and focusing on the real p
 	& & \left. + \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{li}\rho_{lk}
 	- \mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{kl}\rho_{il} \right] \label{eq:decay}
 \end{eqnarray}
-which determines the decays.  The coherent evolution (imaginary part) is determined by directly evaluating the commutator. {\it Note that there is an index flip in the second and fourth terms between (\ref{eq:decays_step_one}) and (\ref{eq:E_coherent_ev}), but that has to do with $(\mathbf{d}^{n\rightarrow m}_{ij})^\dagger = (\mathbf{d}^*)^{n\rightarrow m}_{ji}$ in the code.  There might be something wrong here: doing the math properly, there is $N$ modes addressing a manifold and so I would nominally expect a factor of $N$ to pop out when I do the sum.}
+which determines the decays.   {\it Note that there is an index flip in the second and fourth terms between (\ref{eq:decays_step_one}) and (\ref{eq:E_coherent_ev}), but that has to do with $(\mathbf{d}^{n\rightarrow m}_{ij})^\dagger = (\mathbf{d}^*)^{n\rightarrow m}_{ji}$ in the code.  There might be something wrong here: doing the math properly, there is $N$ modes addressing a manifold and so I would nominally expect a factor of $N$ to pop out when I do the sum.}
+
+The coherent evolution (imaginary part) is determined by directly evaluating the commutator. The result is is
+\begin{equation}
+	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H]
+\end{equation}
+Specifically, for the $\ket{i_n}\Bra{j_m}$ component,
+\begin{equation}
+	\dot{\rho}^{ij}_{nm} = -\frac{i}{\hbar}[\rho, H]_{i_n, j_m} = -\frac{i}{\hbar}\left[\rho^{ik}_{np}H^{kj}_{pm} - \rho^{ki}_{pm}H^{ik}_{np}\right]
+\end{equation}
+where Einstein summation is assumed.
+
+The particle's semiclassical motion can be calculated through
+\begin{equation}
+	\ddot{\mathbf{r}} = -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
+\end{equation}
+where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant acceleration, and [...].
+
+Momentum diffusion [...]. Random scattering [...]
 
 \subsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
@@ -325,46 +343,35 @@ Laser beams are collected by which manifold transition they address.
 
 Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
 
-\subsection{Programmatic construction of the OBEs}
-The optical Bloch equations are equations that govern the evolution of the density matrix with the requisite decays.  They are equations that consider the evolution of a given density operator $\rho_{l_im_j} = \ket{l_i}\Bra{m_j}$.  The master equation for their evolution, in the Heisenburg picture, is
-\begin{equation}
-	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H]
-\end{equation}
-Specifically, for the $\ket{i_n}\Bra{j_m}$ component,
-\begin{equation}
-	\dot{\rho}^{ij}_{nm} = -\frac{i}{\hbar}[\rho, H]_{i_n, j_m} = -\frac{i}{\hbar}\left[\rho^{ik}_{np}H^{kj}_{pm} - \rho^{ki}_{pm}H^{ik}_{np}\right]
-\end{equation}
-where Einstein summation is assumed.
-
-The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.
-
-The particle's semiclassical motion can be calculated through
-\begin{equation}
-	\ddot{\mathbf{r}} = -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
-\end{equation}
-where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant acceleration, and [...].
-
 \subsection{Units}
 
-For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent.  In practice, the user specifies $H_0/\hbar$, rather than $H_0$. 
-When forming a complete Hamiltonian using the hamiltonian class, the user has
-the ability to set the units by specifying base units of length $x_0$, time
-$t_0$, magnetic field $B_0$ and mass $m$.  
+For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent. Thus, the user specifies $H_0/\hbar$, rather than $H_0$.
 
-To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma/2$.  For the electric field, we use the on-resonant, two-level saturation parameter $s = I/I_\text{sat} = 2|d_0 E|^2/\hbar^2|\gamma|^2 = 8 d_0 |E|^2/\hbar^2\Gamma^2$, where $\gamma = \Gamma/2$ to define the natural units for $E$.  Inverting, we find that $E = \hbar \Gamma \sqrt{s}/(\sqrt{8} d_0)$.  Thus, $d\cdot E/\hbar = (\bar{d} \Gamma/4) \sqrt{2 s}$.
+For other units, we will specifically separate out the units, and dimensionless number shall be denoted with a bar.
+For example, a position $x$ is related to its dimensionless counterpart through $x = \bar{x}x_0$, where $x_0$ is the unit of $x$.
+When forming a complete Hamiltonian using the hamiltonian class, the user has the ability to set the units by specifying base units of length $x_0$, time $t_0$, magnetic field $B_0$ and mass $m$.  
+
+To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma/2$.  For the electric field, we use the on-resonant, two-level saturation parameter $s = I/I_\text{sat} = 2|d_0 E|^2/\hbar^2|\gamma|^2 = 8 d_0 |E|^2/\hbar^2\Gamma^2$, where $\gamma = \Gamma/2$ to define the natural units for $E$.  Inverting, we find that $E = \hbar \Gamma \sqrt{s}/(\sqrt{8} d_0)$.  Thus, $d\cdot E/\hbar = (\bar{d} \Gamma/4) \sqrt{2 s}$.  We note that this definition of the saturation parameter is consistent with the more common $I/I_\text{sat} = 2(\Omega^2/\Gamma^2)$, where, because the Hamiltonian is defined without a factor of 1/2 in the $\mathbf{d}\cdot \mathbf{E}$ term, $\Omega/2=dE$.
 
 For the force, this leaves one additional unit to specify, the mass.  If the
 user specifies the length, time, and magnetic field, then
 \begin{equation}
-    \frac{x_0}{t_0^2} \ddot{\bar{\mathbf{r}}} = \frac{\hbar}{x_0 t_0 m}\left\{ -\nabla' H'\right\} + \frac{x_0}{t_0^2}\mathbf{a}'.
+    \frac{x_0}{t_0^2} \ddot{\bar{\mathbf{r}}} = \frac{\hbar}{x_0 t_0 m}\left\{ -\bar{\nabla} \bar{H}\right\} + \frac{x_0}{t_0^2}\bar{\mathbf{a}}.
 \end{equation}
 The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
 \begin{equation}
-	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0 m}\left\{ -\nabla' H'\right\} + \mathbf{a}'
+	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0^2 m}\left\{ -\bar{\nabla} \bar{H}\right\} + \bar{\mathbf{a}}
 \end{equation}
-which defines the `dimensionless' mass as $x_0 m/\hbar t_0$.
+which defines the `dimensionless' mass as $\bar{m} = x_0^2 m/\hbar t_0$.
 
-The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
+For random scattering, the recoil velocity $\hbar \mathbf{k}/m$ vector must also be specified.  In terms of dimensionless units,
+\begin{equation}
+	\bar{v}_R \frac{x_0}{t_0} = \frac{\hbar\bar{k}}{m x_0} \rightarrow \bar{v}_R = \frac{\bar{k}}{\bar{m}}\ .
+\end{equation}
+{\it Once again, I hate ending a paragraph or even a section with a sentence.}
+
+\subsection{Additional details}
+The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into real and imaginary parts, increasing computational speed.
 
 \section{The Rate Equations}
 In order to do a rate equation model, we first consider that we have a set of
@@ -395,17 +402,6 @@ We represent the rate equations as a matrix $R$ such that
     \dot{N} = R N
 \end{equation}
 where $N = (N_{g_1},\dots, N_{g_n}, N_{e_1}, \dots, N_{g_n})$.
-
-\subsection{Random Forces}
-In both the OBE and
-
-\subsection{Units}
-Units in pylcp are determined through the following master evolution equations
-for the OBEs:
-\begin{eqnarray}
-    \dot{\rho} & = & \frac{i}{\hbar}[\rho, H] \\
-    \ddot{\mathbf{r}} & = & -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
-\end{eqnarray}
 
 \section{Additional details}
 
