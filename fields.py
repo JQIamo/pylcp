@@ -4,6 +4,9 @@ from pylcp.common import cart2spherical, spherical2cart
 
 import numba
 
+# Edits
+from math import pi
+
 @numba.njit
 def dot2D(a, b):
     c = np.zeros((a.shape[1],), dtype=a.dtype)
@@ -489,7 +492,8 @@ class infinitePlaneWaveBeam(laserBeam):
 
 
 class gaussianBeam(laserBeam):
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
+    # Created z and wavelength with dummy initial values
+    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., z=1., wavelength=1., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
@@ -499,15 +503,20 @@ class gaussianBeam(laserBeam):
         # Use super class to define kvec(R, t), pol(R, t), and delta(t)
         super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
 
+        # We might need to edit these later on because it changes in reality...
         # Save the constant values (might be useful):
-        self.con_kvec = kvec
+        self.con_kvec = kvec 
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
         # Save the parameters specific to the Gaussian beam:
         self.beta_max = beta # central saturation parameter
         self.wb = wb # 1/e^2 radius
         self.define_rotation_matrix()
-
+        
+        # Edits
+        self.z = z
+        self.wavelength = wavelength
+        
     def define_rotation_matrix(self):
         # Angles of rotation:
         th = np.arccos(self.con_kvec[2])
@@ -516,9 +525,16 @@ class gaussianBeam(laserBeam):
         self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
                                np.cos(phi) + np.cos(th)*np.sin(phi),\
                                -np.sin(th)])**2
+    
+    # Edits
+    def rayleigh_length(self):
+        return pi*self.wb**2/self.wavelength
+        
+    def beam_radius(self):
+        return self.wb*(1+(self.z/self.rayleigh_length())**2)**0.5
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        return self.beta_max*np.exp(-2*np.einsum('i,i...->...',self.rvals,\
+        return self.beta_max*((self.wb**2)/(self.beam_radius()**2))*np.exp(-2*np.einsum('i,i...->...',self.rvals,\
                                                   R**2)/self.wb**2)
 
 
