@@ -241,53 +241,54 @@ class quadrupoleMagneticField(magField):
 
 # First, define the laser beam class:
 class laserBeam(object):
+    """
+    Base laser beam class, for a single laser beam
+        
+    Parameters
+    ----------
+    kvec : array_like with shape (3,) or callable
+        The k-vector of the laser beam, specified as either a three-element
+        list or numpy array or as callable function.  If a callable, it
+        must have a signature like (R, t), (R), or (t) where R is an array_like with
+        shape (3,) and t is a float and it must return an array_like with three
+        elements.
+    pol : int, float, array_like with shape (3,), or callable
+         The polarization of the laser beam, specified as either an integer, float
+         array_like with shape(3,), or as callable function.  If an integer or float,
+        if `pol<0` the polarization will be left circular polarized relative to 
+        the k-vector of the light.  If `pol>0`, the polarization will be right 
+        circular polarized.  If array_like, polarization will be specified by the 
+        vector, whose basis is specified by `pol_coord`. If a callable, it must
+        have a signature like (R, t), (R), or (t) where R is an array_like with
+        shape (3,) and t is a float and it must return an array_like with three
+        elements.
+    beta : float or callable
+        The intensity of the laser beam, specified as either a float or as 
+        callable function.  If a callable, it must have a signature
+        like (R, t), (R), or (t) where R is an array_like with shape (3,) and
+        t is a float and it must return a float.
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a 
+        signature like (t) where t is a float and it must return a float.
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    pol_coord : string, optional
+        Polarization basis of the input polarization vector: 'cartesian' (default)
+        or 'spherical'.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
+            
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    """
     def __init__(self, kvec=None, beta=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
-        """
-        Base laser beam class, for a single laser beam
-        
-        Parameters
-        ----------
-        kvec : array_like with shape (3,) or callable
-            The k-vector of the laser beam, specified as either a three-element
-            list or numpy array or as callable function.  If a callable, it
-            must have a signature like (R, t), (R), or (t) where R is an array_like with
-            shape (3,) and t is a float and it must return an array_like with three
-            elements.
-        pol : int, float, array_like with shape (3,), or callable
-            The polarization of the laser beam, specified as either an integer, float
-            array_like with shape(3,), or as callable function.  If an integer or float,
-            if `pol<0` the polarization will be left circular polarized relative to 
-            the k-vector of the light.  If `pol>0`, the polarization will be right 
-            circular polarized.  If array_like, polarization will be specified by the 
-            vector, whose basis is specified by `pol_coord`. If a callable, it must
-            have a signature like (R, t), (R), or (t) where R is an array_like with
-            shape (3,) and t is a float and it must return an array_like with three
-            elements.
-        beta : float or callable
-            The intensity of the laser beam, specified as either a float or as 
-            callable function.  If a callable, it must have a signature
-            like (R, t), (R), or (t) where R is an array_like with shape (3,) and
-            t is a float and it must return a float.
-        delta: float or callable
-            Detuning of the laser beam.  If a callable, it must have a 
-            signature like (t) where t is a float and it must return a float.
-        phase : float, optional
-            Phase of laser beam.  By default, zero.
-        pol_coord : string, optional
-            Polarization basis of the input polarization vector: 'cartesian' (default)
-            or 'spherical'.
-        eps : float, optional
-            Small distance to use in calculation of numerical derivatives.  By default
-            `eps=1e-4`.
-            
-        Attributes
-        ----------
-        eps : float
-            Small epsilon used for computing derivatives
-        phase : float
-            Overall phase of the laser beam.
-        """
+
         # Promote it to a lambda func:
         if not kvec is None:
             self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
@@ -424,6 +425,19 @@ class laserBeam(object):
         pass
 
     def delta(self, t=0.):
+        """
+        Returns the detuning of the laser beam at time t
+        
+        Parameters
+        ----------
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+            
+        Returns
+        -------
+        delta : float
+            detuning of the laser beam at time t.
+        """
         pass
 
     # TODO: add testing of kvec/pol orthogonality.
@@ -704,7 +718,7 @@ class laserBeam(object):
         Returns
         -------
         dEq : array_like, shape (3, 3)
-            The full gradient of the electric field:
+            The full gradient of the electric field returned as 
             [[dE_{-1}/dx, dE_{0}/dx, dE_{1}/dx],
              [dE_{-1}/dy, dE_{0}/dy, dE_{1}/dy],
              [dE_{-1}/dz, dE_{0}/dz, dE_{1}/dz]]
@@ -723,6 +737,43 @@ class laserBeam(object):
 
 
 class infinitePlaneWaveBeam(laserBeam):
+    """
+    An infinite, plane wave laser beam
+        
+    Parameters
+    ----------
+    kvec : array_like with shape (3,)
+        The k-vector of the laser beam, specified as a three-element
+        list or numpy array.
+    pol : int, float, array_like with shape (3,)
+        The polarization of the laser beam, specified as either an integer, float
+        array_like with shape(3,).  If an integer or float, if `pol<0` the 
+        polarization will be left circular polarized relative to 
+        the k-vector of the light.  If `pol>0`, the polarization will be right 
+        circular polarized.  If array_like, polarization will be specified by the 
+        vector, whose basis is specified by `pol_coord`.
+    beta : float
+        The intensity of the laser beam, specified as either a float or as 
+        callable function.
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a 
+        signature like (t) where t is a float and it must return a float.
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    pol_coord : string, optional
+        Polarization basis of the input polarization vector: 'cartesian' (default)
+        or 'spherical'.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
+            
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    """
     def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for an infinite plane wave.')
@@ -761,6 +812,45 @@ class infinitePlaneWaveBeam(laserBeam):
 
 
 class gaussianBeam(laserBeam):
+    """
+    A collimated, Gaussian beam
+        
+    Parameters
+    ----------
+    kvec : array_like with shape (3,)
+        The k-vector of the laser beam, specified as a three-element
+        list or numpy array.
+    pol : int, float, array_like with shape (3,)
+        The polarization of the laser beam, specified as either an integer, float
+        array_like with shape(3,).  If an integer or float, if `pol<0` the 
+        polarization will be left circular polarized relative to 
+        the k-vector of the light.  If `pol>0`, the polarization will be right 
+        circular polarized.  If array_like, polarization will be specified by the 
+        vector, whose basis is specified by `pol_coord`.
+    beta : float
+        The intensity of the laser beam at the center, specified as either a float
+        or as callable function.
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a 
+        signature like (t) where t is a float and it must return a float.
+    wb : float
+        1/e^2 radius of the beam.
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    pol_coord : string, optional
+        Polarization basis of the input polarization vector: 'cartesian' (default)
+        or 'spherical'.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
+            
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    """
     def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
@@ -795,6 +885,47 @@ class gaussianBeam(laserBeam):
 
 
 class clippedGaussianBeam(gaussianBeam):
+    """
+    A clipped and collimated Gaussian beam
+        
+    Parameters
+    ----------
+    kvec : array_like with shape (3,)
+        The k-vector of the laser beam, specified as a three-element
+        list or numpy array.
+    pol : int, float, array_like with shape (3,)
+        The polarization of the laser beam, specified as either an integer, float
+        array_like with shape(3,).  If an integer or float, if `pol<0` the 
+        polarization will be left circular polarized relative to 
+        the k-vector of the light.  If `pol>0`, the polarization will be right 
+        circular polarized.  If array_like, polarization will be specified by the 
+        vector, whose basis is specified by `pol_coord`.
+    beta : float
+        The intensity of the laser beam, specified as either a float or as 
+        callable function.
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a 
+        signature like (t) where t is a float and it must return a float.
+    wb : float
+        1/e^2 radius of the beam.
+    rs : float
+        Aperture stop of the beam
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    pol_coord : string, optional
+        Polarization basis of the input polarization vector: 'cartesian' (default)
+        or 'spherical'.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
+            
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    """
     def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., rs=2., **kwargs):
         super().__init__(kvec=kvec, pol=pol, beta=beta, delta=delta, wb=wb, **kwargs)
 
@@ -811,8 +942,14 @@ class clippedGaussianBeam(gaussianBeam):
 
 class laserBeams(object):
     """
-    Class laserBeams is a collection of laserBeams.  It extends the
-    functionality and makes
+    A collection of laser beams.
+    
+    Parameters
+    ----------
+    laserbeamparams : array_like of laserBeam or array_like of dictionaries 
+        
+    beam_type : laserBeam or laserBeam subclass
+        
     """
     def __init__(self, laserbeamparams=None, beam_type=laserBeam):
         if laserbeamparams is not None:
@@ -937,21 +1074,23 @@ class laserBeams(object):
 
 
 class conventional3DMOTBeams(laserBeams):
+    """
+    The collection of 6 beams for a conventional 3D MOT.
+    
+    
+    """
     def __init__(self, **kwargs):
-        """
-        pylcp.fields.convention3DMOTBeams(beam_type)
-        """
         super().__init__()
 
         beam_type = kwargs.pop('beam_type', laserBeam)
         pol = kwargs.pop('pol', +1)
 
-        self.add_laser(beam_type(np.array([ 1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([-1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0., -1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0.,  1.]), +pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0., -1.]), +pol, *args, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([ 1.,  0.,  0.]), pol=-pol, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([-1.,  0.,  0.]), pol=-pol, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([ 0.,  1.,  0.]), pol=-pol, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([ 0., -1.,  0.]), pol=-pol, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([ 0.,  0.,  1.]), pol=+pol, **kwargs))
+        self.add_laser(beam_type(*args, kvec=np.array([ 0.,  0., -1.]), pol=+pol, **kwargs))
 
 
 if __name__ == '__main__':
