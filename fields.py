@@ -937,7 +937,7 @@ class laserBeams(object):
 
 
 class conventional3DMOTBeams(laserBeams):
-    def __init__(self, **kwargs):
+    def __init__(self, *args, **kwargs):
         """
         pylcp.fields.convention3DMOTBeams(beam_type)
         """
