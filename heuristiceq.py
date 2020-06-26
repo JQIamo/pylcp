@@ -98,13 +98,13 @@ class heuristiceq(object):
         betas = self.laserBeams['g->e'].beta(r, t)
         pols = self.laserBeams['g->e'].project_pol(Bhat, r, t)
         deltas = self.laserBeams['g->e'].delta(t)
-        
+
         totbeta = np.sum(betas)
 
-        for ii, (kvec, beta, pol,delta) in enumerate(zip(kvecs, betas, pols, deltas)):
+        for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
             self.R[ii] = 0.
             for q, pol_i, in zip(np.array([-1., 0., 1.]), pol):
-                self.R[ii] += self.gamma/2*beta*np.abs(pol_i)**2/\
+                self.R[ii] += self.gamma/2*beta*np.abs(pol_i)/\
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
         if return_kvecs:
@@ -114,7 +114,7 @@ class heuristiceq(object):
 
     def force(self, r, v, t):
         R, kvecs = self.scattering_rate(r, v, t, return_kvecs=True)
-        
+
         self.F_laser['g->e'] = (kvecs*R[:, np.newaxis]).T
         self.F = np.sum(self.F_laser['g->e'], axis=1)
 
