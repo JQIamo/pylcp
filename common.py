@@ -144,7 +144,7 @@ def random_vector(free_axes=[True, True, True]):
 
 
 def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
-                          maxiter=1000, tol=1e-9, invert=False):
+                          maxiter=1000, tol=1e-9, invert=False, debug=False):
     
     guess = np.array([initial_guess]).astype('float64')
     boolarray = np.array([0]).astype('bool')
@@ -161,8 +161,9 @@ def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
             boolarray[ind] = not fun(guess[ind], *args, **kwargs)
             
         # Print debug information:
-        # print(guess)
-        # print(boolarray)
+        if (debug):
+            print(guess)
+            print(boolarray)
         
         # Check to see if there is a place where the function turns from true to false:
         if guess.size>2:
