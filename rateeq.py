@@ -648,7 +648,9 @@ class trap(rateeq):
         if isinstance(eps, float):
             eps = np.array([eps]*3)
 
-        if r is None:
+        if r is None and self.r_eq is None:
+            r = np.array([0., 0., 0.])
+        elif r is None:
             r = self.r_eq
 
         for axis in axes:
@@ -680,7 +682,9 @@ class trap(rateeq):
         if isinstance(eps, float):
             eps = np.array([eps]*3)
 
-        if r is None:
+        if r is None and self.r_eq is None:
+            r = np.array([0., 0., 0.])
+        elif r is None:
             r = self.r_eq
 
         for axis in axes:
