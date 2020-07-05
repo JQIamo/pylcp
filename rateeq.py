@@ -143,20 +143,23 @@ class rateeq(object):
             if ll>0:
                 for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
                     if not other_block is None:
+                        gamma = other_block.parameters['gamma']
                         for jj in range(rotated_ham.ns[ll]):
-                            self.Rev_decay[n+jj, n+jj] -= np.sum(np.sum(abs2(
+                            self.Rev_decay[n+jj, n+jj] -= gamma*\
+                            np.sum(np.sum(abs2(
                                 other_block.matrix[:, :, jj]
-                                )))
+                            )))
 
             # Calculate the decays into of the manifold, provided we are not
             # in the most excited one:
             if ll<len(rotated_ham.ns)-1:
                 for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
+                    gamma = other_block.parameters['gamma']
                     if not other_block is None:
                         m = sum(rotated_ham.ns[:ll+1+mm])
                         self.Rev_decay[n:n+rotated_ham.ns[ll],
                                        m:m+other_block.m] += \
-                        np.sum(abs2(other_block.matrix), axis=0)
+                        gamma*np.sum(abs2(other_block.matrix), axis=0)
 
         return self.Rev_decay
 
@@ -231,7 +234,7 @@ class rateeq(object):
                                     np.dot(kvec, v))**2)"""
                             self.Rijl[key][ll, ii, jj] = gamma*beta/2*\
                                 fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
-                                             np.dot(kvec, v))**2)
+                                             np.dot(kvec, v))**2/gamma**2)
 
             # Now add the pumping rates into the rate equation propogation matrix:
             n = sum(rotated_ham.ns[:ind[0]])
@@ -369,7 +372,6 @@ class rateeq(object):
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
         random_recoil_flag = kwargs.pop('random_recoil', False)
         random_force_flag = kwargs.pop('random_recoil', False)
-        recoil_velocity = kwargs.pop('recoil_velocity', 0.01)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
         record_force = kwargs.pop('record_force', False)
@@ -399,7 +401,7 @@ class rateeq(object):
                     F = self.force(r, t, N, return_details=False)
 
                 dydt = np.concatenate((Rev @ N,
-                                       recoil_velocity*F*free_axes+
+                                       F*free_axes/self.hamiltonian.mass+
                                        self.constant_accel,
                                        v))
             else:
