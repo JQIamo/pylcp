@@ -67,7 +67,6 @@
  \setlength{\rightmargin}{0pt}}}
  {\endlist}
 
-
 \journal{Computer Physics Communications}
 
 \begin{document}
@@ -344,7 +343,7 @@ Laser beams are collected by which manifold transition they address.
 Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
 
 \subsection{Units}
-
+\label{sec:obe_units}
 For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent. Thus, the user specifies $H_0/\hbar$, rather than $H_0$.
 
 For other units, we will specifically separate out the units, and dimensionless number shall be denoted with a bar.
@@ -374,36 +373,42 @@ For random scattering, the recoil velocity $\hbar \mathbf{k}/m$ vector must also
 The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into real and imaginary parts, increasing computational speed.
 
 \section{The Rate Equations}
+Here, we follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and, to a lesser extent, the Ref.~\cite{Tollett1995}.
 In order to do a rate equation model, we first consider that we have a set of
-eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal.  We
-follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and,
-to a lesser extent, the Ref.~\cite{Tollett1995}.
-In the rate equation model, we consider three things.  The first is the
-excitation rate caused by laser $l$
+eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal. 
+
+In the rate equation model, we neglect the coherences in the optical Bloch equations and instead calculate just the populations in the state $i$ in manifold $m$, $N^n_i = \ket{n, i}\bra{n, i}$.  The evolution of $N^n_i$ is given by
 \begin{equation}
-    \label{eq:lcp:scattering_rate}
-    R^l_{ij} = \Gamma \left(\frac{\Omega^l_{ij}}{\Gamma}\right)^2\frac{1}{1 + 4(\Delta - k\cdot v)^2/\Gamma^2},
+    \dot{N}^n_i = \pm\sum_{m,j,l} R^{n\rightarrow m}_{ij,l} (N^n_i - N^m_j) + \sum_{m>n
+    } \Gamma^{m\rightarrow n}_{ij} N^m_j - \sum_{m<n}\Gamma^{n\rightarrow m} N^n_i,
+\end{equation}
+where the first term accounts for optical pumping, the second for decays into the state, and the third decays from the state.  The $+$($-$) sign occurs when $m<n$ ($n>m$).  The manifold decay rate is 
+\begin{equation}
+	\Gamma^{m\rightarrow n} = \frac{k^3_{n\rightarrow m}}{3\pi\epsilon_0\hbar}|\mathbf{d}^{nm}|^2
 \end{equation}
 and the decay rate out of the excited state $\Gamma$, and the branching ratio,
 \begin{equation}
-    \Gamma_{e_j,g_i} = \Gamma \frac{\left|d^{(q)}_{ij}\right|^2}{\left(\sum_i \left|d^{(q)}_{ij}\right|^2\right)}.
+    \Gamma_{ij}^{n\rightarrow m} = \Gamma \frac{\left|\mathbf{d}^{nm}_{ij}\right|^2}{\sum_i \left|\mathbf{d}^{nm}_{ij}\right|^2}.
 \end{equation}
-In general, we want to solve for $\dot{N}_{g/e,i}$.  We will do this in units of
-$\Gamma$.  For the ground states,
+We calculate the optical pumping rates $R_{ij, l}^{n\rightarrow m}$, due to the laser $l$ between states $i$ and $j$ in manifolds $n$ and $m$, respectively.  It is given by
 \begin{equation}
-    \dot{N}_i = -\sum_{jl} R^l_{ij} (N_i - N_j) + \sum \Gamma_{ij}N_j
+    \label{eq:rate_eq:pumping_rate}
+    R_{ij,l}^{n\rightarrow m} = \frac{[\Omega^{n\rightarrow m}_{ij,l}]^2/\Gamma^{n\rightarrow m}}{1 + 4[(\Delta_l - (\omega^m_j-\omega^n_i) - \mathbf{k}_l\cdot \mathbf{v})/\Gamma^{m\rightarrow n})]^2},
 \end{equation}
-and for the excited states,
+where the excitation rate is\footnote{Note that there is a factor of two difference between $d\cdot E$ in Sec.~\ref{sec:obe_units} and the definition of the Rabi rate $\Omega$ used here.}
 \begin{equation}
-    \dot{N}_j = - \Gamma N_j + \sum_{jl} R^l_{ij} (N_i - N_j)
+	\Omega_{ij,l}^{n\rightarrow m} = \frac{\Gamma^{m\rightarrow n}}{2} (\mathbf{d}_{ij}^{nm}\cdot \boldsymbol{\epsilon}_l) \sqrt{2I/I_\text{sat}}.
 \end{equation}
-We represent the rate equations as a matrix $R$ such that
+Finally, the motion of the atom in the trap is given by
 \begin{equation}
-    \dot{N} = R N
+	\mathbf{\ddot{r}} = \sum_{l} \frac{\hbar \mathbf{k}_l}{2m}\sum_{m, n, i,j} R_{ij,l}^{n\rightarrow m}(N^m_j - N^n_i) + \mathbf{a}
 \end{equation}
-where $N = (N_{g_1},\dots, N_{g_n}, N_{e_1}, \dots, N_{g_n})$.
 
-\section{Additional details}
+\subsection{Rotation of the Hamiltonian}
+Because the pumping rate \eqref{eq:rate_eq:pumping_rate} depends on the energies of the two states $\omega_i$ and $\omega_j$, the Hamitlonian must be diagonalized for each submatrix at every magnetic field $B$.  Then the $d^{nm}$ matrices must be rotated accordingly in order to recalculate.
+
+The net effect of this is to 
+
 
 \subsection{A word about polarization}
 We have thusfar considered the polarization to be contained $E^l_q$.  However,
