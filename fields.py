@@ -198,7 +198,45 @@ class magField(object):
             (self.Field(R+dz, t) - self.Field(R-dz, t))/2/self.eps
             ])
 
+class iPMagneticField(magField):
+    def __init__(self, B0, B1, B2, eps = 1e-5):
+        super().__init__(lambda R, t: np.array([B1*R[0]-B2*R[0]*R[2]/2, -R[1]*B1-B2*R[1]*R[2]/2, B0+B2/2*(R[2]**2 - (R[0]**2+R[1]**2)/2)]))
+        self.B0 = B0
+        self.B1 = B1
+        self.B2 = B2
+        
+    #Analytical form, not numerical for this and gradField
+    def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
+        a = self.B0
+        b = self.B1
+        c = self.B2
+        x = R[0]
+        y = R[1]
+        z = R[2]
+        mag = self.FieldMag(R, t)
+        xcom = 0.5*(2*b**2*x-a*c*x+(c**2)*(x**3)/4+(c**2)*(y**2)*x/4-2*b*c*z*x)/mag
+        ycom = 0.5*(2*b**2*(y)-a*c*y+(c**2)*(x**2)*y/4 + (c**2)*(y**3)/4+2*b*c*z*y)/mag
+        zcom = 0.5*(0-b*c*(x**2)+b*c*(y**2)+2*a*c*z+(c**2)*(z**3))/mag
+        return np.array([xcom, ycom, zcom])
 
+    def gradField(self, R=np.array([0., 0., 0.]), t=0):
+        B0 = self.B0
+        B1 = self.B1
+        B2 = self.B2
+        x = R[0]
+        y = R[1]
+        z = R[2]
+        xcom = np.array([B1-B2*z/2, 0, -B2*x/2])
+        ycom = np.array([0, -B1-B2*z/2, B2*y/2])
+        zcom = np.array([-B2*x/2, -B2*y/2, B2*z])
+        
+        return np.array([
+            np.array([B1-B2*z/2, 0, -B2*x/2]),
+            np.array([0, -B1-B2*z/2, B2*y/2]),
+            np.array([-B2*x/2, -B2*y/2, B2*z])
+            ])
+
+    
 class constantMagneticField(magField):
     """
     Spatially constant magnetic field class
@@ -239,6 +277,8 @@ class quadrupoleMagneticField(magField):
     def gradField(self, R=np.array([0., 0., 0.]), t=0):
         return self.constant_grad_field
 
+
+    
 # First, define the laser beam class:
 class laserBeam(object):
     def __init__(self, kvec=None, beta=None, pol=None, delta=None,
@@ -677,7 +717,7 @@ class laserBeam(object):
         pol = self.pol(R, t)
         delta = self.delta(t)
 
-        amp = np.sqrt(beta/2)
+        amp = np.sqrt(2*beta)
 
         if isinstance(t, float):
             Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
@@ -741,7 +781,7 @@ class infinitePlaneWaveBeam(laserBeam):
         self.con_beta = beta
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
         # Define attributes to speed up gradient calculation:
-        self.amp = np.sqrt(self.con_beta/2)
+        self.amp = np.sqrt(2*self.con_beta)
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
                               self.con_pol.reshape(1, 3))
 

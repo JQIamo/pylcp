@@ -67,7 +67,6 @@
  \setlength{\rightmargin}{0pt}}}
  {\endlist}
 
-
 \journal{Computer Physics Communications}
 
 \begin{document}
@@ -170,21 +169,22 @@ of programs previously published in the CPC Program Library.\\
 %% main text
 \section{Introduction}
 \label{sec:intro}
-The calculation of various quantities in laser cooling is hard.
+Laser cooling is ubiquitous in modern atomic physics.  The 
 
-Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary laser fields, magnetic fields.  The program is broken down
+Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary optical (laser) and magnetic fields.  The fundamental piece of the program.
 
-\section{Relevant Physics}
-Here, we consider the generic problem of coupling multiple ground states to
-multiple excited states, as first outlined in Ref.~\cite{Gordon1980} and then
-further expanded in Refs.~\cite{Ungar1989,Tarbutt2015,Devlin2016,Devlin2018}.  We label an individual state $\ket{i_j}$, where $i$ is the index of the manifold to which that state belongs and $j$ is the index of the state within that manifold.
+\section{The optical Bloch equations}
+Here, we consider the generic problem of coupling $N$ states together in arbitrary optical and magnetic fields.
+We group these states into manifolds: a collection of states that are degenerate or nearly degenerate, e.g., the $^2S_0$ states of an alkali atom, the ro-vibrational states of molecules, etc.
+We denote the $i$th state and its manifold index $n$ by by $\ket{i, n}$.
+The manifolds will be useful for both defining appropriate rotating frames and for applying the rotating wave approximation.
 
-The Hamiltonian is given by
+The full Hamiltonian is given by
 \begin{equation}
     \label{eq:obe:generic_hamiltonian}
     \hat{H} = \hat{H}_\text{atom} + \hat{H}_\text{field} -
     \hat{\boldsymbol{d}}\cdot\hat{\mathbf{E}} -
-    \hat{\mathbf{\mu}}\cdot\hat{\mathbf{B}}.
+    \hat{\boldsymbol{\mu}}\cdot\hat{\mathbf{B}}.
 \end{equation}
 The field component of the Hamiltonian is given by
 \begin{equation}
@@ -192,20 +192,131 @@ The field component of the Hamiltonian is given by
     \hat{H}_\text{field} = \int \left(\epsilon_0 \hat{\mathbf{E}} +
     \frac{\hat{\mathbf{B}}}{2}\right)\ dV
 \end{equation}
-where $\hat{\mathbf{E}}$ is the electric field operator, $\hat{\mathbf{B}}$ is
-the magnetic field operator.  Next, we consider the atomic Hamiltonian,
+where $\hat{\mathbf{E}}$ is the electric field operator, $\hat{\mathbf{B}}$ is the magnetic field operator.
+The atomic Hamiltonian is 
 \begin{equation}
     \hat{H}_\text{atom} = \frac{P^2}{2M} + \hat{H}_\text{internal}
 \end{equation}
 where $\hat{H}_\text{internal}$ describes the internal structure of the atom.
+In general, it has the form
+\begin{equation}
+	\hat{H}_\text{int} = \left[\hbar(\omega_{M,n} + \omega_i)\ket{i,n}\Bra{i, n}\right]
+\end{equation}
+where $\omega_{M,n}$ is the offset frequency of the $n$th manifold and $\omega_i$ is the $i$th's state frequency relative to $\omega_{M,n}$ and we use the Einstein summation convention.  Manifolds are connected only through $\hat{\mathbf{d}}\cdot\hat{\mathbf{E}}$ component of the Hamiltonian; $\hat{H}_\text{int}$ and $\hat{\boldsymbol{\mu}}$ only act on the subspace of each manifold.
+
+Our goal is to find the evolution of the atom operators $\rho_{ij} = \ket{i}\Bra{j}$.  (We suppress the manifold index when it is not relevant.)  In the Heisenburg picture, the operators $\hat{O}$ evolve as
+\begin{equation}
+	\label{eq:heisenburg_evolution}
+	\frac{\partial \hat{O}}{\partial t}  = \frac{i}{\hbar}[\hat{H}, \hat{O}].
+\end{equation}
+If the fields were treated classically, this equation would have to amended in order to take into account decays.  Instead, if we quantize the electric fields, derive the equations of motion, and then apply appropriate radiation reaction approximations, we can derive the full optical Bloch equations with decay from Eq.~\ref{eq:heisenburg_evolution}.  The magnetic field $\mathbf{B}$ is assumed to be a classical field; we will not consider quantizing it.  We must pay special focus to the electric field, however, for it both shifts the internal Hamiltonian when transformed into the necessary rotating frame(s) and creates the necessary decay channels.
+
+For the electric field, $\mathbf{E}$ could be comprised of multiple modes.  We group those modes by which modes drives transitions between manifolds $n\rightarrow m$.  Within each manifold, in addition to the mean frequency $\omega_{n\rightarrow m}$, there could then be multiple modes, which we then index by $\omega_p$.  Thus,
+\begin{equation}
+	\mathbf{E} = \mathbf{E}_{n\rightarrow m, p} e^{-i (\omega_{n\rightarrow m} +\omega_p) t} + \mathbf{E}_{n\rightarrow m, p}^\dagger e^{i (\omega_{n\rightarrow m} +\omega_p) t}
+\end{equation}
+Here $\mathbf{E}$ represents a destruction operator of the mode $n\rightarrow m, p$.
+To determine the decays, we must apply a radiation reaction approximation.  Classicaly, the radiation reaction field is
+\begin{equation}
+	\mathbf{E}_{RR} = \frac{1}{6\pi\epsilon_0 c^3}\frac{d^3\mathbf{d}}{dt^3}.
+\end{equation}
+The dipole moment $\mathbf{d}$ will oscillate with all frequency components contained in the drive.  Thus, for each frequency mode, we must take $d$ to have an $e^{-i (\omega_{n\rightarrow m}+\omega_p)t}$ oscillation
+\begin{equation}
+	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i (\omega_{n\rightarrow m}+\omega_p)^3}{6\pi\epsilon_0c ^3}e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
+\end{equation}
+where the two atomic operators each contribute their preferred rotation, yielding the total oscillation of $\delta_{n\rightarrow m, p} = (\omega_{n\rightarrow m}+\omega_p)-(\omega_{R,m}-\omega_{R,n})$.
+We then note that for each manifold, $\omega_{n\rightarrow m}\gg \omega_p$, so we make the substitution
+\begin{equation}
+	\label{eq:total_e_field_operator}
+	\mathbf{E}_{n\rightarrow m,p} = \mathbf{E}_{0,n\rightarrow m,p} + \frac{i k_{n\rightarrow m}^3}{6\pi\epsilon_0 }e^{-i\delta_{n\rightarrow m, p}t} \mathbf{d}^{nm}_{ij}\ket{i}\Bra{j}
+\end{equation}
+where $k_{n\rightarrow m} = \omega_{n\rightarrow m}/c$.  Clearly the $\rho_{ij}$ operators must commute with all $\mathbf{E}_{n\rightarrow m,p}$, as they are different physical observables.  On the other hand, given that $\rho_{ij}$ does not commute with the second term in (\ref{eq:total_e_field_operator}), it must also not commute with the first.
+
+We similarly expand the dipole operator
+\begin{equation}
+	\mathbf{d} = \sum_{n,m}\mathbf{d}^{nm}_{ij}\ket{i}\Bra{j} + \mathbf{d}^{*nm}_{ji}\ket{j}\Bra{i}.
+\end{equation}
+In general, the ${d}^{nm}_{ij}$ are dependent on reduced matrix elements and Clebsch-Gordon coefficients that determine the transitions between manifolds $n$ and $m$.  The dipole elements are grouped by manifold such that $d^{nm}_{ij}$ only operates on states within the manifolds $n$ and $m$, i.e., $d^{nm}_{ij}=0$ if $i\notin m,n$ or  $j\notin m,n$.  We will not consider any specific form of $d^{nm}_{ij}$, but instead focus on deriving the optical Bloch equations for any generic form.
+
+For each manifold, we will assume that all states in that manifold rotate at a preferred frequency $\ket{i,n} \rightarrow e^{i \omega_{R,n} t}\ket{i, n}$.  
+We choose the $\omega_{R,n}$ such that their differences $\omega_{R,n}-\omega_{R,m} \approx \omega_{M,n}-\omega_{M,m} \approx \omega_{n\rightarrow m}$ for all combinations of $n$ and $m$.
+This choice places each manifold into an appropriate rotating frame.
+Under this transformation of the state vectors, the internal Hamiltonian becomes
+\begin{equation}
+	\hat{H}_\text{internal} = -\hbar \delta^H_{i, n} \ket{i,n}\Bra{i, n},
+\end{equation}
+where we define $\delta^H_{n, i} = \omega_{R,n}-(\omega_{M, n}+\omega_i)$.
+incorporating the shift into the rotating frame into the internal Hamiltonian.  We also define $\delta^L_{n\rightarrow m, p} = (\omega_{n\rightarrow m} + \omega_p) - (\omega_{R,m} - \omega_{R,n})$.  Making the rotating wave approximation (neglecting terms oscillating at optical frequencies), we find, keeping only energy conserving terms,
+\begin{eqnarray}
+	\mathbf{d}\cdot\mathbf{E} & = & \left(\mathbf{d}^{nm}_{ij}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{i}\Bra{j} +  \nonumber \\
+	& & ~~~~~~ \ket{j}\Bra{i} \left((\mathbf{d}^{nm}_{ij})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right).\label{eq:d_dot_E}
+\end{eqnarray}
+Note that even because $\mathbf{E}$ commutes with $\rho_{ij}$, we can place the operators in any order.  We have chosen normal order: the first operator to apply to the wavefunction is the destructor operator of either the atom or the field and the second operator is constructor operator.  This operator ordering is required in order for the radiation reaction approximation to produce the correct decay rate $\Gamma$. 
+
+It is perhaps instructive to consider a couple examples of this construction of the rotating frame(s).  Consider first a standard two level system, with indices $i=g$ and $j=e$ and energies $\omega_g=0$ and $\omega_e$, being driven by a single electric field with total frequency $\omega$.   (Here, we drop the $k$, $n$, and $m$ subscripts.)  Let us take $\omega_{R,g}=0$ and $\omega_{R,e}=\omega_r$.  Then the detuning on the Hamiltonian, $\delta^{H}_e = \omega_R - \omega_e$ and $\delta^L_{g\rightarrow e} = \omega - \omega_R$.  The total detuning of the laser from the excited state is then given by $\delta = \delta^L_{g\rightarrow e}+\delta^H_e = \omega-\omega_e$.  In this way, we can split the detuning between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
+
+Next, consider a three-level manifold $\Lambda$-system with a single state in each manifold.  Let us label the manifolds as $g$, $r$ and $e$ in order of overall energy, and we drop the unnecessary substate subscripts.  We address this system with two lasers, one tuned closely to $g\rightarrow e$ with frequency $\omega_{g\rightarrow e}$ and the other tuned closely to $r\rightarrow e$ with frequency $\omega_{r\rightarrow e}$.  We now choose $\omega_{r,g} = 0$, and the relevant detunings are then
+\begin{eqnarray}
+	\delta^H_g & = & 0 \\
+	\delta^H_e & = & \omega_{r,e} - \omega_e \\
+	\delta^H_r & = & \omega_{r,r} - \omega_r \\
+	\delta^L_{g\rightarrow e} & = & \omega_{g\rightarrow e} - \omega_{r,e} \\
+	\delta^L_{r\rightarrow e} & = & \omega_{r\rightarrow e} - (\omega_{r,e}-\omega_{r,r})
+\end{eqnarray}
+By choosing $\omega_{r,e} = \omega_{g\rightarrow e}$ and $\omega_{r,r} = \omega_{g\rightarrow e} - \omega_{r\rightarrow e}$, one recovers the textbook example of the three level system with detunings shifted onto the Hamiltonian.  As with the two level system above, one can split the detunings between lasers and Hamiltonian in whichever way yields best computational efficiency for the particular problem at hand.
+
+Before applying the radiation reaction approximation, we must first find the equations of motion.
+Inserting Eq.~\ref{eq:d_dot_E} into Eq.~\ref{eq:heisenburg_evolution}, and using $\rho_{ij}\rho_{kl} = \rho_{il}\delta_{jk}$, where $\delta_{ij}$ is the Kronicker delta function.
+\begin{eqnarray}
+	\hbar\frac{\partial \rho_{ij}}{\partial t} 
+	& = & -i\left(\mathbf{d}^{nm}_{ki}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)  \ket{k}\Bra{j} +  \nonumber \\
+	& & -i \ket{k}\Bra{j} \left((\mathbf{d}^{nm}_{ik})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \nonumber \\
+	& & +i \left(\mathbf{d}^{nm}_{jk}\cdot\mathbf{E}^\dagger_{n\rightarrow m,p} e^{-i\delta^L_{n\rightarrow m, p}  t} \right)\ket{i}\Bra{k}  \nonumber \\
+	& & +i \ket{i}\Bra{k} \left((\mathbf{d}^{nm}_{kj})^\dagger \cdot \mathbf{E}_{n\rightarrow m,p}e^{i\delta^L_{n\rightarrow m, p}t}\right) \label{eq:E_coherent_ev}
+\end{eqnarray}
+Once again, we have maintained normal operator order.
+
+Substituting for each mode $\omega_k$ in the manifold and focusing on the real part of evolution
+\begin{eqnarray}
+	\hbar\text{Re}\left[\frac{\partial \rho_{ij}}{\partial t}\right] & = &  \frac{k_{n\rightarrow m}^3}{6\pi\epsilon_0}\left[
+	-\mathbf{d}_{ki}\cdot \mathbf{d}^\dagger_{lm}\rho_{lm}\rho_{kj} 
+	+\rho_{kj}\mathbf{d}_{ki}^\dagger \cdot \mathbf{d}_{lm}\rho_{lm}  \right. \nonumber \label{eq:decays_step_one} \\
+	& & \left. + \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{lm}\rho_{lm}\rho_{ik}
+	- \rho_{ik}\mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{lm}\rho_{lm}
+	\right] \\
+	& = & \frac{k_{n\rightarrow m}^3}{6\pi\epsilon_0 }\left[
+	-\mathbf{d}_{ki}\cdot \mathbf{d}^\dagger_{lk}\rho_{lj} 
+	+ \mathbf{d}_{ki}^\dagger \cdot \mathbf{d}_{jl}\rho_{kl} \right. \nonumber \\
+	& & \left. + \mathbf{d}_{jk}\cdot \mathbf{d}^\dagger_{li}\rho_{lk}
+	- \mathbf{d}_{jk}^\dagger \cdot \mathbf{d}_{kl}\rho_{il} \right] \label{eq:decay}
+\end{eqnarray}
+which determines the decays.   {\it Note that there is an index flip in the second and fourth terms between (\ref{eq:decays_step_one}) and (\ref{eq:E_coherent_ev}), but that has to do with $(\mathbf{d}^{n\rightarrow m}_{ij})^\dagger = (\mathbf{d}^*)^{n\rightarrow m}_{ji}$ in the code.  There might be something wrong here: doing the math properly, there is $N$ modes addressing a manifold and so I would nominally expect a factor of $N$ to pop out when I do the sum.}
+
+The coherent evolution (imaginary part) is determined by directly evaluating the commutator. The result is is
+\begin{equation}
+	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H]
+\end{equation}
+Specifically, for the $\ket{i_n}\Bra{j_m}$ component,
+\begin{equation}
+	\dot{\rho}^{ij}_{nm} = -\frac{i}{\hbar}[\rho, H]_{i_n, j_m} = -\frac{i}{\hbar}\left[\rho^{ik}_{np}H^{kj}_{pm} - \rho^{ki}_{pm}H^{ik}_{np}\right]
+\end{equation}
+where Einstein summation is assumed.
+
+The particle's semiclassical motion can be calculated through
+\begin{equation}
+	\ddot{\mathbf{r}} = -\frac{1}{m} \left\{\nabla H\right\} + \mathbf{a} = \frac{1}{m}\left\{\nabla (\mathbf{d} \cdot \mathbf{E} + \mathbf{\mu}\cdot \mathbf{B})\right\} + \mathbf{a}
+\end{equation}
+where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant acceleration, and [...].
+
+Momentum diffusion [...]. Random scattering [...]
 
 \subsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
 \begin{equation}
-    \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{g_1} \\ \vdots \\ \ket{g_{n_g}} \end{array} \\ \begin{array}{c} \ket{e_1} \\ \vdots \\ \ket{e_{n_e}} \end{array} \end{array}\right)\ ,
+    \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{l_1} \\ \vdots \\ \ket{l_{l_{N_l}}} \end{array} \\ \begin{array}{c} \ket{n_1} \\ \vdots \\ \ket{n_{N_n}} \end{array} \end{array}\right)\ ,
 \end{equation}
-where $\ket{g_i}$ are the eigenstates of the ground manifold and $\ket{e_j}$ are
-the eigenstates of the excited manifold.  With this basis vector, the term $\boldsymbol{\mu}_l\cdot\mathbf{B}$ is the field dependent term that mixes states within a given manifold $l$ and $\vec{d}_{lm}\cdot\mathbf{E}_{lm}$ is the field dependent term that couples states of different manifolds.  Using labels $i=g,e$ for the two extreme manifolds, the Hamiltonian blocks look like
+where $\ket{l_i}$ are the eigenstates of the first (ground) manifold and $\ket{n_k}$ are
+the eigenstates of the most excited manifold.  With this basis vector, the term $\boldsymbol{\mu}_l\cdot\mathbf{B}$ is the field dependent term that mixes states within a given manifold $l$ and $\vec{d}_{lm}\cdot\mathbf{E}_{lm}$ is the field dependent term that couples states of different manifolds.  Using labels $i=g,e$ for the two extreme manifolds, the Hamiltonian blocks look like
 \begin{equation}
     \label{eq:ham_matrix_form}
     H_\text{atom} = \left(
@@ -219,102 +330,85 @@ where each element in the matrix $H_g$, $H_e$, etc. is itself a matrix.  In gene
 
 To specify the problem, the user defines a Hamiltonian like Eq. (5) by providing the requisite $H_0$, $\boldsymbol{\mu}_l$, and $\boldsymbol{d}_{lm}$ and combining them in the {\tt hamiltonian} class.  The class creates and stores the block structure of the Hamiltonian, and also contains methods that are useful for its manipulation.  The vectors $\boldsymbol{\mu}$ and $\boldsymbol{d}$ are represented in spherical polar coordinates, allowing for translation into $\sigma^{\pm}$ circular polarization and $\pi$ polarizations.  For these vectors, we denote the component $q$ as $d^q$.
 
+\subsection{Fields}
 In its construction, {\tt pylcp} assumes a that the Hamiltonian is written in a co-rotating frame with a frequency close to that of the laser light, with the number of rotating frames equal to $N_m-1$.  The electric field has the form
 \begin{equation}
 	\mathbf{E}_{lm} = \frac{1}{2}\hat{\boldsymbol{\epsilon}}(r, t) E_{lm}(r, t)e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
 \end{equation}
-where the complex conjugate term is neglected by the rotating wave approximation.  The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
+where the complex conjugate term is neglected by the rotating wave approximation.  
+The user specifies all components of the laser field: the polarization vector $\hat{\boldsymbol{\epsilon}}(r, t)$, the amplitude $E_{lm}(r, t)$, the $\mathbf{k}$ vector, the average detuning between the rotating frame and optical frequency $\Delta$,  and any potential phase modulation of the laser beam $\phi(t)$ in the {\tt laserBeam} class.
 
-Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.  With all of these components, the optical Bloch equations and/or rate equations can be constructed for a given set of parameters.
+Laser beams are collected by which manifold transition they address.
 
-\subsection{The optical Bloch equations}
-The optical Bloch equations are equations that govern the evolution of the density matrix with the requisite decays.  They are equations that consider the evolution of a given density operator $\rho_{l_im_j} = \ket{l_i}\Bra{m_j}$.  The master equation for their evolution, in the Heisenburg picture, is
+Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
+
+\subsection{Units}
+\label{sec:obe_units}
+For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent. Thus, the user specifies $H_0/\hbar$, rather than $H_0$.
+
+For other units, we will specifically separate out the units, and dimensionless number shall be denoted with a bar.
+For example, a position $x$ is related to its dimensionless counterpart through $x = \bar{x}x_0$, where $x_0$ is the unit of $x$.
+When forming a complete Hamiltonian using the hamiltonian class, the user has the ability to set the units by specifying base units of length $x_0$, time $t_0$, magnetic field $B_0$ and mass $m$.  
+
+To understand the units associated with $d\cdot E$, let us briefly consider the two level system.  The excited state decay rate is given by $\Gamma = k^3(d d^*+d^* d)/6 \pi\epsilon_0\hbar$.  Thus, we define a normalized $d=\bar{d} d_0$, where $d_0 = \sqrt{3 \pi \epsilon_0 \hbar \Gamma/k^3}$.  With this definition, $\bar{d}^*\bar{d}+\bar{d}\bar{d}^* = \Gamma/2$.  For the electric field, we use the on-resonant, two-level saturation parameter $s = I/I_\text{sat} = 2|d_0 E|^2/\hbar^2|\gamma|^2 = 8 d_0 |E|^2/\hbar^2\Gamma^2$, where $\gamma = \Gamma/2$ to define the natural units for $E$.  Inverting, we find that $E = \hbar \Gamma \sqrt{s}/(\sqrt{8} d_0)$.  Thus, $d\cdot E/\hbar = (\bar{d} \Gamma/4) \sqrt{2 s}$.  We note that this definition of the saturation parameter is consistent with the more common $I/I_\text{sat} = 2(\Omega^2/\Gamma^2)$, where, because the Hamiltonian is defined without a factor of 1/2 in the $\mathbf{d}\cdot \mathbf{E}$ term, $\Omega/2=dE$.
+
+For the force, this leaves one additional unit to specify, the mass.  If the
+user specifies the length, time, and magnetic field, then
 \begin{equation}
-	\frac{\partial \rho}{\partial t} = -\frac{i}{\hbar}[\rho, H] + \rho\mathcal{L}\rho
+    \frac{x_0}{t_0^2} \ddot{\bar{\mathbf{r}}} = \frac{\hbar}{x_0 t_0 m}\left\{ -\bar{\nabla} \bar{H}\right\} + \frac{x_0}{t_0^2}\bar{\mathbf{a}}.
 \end{equation}
-where the $\rho\mathcal{L}\rho$ superoperator takes into account decays.
-
-The package ${\tt pylcp}$ constructs the first term from an arbitrary Hamiltonian (Eq.~\ref{eq:ham_matrix_form}) by directly computing the commutator.  Programmatically, it  represents the full density matrix as a vector represents the complicated temporal evolution as a matrix, with components that depend on $\mathbf{E}_{lm}$ and $\mathbf{B}$.  
-
-The decay is calculated in terms of the radiation-reaction approximation.  In practice, this means that the decay rate out of a state $\ket{l_i}$ is
+The default unit selection for a two-manifold system is $t_0=1/\Gamma$ and $x_0=1/k$, which yields for the prefactor $\hbar/x_0 t_0 m = \hbar k \Gamma/m$.   Further taking into account the units on the left hand side we define
 \begin{equation}
-    \Gamma_{\ket{l_i}} = \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m<l}\sum_{j=1}^{n_l}\sum_q \left|\Braket{m_j|d_{lm}^{q}|l_i}\right|^2,
+	\ddot{\mathbf{r}}' = \frac{\hbar t_0}{x_0^2 m}\left\{ -\bar{\nabla} \bar{H}\right\} + \bar{\mathbf{a}}
 \end{equation}
-where $n_m$ is the number of states in the $m$ manifold.  The real component of coherences between manifolds decay as 
+which defines the `dimensionless' mass as $\bar{m} = x_0^2 m/\hbar t_0$.
+
+For random scattering, the recoil velocity $\hbar \mathbf{k}/m$ vector must also be specified.  In terms of dimensionless units,
 \begin{equation}
-	Re[\dot{\rho}_{l_im_j}] = -\frac{\Gamma_{l_i}+\Gamma_{m_j}}{2}\rho_{l_im_j}\ .
+	\bar{v}_R \frac{x_0}{t_0} = \frac{\hbar\bar{k}}{m x_0} \rightarrow \bar{v}_R = \frac{\bar{k}}{\bar{m}}\ .
 \end{equation}
-Likewise, the population operators evolution with decay is given by
-\begin{equation}
-	\dot{\rho}_{l_il_i} = -\Gamma_l\rho_{l_il_i} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{j=1}^{n_m}\sum_q \left|\Braket{l_i|d_{lm}^{q}|m_j}\right|^2 \rho_{m_jm_j}
-\end{equation} 
-Finally, the coherences within a given manifold obey
-\begin{equation}
-	\dot{\rho}_{l_il_j} = -\Gamma_l\rho_{l_il_j} + \frac{k^3}{3\pi\epsilon_0\hbar}\sum_{m>l}\sum_{n>l}\sum_{k=1}^{n_m}\sum_{l=1}^{n_m}\sum_q \Braket{l_i|d_{lm}^{q}|m_m}\Braket{n_k|d_{lm}^{q}|l_j}\rho_{m_jn_k}
-\end{equation} 
-[FIX indecies]
+{\it Once again, I hate ending a paragraph or even a section with a sentence.}
 
-The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into , increasing speed.
+\subsection{Additional details}
+The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into real and imaginary parts, increasing computational speed.
 
-The force exerted by the optical field is given by the derivative of the 
-\begin{equation}
-	f = \frac{d\mathbf{p}}{dt} = -\{\nabla H\} = \sum_{l_i,m_j} \rho_{l_im_j}\left[\nabla(\boldsymbol{d}_{lm}\cdot \mathbf{E}_{lm})\right] + c.c.
-\end{equation}
-Provided that there is no spatial dependence in the $\boldsymbol{\epsilon}$, this expression can be simplified 
-\begin{eqnarray}
-	f = \frac{1}{2}\sum_{l_i,m_j} \rho_{l_im_j}\left(\boldsymbol{d}_{lm}\cdot \boldsymbol{\epsilon}\right) \nabla \left(E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}\right) + c.c.
-\end{eqnarray}
-where now the derivative produces three terms, 
-\begin{equation}
-	\left(\frac{\nabla E_{lm}(r,t)}{E_{lm}} + i \nabla (\mathbf{k}(r,t)\cdot \mathbf{r})\right)E_{lm}e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
-\end{equation}
-Likewise, the magnetic field produces a force [...]
-
-Of importance in almost any is the momentum diffusion tensor of $\mathcal{D}$.
-
-For the lasers, we specify everything in terms of the decay rate of the excited state $\Gamma$ and saturation intensity $I_\text{sat}$
-\begin{equation}
-    I_\text{sat} = \frac{\pi h c \Gamma}{3\lambda^3} = \frac{2\pi^2 \hbar \omega^3 c \Gamma}{3(2\pi)^3 c^3} = \frac{\hbar \omega^3 \Gamma}{12 \pi c^2}
-\end{equation}
-the result being that the electric field $E_{lm}(r,t) = \sqrt{I/2I_\text{sat}} = \sqrt{\beta/2}$.  [Show more of the derivation]?
-
-\subsection{The Rate Equations}
+\section{The Rate Equations}
+Here, we follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and, to a lesser extent, the Ref.~\cite{Tollett1995}.
 In order to do a rate equation model, we first consider that we have a set of
-eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal.  We
-follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and,
-to a lesser extent, the Ref.~\cite{Tollett1995}.
-In the rate equation model, we consider three things.  The first is the
-excitation rate caused by laser $l$
+eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal. 
+
+In the rate equation model, we neglect the coherences in the optical Bloch equations and instead calculate just the populations in the state $i$ in manifold $m$, $N^n_i = \ket{n, i}\bra{n, i}$.  The evolution of $N^n_i$ is given by
 \begin{equation}
-    \label{eq:lcp:scattering_rate}
-    R^l_{ij} = \Gamma \left(\frac{\Omega^l_{ij}}{\Gamma}\right)^2\frac{1}{1 + 4(\Delta - k\cdot v)^2/\Gamma^2},
+    \dot{N}^n_i = \pm\sum_{m,j,l} R^{n\rightarrow m}_{ij,l} (N^n_i - N^m_j) + \sum_{m>n
+    } \Gamma^{m\rightarrow n}_{ij} N^m_j - \sum_{m<n}\Gamma^{n\rightarrow m} N^n_i,
+\end{equation}
+where the first term accounts for optical pumping, the second for decays into the state, and the third decays from the state.  The $+$($-$) sign occurs when $m<n$ ($n>m$).  The manifold decay rate is 
+\begin{equation}
+	\Gamma^{m\rightarrow n} = \frac{k^3_{n\rightarrow m}}{3\pi\epsilon_0\hbar}|\mathbf{d}^{nm}|^2
 \end{equation}
 and the decay rate out of the excited state $\Gamma$, and the branching ratio,
 \begin{equation}
-    \Gamma_{e_j,g_i} = \Gamma \frac{\left|d^{(q)}_{ij}\right|^2}{\left(\sum_i \left|d^{(q)}_{ij}\right|^2\right)}.
+    \Gamma_{ij}^{n\rightarrow m} = \Gamma \frac{\left|\mathbf{d}^{nm}_{ij}\right|^2}{\sum_i \left|\mathbf{d}^{nm}_{ij}\right|^2}.
 \end{equation}
-In general, we want to solve for $\dot{N}_{g/e,i}$.  We will do this in units of
-$\Gamma$.  For the ground states,
+We calculate the optical pumping rates $R_{ij, l}^{n\rightarrow m}$, due to the laser $l$ between states $i$ and $j$ in manifolds $n$ and $m$, respectively.  It is given by
 \begin{equation}
-    \dot{N}_i = -\sum_{jl} R^l_{ij} (N_i - N_j) + \sum \Gamma_{ij}N_j
+    \label{eq:rate_eq:pumping_rate}
+    R_{ij,l}^{n\rightarrow m} = \frac{[\Omega^{n\rightarrow m}_{ij,l}]^2/\Gamma^{n\rightarrow m}}{1 + 4[(\Delta_l - (\omega^m_j-\omega^n_i) - \mathbf{k}_l\cdot \mathbf{v})/\Gamma^{m\rightarrow n})]^2},
 \end{equation}
-and for the excited states,
+where the excitation rate is\footnote{Note that there is a factor of two difference between $d\cdot E$ in Sec.~\ref{sec:obe_units} and the definition of the Rabi rate $\Omega$ used here.}
 \begin{equation}
-    \dot{N}_j = - \Gamma N_j + \sum_{jl} R^l_{ij} (N_i - N_j)
+	\Omega_{ij,l}^{n\rightarrow m} = \frac{\Gamma^{m\rightarrow n}}{2} (\mathbf{d}_{ij}^{nm}\cdot \boldsymbol{\epsilon}_l) \sqrt{2I/I_\text{sat}}.
 \end{equation}
-We represent the rate equations as a matrix $R$ such that
+Finally, the motion of the atom in the trap is given by
 \begin{equation}
-    \dot{N} = R N
+	\mathbf{\ddot{r}} = \sum_{l} \frac{\hbar \mathbf{k}_l}{2m}\sum_{m, n, i,j} R_{ij,l}^{n\rightarrow m}(N^m_j - N^n_i) + \mathbf{a}
 \end{equation}
-where $N = (N_{g_1},\dots, N_{g_n}, N_{e_1}, \dots, N_{g_n})$.
 
+\subsection{Rotation of the Hamiltonian}
+Because the pumping rate \eqref{eq:rate_eq:pumping_rate} depends on the energies of the two states $\omega_i$ and $\omega_j$, the Hamitlonian must be diagonalized for each submatrix at every magnetic field $B$.  Then the $d^{nm}$ matrices must be rotated accordingly in order to recalculate.
 
+The net effect of this is to 
 
-\subsection{Random Forces}
-
-\subsection{A word about units}
-
-\section{Additional details}
 
 \subsection{A word about polarization}
 We have thusfar considered the polarization to be contained $E^l_q$.  However,

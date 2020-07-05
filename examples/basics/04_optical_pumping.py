@@ -118,7 +118,7 @@ for ii, key in enumerate(laserBeams):
     obe[key].set_initial_rho(rho0)
     obe[key].evolve_density(t_span=[0, 2*np.pi*2], t_eval=np.linspace(0, 4*np.pi, 51))
     obe[key].observable(S)
-    (t, rho) = obe[key].reshape_sol()
+    (t, r, v, rho) = obe[key].reshape_sol()
 
     for jj in range(4):
         ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
@@ -172,7 +172,7 @@ for ii, key in enumerate(laserBeams):
     obe[key].set_initial_rho(rho0)
     obe[key].evolve_density(t_span=[0, 2*np.pi*2], t_eval=np.linspace(0, 4*np.pi, 51))
 
-    (t, rho) = obe[key].reshape_sol()
+    (t, r, v, rho) = obe[key].reshape_sol()
 
     for jj in range(4):
         ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
@@ -259,7 +259,7 @@ for ii, key in enumerate(['$\\pi_x$', '$\\pi_y$']):
     obe[key].set_initial_rho(rho0)
     obe[key].evolve_density(t_span=[0, 2*np.pi*2], t_eval=np.linspace(0, 4*np.pi, 51))
     S_av = obe[key].observable(S)
-    (t, rho) = obe[key].reshape_sol()
+    (t, r, v, rho) = obe[key].reshape_sol()
 
     for jj in range(4):
         ax[ii, 0].plot(t, np.real(rho[jj, jj]), linewidth=0.75, color='C%d'%jj,
@@ -279,66 +279,74 @@ The latter is faster.
 laserBeams = {}
 laserBeams['$\\pi_z$']= pylcp.laserBeams([
     {'kvec': np.array([1., 0., 0.]), 'pol':np.array([0., 0., 1.]),
-     'delta':-2.73, 'beta':4*0.16}
+     'pol_coord':'cartesian', 'delta':-2.73, 'beta':4*0.16}
     ])
 laserBeams['$\\pi_y$']= pylcp.laserBeams([
     {'kvec': np.array([0., 0., 1.]), 'pol':np.array([0., 1., 0.]),
-     'delta':-2.73, 'beta':4*0.16}
+     'pol_coord':'cartesian', 'delta':-2.73, 'beta':4*0.16}
     ])
 laserBeams['$\\pi_x$']= pylcp.laserBeams([
     {'kvec': np.array([0., 0., 1.]), 'pol':np.array([1., 0., 0.]),
-     'delta':-2.73, 'beta':0.16},
+     'pol_coord':'cartesian', 'delta':-2.73, 'beta':0.16},
     {'kvec': np.array([0., 0., -1.]), 'pol':np.array([1., 0., 0.]),
-     'delta':-2.73, 'beta':0.16}
+     'pol_coord':'cartesian', 'delta':-2.73, 'beta':0.16}
     ])
 
 # Then the magnetic field:
 magField = lambda R: np.zeros(R.shape)
 
 # Hamiltonian for F=2->F=3
-Hg, mugq = pylcp.hamiltonians.singleF(F=2, gF=1, muB=1)
-He, mueq = pylcp.hamiltonians.singleF(F=3, gF=1, muB=1)
-dijq = pylcp.hamiltonians.dqij_two_bare_hyperfine(2, 3)
-hamiltonian = pylcp.hamiltonian(Hg, He-0.*np.eye(He.shape[0]),
-                                mugq, mueq, dijq)
+gamma = 1
+H_g, muq_g = pylcp.hamiltonians.singleF(F=2, gF=1, muB=1)
+H_e, mue_q = pylcp.hamiltonians.singleF(F=3, gF=1, muB=1)
+d_q = pylcp.hamiltonians.dqij_two_bare_hyperfine(2, 3)
+hamiltonian = pylcp.hamiltonian()
+hamiltonian.add_H_0_block('g', H_g)
+hamiltonian.add_H_0_block('e', H_e-0.*np.eye(H_e.shape[0]))
+hamiltonian.add_d_q_block('g', 'e', d_q, gamma=gamma)
+
 hamiltonian.print_structure()
 
 obe = {}
+rateeq = {}
+rateeq['$\\pi_z$'] = pylcp.rateeq(laserBeams['$\\pi_z$'], magField,
+                                  hamiltonian)
 obe['$\\pi_z$'] = pylcp.obe(laserBeams['$\\pi_z$'], magField, hamiltonian,
-                             transform_into_re_im=transform)
+                            transform_into_re_im=transform)
 
-N0 = np.zeros((obe['$\\pi_z$'].rateeq.hamiltonian.n,))
+N0 = np.zeros((rateeq['$\\pi_z$'].hamiltonian.n,))
 N0[0] = 1
-obe['$\\pi_z$'].rateeq.set_initial_pop(N0)
-obe['$\\pi_z$'].rateeq.evolve_populations([0, 2*np.pi*600])
+rateeq['$\\pi_z$'].set_initial_pop(N0)
+rateeq['$\\pi_z$'].evolve_populations([0, 2*np.pi*600/gamma],
+                                      max_step=1/gamma)
 
 rho0 = np.zeros((obe['$\\pi_z$'].hamiltonian.n**2,))
 rho0[0] = 1.
 obe['$\\pi_z$'].set_initial_rho(np.real(rho0))
 tic = time.time()
-obe['$\\pi_z$'].evolve_density(t_span=[0, 2*np.pi*600])
+obe['$\\pi_z$'].evolve_density(t_span=[0, 2*np.pi*600/gamma],
+                               max_step=1/gamma)
 toc = time.time()
 print('Computation time is  %.2f s.' % (toc-tic))
 
 # Calculate the equilibrium populations:
-Neq = obe['$\\pi_z$'].rateeq.equilibrium_populations(np.array([0., 0., 0.]),
-                                                     np.array([0., 0., 0.]), 0.)
+Neq = rateeq['$\\pi_z$'].equilibrium_populations(np.array([0., 0., 0.]),
+                                                 np.array([0., 0., 0.]), 0.)
 
 fig, ax = plt.subplots(1, 1)
-(t, rho1) = obe['$\\pi_z$'].reshape_sol()
+(t, r, v, rho1) = obe['$\\pi_z$'].reshape_sol()
 for jj in range(5):
-    ax.plot(obe['$\\pi_z$'].rateeq.sol.t/2/np.pi,
-            obe['$\\pi_z$'].rateeq.sol.y[jj, :], '--',
+    ax.plot(gamma*rateeq['$\\pi_z$'].sol.t/2/np.pi,
+            rateeq['$\\pi_z$'].sol.y[jj, :], '--',
             color='C{0:d}'.format(jj),
             linewidth=1.0)
-    ax.plot(t/2/np.pi, np.abs(rho1[jj, jj]), '-',
+    ax.plot(gamma*t/2/np.pi, np.abs(rho1[jj, jj]), '-',
             color='C{0:d}'.format(jj),
             linewidth=0.5)
-    ax.plot(t[-1]/2/np.pi, Neq[jj], '.', color='C{0:d}'.format(jj),
+    ax.plot(gamma*t[-1]/2/np.pi, Neq[jj], '.', color='C{0:d}'.format(jj),
             linewidth=0.5)
 
 ax.set_xlabel('$\\Gamma t/2\\pi$')
-
 
 # %%
 """

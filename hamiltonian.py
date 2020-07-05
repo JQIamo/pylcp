@@ -12,6 +12,7 @@ class hamiltonian():
             self.label = label
             self.diagonal = self.check_diagonality(M)
             self.matrix = M
+            self.parameters = {}
 
             self.n = M.shape[0]
             self.m = M.shape[1]
@@ -55,7 +56,7 @@ class hamiltonian():
             return super_M
 
 
-    def __init__(self, *args):
+    def __init__(self, *args, **kwargs):
         """
         Initializes the class and saves certain elements of the Hamiltonian.
         """
@@ -63,6 +64,7 @@ class hamiltonian():
         self.state_labels = []
         self.ns = []
         self.laser_keys = {}
+        self.mass = kwargs.pop('mass', 1.)
 
         if len(args) == 5:
             self.add_H_0_block('g', args[0])
@@ -78,6 +80,9 @@ class hamiltonian():
 
     def print_structure(self):
         print(self.blocks)
+
+    def set_mass(self, mass):
+        self.mass=mass
 
     def recompute_number_of_states(self):
         self.n = 0
@@ -152,7 +157,7 @@ class hamiltonian():
         self.check_diagonal_submatrices_are_themselves_diagonal()
 
 
-    def add_mu_q_block(self, state_label, mu_q):
+    def add_mu_q_block(self, state_label, mu_q, muB=1):
         if mu_q.shape[0] != 3 or mu_q.shape[1] != mu_q.shape[2]:
             raise ValueError('mu_q must 3xnxn, where n is an integer.')
 
@@ -160,16 +165,18 @@ class hamiltonian():
         ind_mu_q = self.search_elem_label(self.make_elem_label('mu_q', state_label))
 
         label = self.make_elem_label('mu_q', state_label)
+        new_block = self.vector_block(label, mu_q.astype('complex128'))
+        new_block.parameters['mu_B'] = muB
+
         if not ind_H_0 and not ind_mu_q:
             self.add_new_row_and_column()
-            self.blocks[-1, -1] = self.vector_block(label, mu_q.astype('complex128'))
+            self.blocks[-1, -1] = new_block
             self.state_labels.append(state_label)
             self.ns.append(mu_q.shape[1])
         elif ind_H_0:
             if mu_q.shape[1] != self.blocks[ind_H_0].n:
                 raise ValueError('Element %s is not the right shape to match H_0.' % label)
-            self.blocks[ind_H_0] = (self.blocks[ind_H_0],
-                                   self.vector_block(label, mu_q.astype('complex128')))
+            self.blocks[ind_H_0] = (self.blocks[ind_H_0], new_block)
         else:
             raise ValueError('mu_q already added.')
 
@@ -177,7 +184,7 @@ class hamiltonian():
         self.check_diagonal_submatrices_are_themselves_diagonal()
 
 
-    def add_d_q_block(self, label1, label2, d_q):
+    def add_d_q_block(self, label1, label2, d_q, k=1, gamma=1):
         ind_H_0 = self.search_elem_label(self.make_elem_label('H_0', label1))
         ind_mu_q = self.search_elem_label(self.make_elem_label('mu_q', label1))
 
@@ -208,25 +215,35 @@ class hamiltonian():
             ind2 = ind_H_0[0]
             m = self.blocks[ind_H_0][0].n
 
-        ind = (ind1, ind2)
-        label = self.make_elem_label('d_q', [label1, label2])
-
+        # Check the size of d_q, make sure it is right:
         if d_q.shape[1]!=n or d_q.shape[2]!=m:
             raise ValueError('Expected size 3x%dx%d for %s, instead see 3x%dx%d'%
                              (n, m, label, d_q.shape[1], d_q.shape[2]))
 
-        self.blocks[ind] = self.vector_block(label, d_q.astype('complex128'))
+        # what is the block index to store this d_q?
+        ind = (ind1, ind2)
 
+        # If we were given d_q^\dagger, flip it around
+        if ind1>ind2:
+            (label1, label2) = (label2, label1)
+            ind = ind[::-1]
+            d_q = d_q.conj().T
+
+        # Store the matrix d_q:
+        label = self.make_elem_label('d_q', [label1, label2])
+        self.blocks[ind] = self.vector_block(label, d_q.astype('complex128'))
+        self.blocks[ind].parameters['k'] = k
+        self.blocks[ind].parameters['gamma'] = gamma
+
+        # Store the matrix d_q^\dagger
         label = self.make_elem_label('d_q', [label2, label1])
         self.blocks[ind[::-1]] = self.vector_block(
             label,
             np.array([np.conjugate(d_q[ii].T) for ii in range(3)]).astype('complex128')
             )
 
-        if ind1<ind2:
-            self.laser_keys[label1 + '->' + label2] = ind
-        else:
-            self.laser_keys[label2 + '->' + label1] = ind[::-1]
+        # Store the laser key for quick access:
+        self.laser_keys[label1 + '->' + label2] = ind
 
 
     def make_full_matrices(self):
@@ -244,14 +261,16 @@ class hamiltonian():
         # First, return H_0 and mu_q:
         for diag_block in np.diag(self.blocks):
             if isinstance(diag_block, self.vector_block):
-                self.mu_q += diag_block.return_block_in_place(n, n, self.n)
+                self.mu_q += (diag_block.parameters['mu_B']*
+                              diag_block.return_block_in_place(n, n, self.n))
                 n+=diag_block.n
             elif isinstance(diag_block, self.block):
                 self.H_0 += diag_block.return_block_in_place(n, n, self.n)
                 n+=diag_block.n
             else:
                 self.H_0 += diag_block[0].return_block_in_place(n, n, self.n)
-                self.mu_q += diag_block[1].return_block_in_place(n, n, self.n)
+                self.mu_q += (diag_block[1].parameters['mu_B']*
+                              diag_block[1].return_block_in_place(n, n, self.n))
                 n+=diag_block[0].n
 
         self.d_q_bare = {}
