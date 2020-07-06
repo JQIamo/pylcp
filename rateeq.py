@@ -154,8 +154,8 @@ class rateeq(object):
             # in the most excited one:
             if ll<len(rotated_ham.ns)-1:
                 for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
-                    gamma = other_block.parameters['gamma']
                     if not other_block is None:
+                        gamma = other_block.parameters['gamma']
                         m = sum(rotated_ham.ns[:ll+1+mm])
                         self.Rev_decay[n:n+rotated_ham.ns[ll],
                                        m:m+other_block.m] += \
