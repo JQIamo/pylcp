@@ -1,6 +1,7 @@
 import numpy as np
 from inspect import signature
 from pylcp.common import cart2spherical, spherical2cart
+from scipy.spatial.transform import Rotation
 
 import numba
 
@@ -823,14 +824,16 @@ class gaussianBeam(laserBeam):
         # Angles of rotation:
         th = np.arccos(self.con_kvec[2])
         phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
-        # square the rotation to save operation in beta
-        self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
-                               np.cos(phi) + np.cos(th)*np.sin(phi),\
-                               -np.sin(th)])**2
+        
+        # Use scipy to define the rotation matrix
+        self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        return self.beta_max*np.exp(-2*np.einsum('i,i...->...',self.rvals,\
-                                                  R**2)/self.wb**2)
+        # Rotate up to the z-axis where we can apply formulas:
+        Rp = np.einsum('ij,j...->i...', self.rmat, R)
+        rho_sq=np.sum(Rp[:2]**2, axis=0)
+        # Return the intensity:
+        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
 
 
 class clippedGaussianBeam(gaussianBeam):
@@ -843,8 +846,8 @@ class clippedGaussianBeam(gaussianBeam):
         """
         beta for the slightly more advanced, `clipped' Gaussian beam.
         """
-        rho_sq = np.einsum('i,i...->...',self.rvals, R**2)
-
+        Rp = np.einsum('ij,j...->i...', self.rmat, R)
+        rho_sq = np.sum(Rp[:2]**2, axis=0)
         return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
 
 
