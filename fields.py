@@ -1064,13 +1064,19 @@ class conventional3DMOTBeams(laserBeams):
 
         beam_type = kwargs.pop('beam_type', laserBeam)
         pol = kwargs.pop('pol', +1)
-
-        self.add_laser(beam_type(np.array([ 1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([-1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0., -1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0.,  1.]), +pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0., -1.]), +pol, *args, **kwargs))
+        kmag = kwargs.pop('k', 1.)
+        rotation_angles = kwargs.pop('rotation_angles', [0., 0., 0.])
+        rotation_spec = kwargs.pop('rotation_spec', 'ZYZ')
+        
+        rot_mat = Rotation.from_euler(rotation_spec, rotation_angles).as_matrix()
+        
+        kvecs = [np.array([ 1.,  0.,  0.]), np.array([-1.,  0.,  0.]),
+                 np.array([ 0.,  1.,  0.]), np.array([ 0., -1.,  0.]),
+                 np.array([ 0.,  0.,  1.]), np.array([ 0.,  0., -1.])]
+        pols = [-pol, -pol, -pol, -pol, +pol, +pol]
+        
+        for kvec, pol in zip(kvecs, pols):
+            self.add_laser(beam_type(rot_mat @ (kmag*kvec), pol, *args, **kwargs))
 
 
 if __name__ == '__main__':
