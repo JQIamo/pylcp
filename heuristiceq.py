@@ -60,7 +60,7 @@ class heuristiceq(object):
 
         # Finally, handle optional arguments:
         self.mass = kwargs.pop('mass', 100)
-        self.gamma = kwargs.pop('mass', 1)
+        self.gamma = kwargs.pop('gamma', 1)
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
@@ -103,7 +103,7 @@ class heuristiceq(object):
 
         for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
             self.R[ii] = 0.
-            for q, pol_i, in zip(np.array([-1., 0., 1.]), pol):
+            for (q, pol_i) in zip(np.array([-1., 0., 1.]), pol):
                 self.R[ii] += self.gamma/2*beta*np.abs(pol_i)/\
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
