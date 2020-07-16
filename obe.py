@@ -601,16 +601,16 @@ class obe():
         what actually does the integration.
         """
         progress_bar = kwargs.pop('progress_bar', False)
-        
+
         a = np.zeros((3,))
 
         if progress_bar:
             progress = progressBar()
-            
+
         def dydt(t, y):
             if progress_bar:
                 progress.update(t/t_span[1])
-                
+
             return np.concatenate((self.drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
 
         self.sol = solve_ivp(dydt, t_span,
@@ -620,7 +620,7 @@ class obe():
         if progress_bar:
             # Just in case the solve_ivp_random terminated due to an event.
             progress.update(1.)
-            
+
         # Remake the solution:
         self.reshape_sol()
 
@@ -785,12 +785,19 @@ class obe():
             # First, determine the average mu_q:
             # This returns a (3,) + rho.shape[2:] array
             mu_q_av = self.observable(self.hamiltonian.d_q_bare[key], rho)
+            gamma = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma']
 
             if not return_details:
                 delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
 
+                # We are just looking at the d_q, whereas the full observable
+                # is \nabla (d_q \cdot E^\dagger) + (d_q^* E)) =
+                # 2 Re[\nabla (d_q\cdot E^\dagger)].  Putting in the units,
+                # we see we need a factor of gamma/4, making
+                # this 2 Re[\nabla (d_q\cdot E^\dagger)]/4 =
+                # Re[\nabla (d_q\cdot E^\dagger)]/2
                 for jj, q in enumerate(np.arange(-1., 2., 1.)):
-                    f += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
+                    f += np.real((-1)**q*gamma*mu_q_av[jj]*delE[:, 2-jj])/2
             else:
                 f_laser_q[key] = np.zeros((3, 3, self.laserBeams[key].num_of_beams)
                                           + rho.shape[2:])
@@ -805,7 +812,8 @@ class obe():
                         delE = beam.electric_field_gradient(r, t)
 
                     for jj, q in enumerate(np.arange(-1., 2., 1.)):
-                        f_laser_q[key][:, jj, ii] += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
+                        f_laser_q[key][:, jj, ii] += \
+                        np.real((-1)**q*gamma*mu_q_av[jj]*delE[:, 2-jj])/2
 
                     f_laser[key][:, ii] = np.sum(f_laser_q[key][:, :, ii], axis=1)
 
