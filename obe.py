@@ -844,7 +844,7 @@ class obe():
             self.piecewise_sols = []
 
         ii=0
-        while True:
+        while ii<itermax:
             if not Npts is None:
                 kwargs['t_eval'] = np.linspace(ii*deltat, (ii+1)*deltat, int(Npts))
 
@@ -861,8 +861,6 @@ class obe():
             if (np.sum((f_avg)**2)<abs or
                 np.sum((old_f_avg-f_avg)**2)/np.sum((f_avg)**2)<rel or
                 np.sum((old_f_avg-f_avg)**2)<abs):
-                break;
-            elif ii>=itermax-1:
                 break;
             else:
                 old_f_avg = copy.copy(f_avg)
