@@ -600,15 +600,27 @@ class obe():
         Any additional keyword arguments get passed to solve_ivp, which is
         what actually does the integration.
         """
+        progress_bar = kwargs.pop('progress_bar', False)
+        
         a = np.zeros((3,))
 
+        if progress_bar:
+            progress = progressBar()
+            
         def dydt(t, y):
+            if progress_bar:
+                progress.update(t/t_span[1])
+                
             return np.concatenate((self.drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
 
         self.sol = solve_ivp(dydt, t_span,
                              np.concatenate((self.rho0, self.v0, self.r0)),
                              **kwargs)
 
+        if progress_bar:
+            # Just in case the solve_ivp_random terminated due to an event.
+            progress.update(1.)
+            
         # Remake the solution:
         self.reshape_sol()
 
