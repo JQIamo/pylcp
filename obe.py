@@ -851,7 +851,8 @@ class obe():
         rel = kwargs.pop('rel', 1e-5)
         abs = kwargs.pop('abs', 1e-9)
         debug = kwargs.pop('debug', False)
-
+        return_details = kwargs.pop('return_details', False)
+        
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
         if debug:
@@ -891,16 +892,19 @@ class obe():
                                                        self.sol.v[:, -1])
                 ii+=1
 
-        f_mag = np.mean(f_mag, axis=1)
+        if return_details:
+            f_mag = np.mean(f_mag, axis=1)
 
-        f_laser_avg = {}
-        f_laser_avg_q = {}
-        for key in f_laser:
-            f_laser_avg[key] = np.mean(f_laser[key], axis=2)
-            f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
+            f_laser_avg = {}
+            f_laser_avg_q = {}
+            for key in f_laser:
+                f_laser_avg[key] = np.mean(f_laser[key], axis=2)
+                f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
-        Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
-        return (f_avg, f_laser_avg, f_laser_avg_q, f_mag, Neq, ii)
+            Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
+            return (f_avg, f_laser_avg, f_laser_avg_q, f_mag, Neq, ii)
+        else:
+            return f_avg
 
 
     def generate_force_profile(self, R, V,  **kwargs):
@@ -956,7 +960,8 @@ class obe():
                     kwargs['deltat'] = deltat_tmax
                 else:
                     kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
-
+                    
+            kwargs['return_details'] = True
             F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
