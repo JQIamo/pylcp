@@ -61,7 +61,8 @@ class heuristiceq(object):
         # Finally, handle optional arguments:
         self.mass = kwargs.pop('mass', 100)
         self.gamma = kwargs.pop('gamma', 1)
-
+        self.k = kwargs.pop('k', 1)
+        
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
 
@@ -141,9 +142,11 @@ class heuristiceq(object):
                 ))
 
         def random_recoil(t, y, dt):
+            num_of_scatters = 0
             total_P = np.sum(self.R)*dt
-            if np.rand(1)<total_P:
+            if np.random.rand(1)<total_P:
                 y[0:3] += self.k/self.mass*random_vector()
+                num_of_scatters += 1
 
             new_dt_max = (max_scatter_probability/total_P)*dt
 
@@ -167,7 +170,17 @@ class heuristiceq(object):
         self.sol.r = self.sol.y[3:]
         self.sol.v = self.sol.y[:3]
 
-
+    
+    def find_equilibrium_force(self, **kwargs):
+        return_details = kwargs.pop('return_details', False)
+        
+        F, F_laser = self.force(self.r0, self.v0, t=0.)
+        
+        if return_details:
+            return F, F_laser, self.R
+        else:
+            return F
+        
     def generate_force_profile(self, R, V,  **kwargs):
         """
         Method that maps out the equilbirium forces:
