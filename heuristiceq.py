@@ -124,6 +124,7 @@ class heuristiceq(object):
     def evolve_motion(self, t_span, **kwargs):
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
         random_recoil_flag = kwargs.pop('random_recoil', False)
+        random_force_flag = kwargs.pop('random_force', False)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
 
@@ -140,6 +141,12 @@ class heuristiceq(object):
                 1/self.mass*F*free_axes + self.constant_accel,
                 y[0:3]
                 ))
+        
+        def dydt_random_force(t, y):
+            if progress_bar:
+                progress.update(t/t_span[1])
+
+            return np.concatenate((self.constant_accel, y[0:3]))
 
         def random_recoil(t, y, dt):
             num_of_scatters = 0
@@ -153,9 +160,29 @@ class heuristiceq(object):
 
             return (num_of_scatters, new_dt_max)
 
-        if not random_recoil_flag:
+        def random_force(t, y, dt):
+            R, kvecs = self.scattering_rate(y[3:6], y[0:3], t, return_kvecs=True)
+
+            num_of_scatters = 0
+            for kvec in kvecs[np.random.rand(len(R))<R*dt]:
+                y[-6:-3] += kvec/self.mass
+                y[-6:-3] += self.k/self.mass*random_vector(free_axes)
+                
+                num_of_scatters += 1
+
+            total_P = np.sum(self.R)*dt
+            new_dt_max = (max_scatter_probability/total_P)*dt
+
+            return (num_of_scatters, new_dt_max)
+        
+        if not random_recoil_flag and not random_force_flag:
             self.sol = solve_ivp(
                 dydt, t_span, np.concatenate((self.v0, self.r0)),
+                **kwargs)
+        elif random_force_flag:
+            self.sol = solve_ivp_random(
+                dydt_random_force, random_force, t_span,
+                np.concatenate((self.v0, self.r0)),
                 **kwargs)
         else:
             self.sol = solve_ivp_random(
