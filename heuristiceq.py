@@ -17,12 +17,12 @@ class heuristiceq(object):
         elif len(args) == 2:
             self.constant_accel = np.array([0., 0., 0.])
         elif len(args) == 3:
-            if not isinstance(args[3], np.ndarray):
+            if not isinstance(args[2], np.ndarray):
                 raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
+            elif args[2].size != 3:
                 raise ValueError('Constant acceleration must have length 3.')
             else:
-                self.constant_accel = args[3]
+                self.constant_accel = args[2]
         else:
             raise ValueError('No more than four positional arguments accepted.')
 
