@@ -532,10 +532,12 @@ class rateeq(object):
         y0 = np.concatenate((self.N0, self.v0, self.r0))
         if random_force_flag:
             self.sol = solve_ivp_random(motion, random_force, t_span, y0,
-                                        max_step=0.01, **kwargs)
+                                        initial_max_step=max_scatter_probability,
+                                        **kwargs)
         elif random_recoil_flag:
             self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
-                                        max_step=0.01, **kwargs)
+                                        initial_max_step=max_scatter_probability,
+                                        **kwargs)
         else:
             self.sol = solve_ivp(motion, t_span, y0, **kwargs)
 

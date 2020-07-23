@@ -183,11 +183,13 @@ class heuristiceq(object):
             self.sol = solve_ivp_random(
                 dydt_random_force, random_force, t_span,
                 np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
                 **kwargs)
         else:
             self.sol = solve_ivp_random(
                 dydt, random_recoil, t_span,
                 np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
                 **kwargs
                 )
 
