@@ -117,50 +117,92 @@ class rateeq(object):
                 if not beam.beta_sig is None and 't' in beam.beta_sig:
                     self.tdepend['beta'] = True"""
 
+        # Set up two dictionaries that are useful for both random forces and
+        # random recoils:
+        self.decay_rates = {}
+        self.decay_N_indices = {}
+        
         # If the matrix is diagonal, we get to do something cheeky.  Let's just
         # construct the decay part of the evolution once:
         if np.all(self.hamiltonian.diagonal):
             self.construct_evolution_matrix_decay(self.hamiltonian)
 
+        # Save the recoil velocity for the relevant transitions:
+        self.recoil_velocity = {}
+        for key in self.hamiltonian.laser_keys:
+            self.recoil_velocity[key] = \
+                self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
+                /self.hamiltonian.mass
+        
         # Reset the current solution to
         self.set_initial_position_and_velocity(r, v)
 
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
+
     def construct_evolution_matrix_decay(self, rotated_ham):
+        """
+        Constructs the decay portion of the evolution matrix.
+        
+        Parameters
+        ----------
+        rotated_ham: pylcp.hamiltonian object
+            The diagonalized hamiltonian with rotated d_q matrices
+        """
         self.Rev_decay = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
 
         # Go through each of the blocks and calculate the decay rate
         # contributions to the rate equations.  This would be simpler with
         # rotated_ham.make_full_matrices(), but I would imagine it would
         # be significantly slower.
-        for ll, block in enumerate(np.diagonal(rotated_ham.blocks)):
-            n = sum(rotated_ham.ns[:ll])
+        
+        # Let's use the laser_keys dictionary to go through the non-zero d_q: 
+        for key in self.hamiltonian.laser_keys:
+            # The index of the current d_q matrix:
+            ind = rotated_ham.laser_keys[key]
+            
+            # Grab the block of interest:
+            d_q_block = rotated_ham.blocks[ind]
+                
+            # The offset index for the lower states:
+            noff = int(np.sum(rotated_ham.ns[:ind[0]]))
+            # The offset index for the higher states:
+            moff = int(np.sum(rotated_ham.ns[:ind[1]]))
+            
+            # The number of lower states:
+            n = rotated_ham.ns[ind[0]]
+            # The number of higher states:
+            m = rotated_ham.ns[ind[1]]
+            
+            # Calculate the decay of the states attached to this block:
+            gamma = d_q_block.parameters['gamma']
+            k = d_q_block.parameters['k']
+            
+            # Let's see if we can avoid a for loop here:
+#             for jj in range(rotated_ham.ns[ll]):
+#                 self.Rev_decay[n+jj, n+jj] -= gamma*\
+#                             np.sum(np.sum(abs2(
+#                                 other_block.matrix[:, :, jj]
+#                             )))
+            # Save the decay rates out of the excited state:
+            self.decay_rates[key] = gamma*np.sum(abs2(
+                d_q_block.matrix[:, :, :]
+            ), axis=(0,1))
+        
+            # Save the indices for the excited states of this d_q block
+            # for the random_recoil function:
+            self.decay_N_indices[key] = np.arange(moff, moff+m)
+            
+            # Add (more accurately, subtract) these decays to the evolution matrix:
+            self.Rev_decay[(np.arange(moff, moff+m), np.arange(moff, moff+m))] -= \
+            self.decay_rates[key]
 
-            # Calculate the decays first, provided we are not in the lowest
-            # manifold:
-            if ll>0:
-                for mm, other_block in enumerate(rotated_ham.blocks[:ll, ll]):
-                    if not other_block is None:
-                        gamma = other_block.parameters['gamma']
-                        for jj in range(rotated_ham.ns[ll]):
-                            self.Rev_decay[n+jj, n+jj] -= gamma*\
-                            np.sum(np.sum(abs2(
-                                other_block.matrix[:, :, jj]
-                            )))
-
-            # Calculate the decays into of the manifold, provided we are not
-            # in the most excited one:
-            if ll<len(rotated_ham.ns)-1:
-                for mm, other_block in enumerate(rotated_ham.blocks[ll, ll+1:]):
-                    if not other_block is None:
-                        gamma = other_block.parameters['gamma']
-                        m = sum(rotated_ham.ns[:ll+1+mm])
-                        self.Rev_decay[n:n+rotated_ham.ns[ll],
-                                       m:m+other_block.m] += \
-                        gamma*np.sum(abs2(other_block.matrix), axis=0)
-
+            # Now calculate the decays into the lower state connected by this
+            # d_q:
+            self.Rev_decay[noff:noff+n, moff:moff+m] += \
+                        gamma*np.sum(abs2(d_q_block.matrix), axis=0)
+            
         return self.Rev_decay
 
 
@@ -189,7 +231,6 @@ class rateeq(object):
 
         # Diagonalize at Bmag.  This is required if the Hamiltonian has any
         # non-diagonal elements of the Hamiltonian that are dependent on Bz.
-        # This occurs, for example, with atoms in the large
         rotated_ham = self.hamiltonian.diag_static_field(Bmag)
         if not np.all(self.hamiltonian.diagonal):
             # Reconstruct the decay matrix to match this new field.
@@ -201,18 +242,23 @@ class rateeq(object):
         self.Rijl = {}
 
         for key in self.laserBeams:
-            # Extract the relevant dijq matrix:
+            # Extract the relevant d_q matrix:
             ind = rotated_ham.laser_keys[key]
-            dijq = rotated_ham.blocks[ind].matrix
+            d_q = rotated_ham.blocks[ind].matrix
             gamma = self.hamiltonian.blocks[ind].parameters['gamma']
 
             # Extract the energies:
             E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
             E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
 
+            """
+            Eu, El = np.meshgrid(np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix),
+                                 np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix))
+            """
+            
             # Initialize the pumping matrix:
             self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
-                                      dijq.shape[1:])
+                                      d_q.shape[1:])
 
             # Grab the laser parameters:
             kvecs = self.laserBeams[key].kvec(r, t)
@@ -223,9 +269,9 @@ class rateeq(object):
 
             # Loop through each laser beam driving this transition:
             for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
-                for ii in range(dijq.shape[1]):
-                    for jj in range(dijq.shape[2]):
-                        fijq = np.abs(np.dot(dijq[:, ii, jj], proj[::-1]))**2
+                for ii in range(d_q.shape[1]):
+                    for jj in range(d_q.shape[2]):
+                        fijq = np.abs(np.dot(d_q[:, ii, jj], proj[::-1]))**2
                         if fijq > 0:
                             # Finally, calculate the scattering rate the polarization
                             # onto the appropriate basis:
@@ -235,6 +281,12 @@ class rateeq(object):
                             self.Rijl[key][ll, ii, jj] = gamma*beta/2*\
                                 fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2/gamma**2)
+            
+            # Loop through each laser beam driving this transition:
+            """for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
+                fijq = np.abs(np.sum(d_q*proj[::-1].reshape(3,1,1)))**2
+                self.Rijl[key][ll] = gamma*beta/2*\
+                    fijq/(1 + 4*(-(Eu - El) + delta - np.dot(kvec, v))**2/gamma**2)"""
 
             # Now add the pumping rates into the rate equation propogation matrix:
             n = sum(rotated_ham.ns[:ind[0]])
@@ -371,7 +423,7 @@ class rateeq(object):
         """
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
         random_recoil_flag = kwargs.pop('random_recoil', False)
-        random_force_flag = kwargs.pop('random_recoil', False)
+        random_force_flag = kwargs.pop('random_force', False)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
         record_force = kwargs.pop('record_force', False)
@@ -418,12 +470,13 @@ class rateeq(object):
             return dydt
 
         def random_force(t, y, dt):
-            scatter_dt_max = 1e11
+            total_P = 0
+            num_of_scatters = 0
 
-            # Grab self.Rijl and sum over all ij to get
+            # Go over all available keys:
             for key in self.laserBeams:
                 # Extract the pumping rate from each laser:
-                Rl = np.sum(np.sum(self.Rijl[key],axis=2), axis=1)
+                Rl = np.sum(self.Rijl[key], axis=(1,2))
 
                 # Calculate the probability to scatter a photon from the laser:
                 P = Rl*dt
@@ -432,37 +485,48 @@ class rateeq(object):
                 dice = np.random.rand(len(P))
 
                 # Give them kicks!
-                for ii, (P_i, dice_i) in enumerate(zip(P, dice)):
-                    if dice_i<P_i:
-                        y[-6:-3] += \
-                        recoil_velocity*self.laserBeams[key].beam_vector[ii].kvec
+                for ii in np.arange(len(Rl))[dice<P]:
+                    num_of_scatters += 1
+                    y[-6:-3] += self.laserBeams[key].beam_vector[ii].kvec(y[-3:], t)/\
+                                self.hamiltonian.mass
+                    # Can branch to a differe, lower state, but let's ignore that
+                    # for the moment.
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes))
 
-                scatter_dt_max = min(new_dt_max, np.amax(max_scatter_probability/Rl))
-
-            recoil_dt_max = random_recoil(t, y, dt)
-
-            return min(recoil_dt_max, scatter_dt_max)
+                total_P += np.sum(P)
+                
+            # Calculate a new maximum dt to make sure we evolve while not
+            # exceeding dt max:
+            new_dt_max = (max_scatter_probability/total_P)*dt
+            
+            return (num_of_scatters, new_dt_max)
 
 
         def random_recoil(t, y, dt):
-            # Calculate the probability that all excited states can decay.
-            # $P_i = Gamma_i dt n_i$, where $n_i$ is the population in state $i$
-            # TODO: currently gamma is considered to be unity:
-            P = np.abs(y[self.hamiltonian.ns[0]:-6]*dt)
+            num_of_scatters = 0
+            total_P = 0.
 
-            # Roll the dice N times, where $N=\sum(n_i)
-            dice = np.random.rand(len(P))
+            # Go over each block in the Hamiltonian and compute the decay:
+            for key in self.decay_rates:
+                P = dt*self.decay_rates[key]*y[self.decay_N_indices[key]]
 
-            # For any random number that is lower than P_i, add a recoil velocity.
-            # TODO: There are potential problems in the way the kvector is defined.
-            # The first is the k-vector is defined in the laser beam (not in the
-            # Hamiltonian).  The second is that we should break this out according
-            # to laser beam in case they do have different k-vectors.
-            num_of_scatters = np.sum(dice<P)
-            for ii in range(num_of_scatters):
-                y[-6:-3] += recoil_velocity*(random_vector(free_axes)+random_vector(free_axes))
+                # Roll the dice N times, where $N=\sum(n_i)
+                dice = np.random.rand(len(P))
 
-            new_dt_max = (max_scatter_probability/np.sum(P))*dt
+                # For any random number that is lower than P_i, add a
+                # recoil velocity.
+                for ii in range(np.sum(dice<P)):
+                    num_of_scatters += 1
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes)+
+                                                           random_vector(free_axes))
+
+                # Save the total probability of a scatter:
+                total_P += np.sum(P)
+                
+            # Calculate a new maximum dt to make sure we evolve while not
+            # exceeding dt max:
+            new_dt_max = (max_scatter_probability/total_P)*dt
+            
             return (num_of_scatters, new_dt_max)
 
         y0 = np.concatenate((self.N0, self.v0, self.r0))
