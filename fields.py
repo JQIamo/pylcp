@@ -1,11 +1,9 @@
 import numpy as np
 from inspect import signature
 from pylcp.common import cart2spherical, spherical2cart
+from scipy.spatial.transform import Rotation
 
 import numba
-
-# Edits
-from math import pi
 
 @numba.njit
 def dot2D(a, b):
@@ -36,7 +34,7 @@ def return_constant_vector(R, t, vector):
     else:
         raise ValueError('The first dimension of R should have length 3, ' +
                          'not %d.'% R.shape[0])
-        
+
 def return_constant_val_t(t, val):
     if isinstance(t, np.ndarray):
         return val*np.ones(t.shape)
@@ -49,7 +47,7 @@ def promote_to_lambda(val, var_name=None, type='Rt'):
             if isinstance(val, list) or isinstance(val, np.ndarray):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_vector(R, t, val)
             else:
-                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)        
+                func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_val(R, t, val)
             sig = '()'
         else:
             sig = str(signature(val))
@@ -97,15 +95,31 @@ def return_dx_dy_dz(R, eps):
 
 class magField(object):
     """
-    An object the calculates relevant properties of a static, magnetic field.
+    Base magnetic field class
+
+    Parameters
+    ----------
+    field : array_like with shape (3,) or callable
+        If constant, the magnetic field vector, specified as either as an array_like
+        with shape (3,).  If a callable, it must have a signature like (R, t), (R),
+        or (t) where R is an array_like with shape (3,) and t is a float and it
+        must return an array_like with three elements.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-5`.
+
+    Attributes
+    ----------
+    eps : float
+        small epsilon used for computing derivatives
     """
-    def __init__(self, func, eps=1e-5):
+    def __init__(self, field, eps=1e-5):
         self.eps = eps
 
         R = np.random.rand(3) # Pick a random point for testing
 
         # Promote it to a lambda func:
-        self.Field, self.FieldSig = promote_to_lambda(func, var_name='for field')
+        self.Field, self.FieldSig = promote_to_lambda(field, var_name='for field')
 
         # Try it out:
         response = self.Field(R, 0.)
@@ -114,9 +128,41 @@ class magField(object):
             raise ValueError('Magnetic field function must return a vector.')
 
     def FieldMag(self, R=np.array([0., 0., 0.]), t=0):
+        """
+        Magnetic field magnitude at R and t:
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        B : float
+            the magnetic field mangitude at position R and time t.
+        """
         return np.linalg.norm(self.Field(R, t))
 
     def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
+        """
+        Gradient of the magnetic field magnitude at R and t:
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        dB : array_like, shape (3,)
+            the gradient of the magnetic field magnitude at position R and time t.
+        """
         dx, dy, dz = return_dx_dy_dz(R, self.eps)
 
         return np.array([
@@ -126,6 +172,25 @@ class magField(object):
             ])
 
     def gradField(self, R=np.array([0., 0., 0.]), t=0):
+        """
+        Full spaitial derivative of the magnetic field at R and t:
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        dB : array_like, shape (3, 3)
+            the full gradient of the magnetic field, with elements
+            [[dBx/dx, dBy/dx, dBz/dx],
+             [dBx/dy, dBy/dy, dBz/dy],
+             [dBx/dz, dBy/dz, dBz/dz]]
+        """
         dx, dy, dz = return_dx_dy_dz(R, self.eps)
 
         return np.array([
@@ -134,8 +199,53 @@ class magField(object):
             (self.Field(R+dz, t) - self.Field(R-dz, t))/2/self.eps
             ])
 
+class iPMagneticField(magField):
+    def __init__(self, B0, B1, B2, eps = 1e-5):
+        super().__init__(lambda R, t: np.array([B1*R[0]-B2*R[0]*R[2]/2, -R[1]*B1-B2*R[1]*R[2]/2, B0+B2/2*(R[2]**2 - (R[0]**2+R[1]**2)/2)]))
+        self.B0 = B0
+        self.B1 = B1
+        self.B2 = B2
+        
+    #Analytical form, not numerical for this and gradField
+    def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
+        a = self.B0
+        b = self.B1
+        c = self.B2
+        x = R[0]
+        y = R[1]
+        z = R[2]
+        mag = self.FieldMag(R, t)
+        xcom = 0.5*(2*b**2*x-a*c*x+(c**2)*(x**3)/4+(c**2)*(y**2)*x/4-2*b*c*z*x)/mag
+        ycom = 0.5*(2*b**2*(y)-a*c*y+(c**2)*(x**2)*y/4 + (c**2)*(y**3)/4+2*b*c*z*y)/mag
+        zcom = 0.5*(0-b*c*(x**2)+b*c*(y**2)+2*a*c*z+(c**2)*(z**3))/mag
+        return np.array([xcom, ycom, zcom])
 
+    def gradField(self, R=np.array([0., 0., 0.]), t=0):
+        B0 = self.B0
+        B1 = self.B1
+        B2 = self.B2
+        x = R[0]
+        y = R[1]
+        z = R[2]
+        xcom = np.array([B1-B2*z/2, 0, -B2*x/2])
+        ycom = np.array([0, -B1-B2*z/2, B2*y/2])
+        zcom = np.array([-B2*x/2, -B2*y/2, B2*z])
+        
+        return np.array([
+            np.array([B1-B2*z/2, 0, -B2*x/2]),
+            np.array([0, -B1-B2*z/2, B2*y/2]),
+            np.array([-B2*x/2, -B2*y/2, B2*z])
+            ])
+
+    
 class constantMagneticField(magField):
+    """
+    Spatially constant magnetic field class
+
+    Parameters
+    ----------
+    field : array_like with shape (3,)
+    """
     def __init__(self, val):
         super().__init__(lambda R, t: val)
 
@@ -150,6 +260,14 @@ class constantMagneticField(magField):
 
 
 class quadrupoleMagneticField(magField):
+    """
+    Spherical quadrupole  magnetic field class
+
+    Parameters
+    ----------
+    alpha : float
+        strength of the magnetic field gradient.
+    """
     def __init__(self, alpha, eps=1e-5):
         super().__init__(lambda R, t: alpha*np.array([-0.5*R[0], -0.5*R[1], R[2]]))
         self.alpha = alpha
@@ -160,10 +278,57 @@ class quadrupoleMagneticField(magField):
     def gradField(self, R=np.array([0., 0., 0.]), t=0):
         return self.constant_grad_field
 
+
+    
 # First, define the laser beam class:
 class laserBeam(object):
     def __init__(self, kvec=None, beta=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
+        """
+        Base laser beam class, for a single laser beam
+
+        Parameters
+        ----------
+        kvec : array_like with shape (3,) or callable
+            The k-vector of the laser beam, specified as either a three-element
+            list or numpy array or as callable function.  If a callable, it
+            must have a signature like (R, t), (R), or (t) where R is an array_like with
+            shape (3,) and t is a float and it must return an array_like with three
+            elements.
+        pol : int, float, array_like with shape (3,), or callable
+            The polarization of the laser beam, specified as either an integer, float
+            array_like with shape(3,), or as callable function.  If an integer or float,
+            if `pol<0` the polarization will be left circular polarized relative to
+            the k-vector of the light.  If `pol>0`, the polarization will be right
+            circular polarized.  If array_like, polarization will be specified by the
+            vector, whose basis is specified by `pol_coord`. If a callable, it must
+            have a signature like (R, t), (R), or (t) where R is an array_like with
+            shape (3,) and t is a float and it must return an array_like with three
+            elements.
+        beta : float or callable
+            The intensity of the laser beam, specified as either a float or as
+            callable function.  If a callable, it must have a signature
+            like (R, t), (R), or (t) where R is an array_like with shape (3,) and
+            t is a float and it must return a float.
+        delta: float or callable
+            Detuning of the laser beam.  If a callable, it must have a
+            signature like (t) where t is a float and it must return a float.
+        phase : float, optional
+            Phase of laser beam.  By default, zero.
+        pol_coord : string, optional
+            Polarization basis of the input polarization vector: 'cartesian' (default)
+            or 'spherical'.
+        eps : float, optional
+            Small distance to use in calculation of numerical derivatives.  By default
+            `eps=1e-4`.
+
+        Attributes
+        ----------
+        eps : float
+            Small epsilon used for computing derivatives
+        phase : float
+            Overall phase of the laser beam.
+        """
         # Promote it to a lambda func:
         if not kvec is None:
             self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
@@ -188,13 +353,12 @@ class laserBeam(object):
 
     def __parse_constant_polarization(self, pol, pol_coord):
         if isinstance(pol, float) or isinstance(pol, int):
-            """
-            If the polarization is defined by just a single number (+/-1),
-            we assume that the polarization is defined as sigma^+ or sigma^-
-            using the k-vector of the light as the axis defining z.  In this
-            case, we want to project onto the actual z axis, which is
-            relatively simple as there is only one angle.
-            """
+            # If the polarization is defined by just a single number (+/-1),
+            # we assume that the polarization is defined as sigma^+ or sigma^-
+            # using the k-vector of the light as the axis defining z.  In this
+            # case, we want to project onto the actual z axis, which is
+            # relatively simple as there is only one angle.
+
             # Set the polarization in this direction:
             if np.sign(pol)<0:
                 self.pol = np.array([1., 0., 0.], dtype='complex')
@@ -205,7 +369,8 @@ class laserBeam(object):
             self.pol, self.pol_sig = promote_to_lambda(self.pol, var_name='polarization')
 
             # Project onto the actual k-vector:
-            self.pol = self.project_pol(self.kvec(), invert=True).astype('complex128')
+            self.pol = self.project_pol(self.kvec()/np.linalg.norm(self.kvec()),
+                                        invert=True).astype('complex128')
 
         elif isinstance(pol, np.ndarray):
             if pol.shape != (3,):
@@ -242,12 +407,61 @@ class laserBeam(object):
 
 
     def kvec(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the k-vector of the laser beam
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        kvec : array_like, size(3,)
+            the k vector at position R and time t.
+        """
         pass
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the intensity of the laser beam at position R and t
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        beta : saturation parameter of the laser beam at R and t.
+        """
         pass
 
     def pol(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the polarization of the laser beam at position R and t
+
+        The polarization is returned in the spherical basis.
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, size (3,)
+            polarization of the laser beam at R and t in spherical basis.
+        """
         pass
 
     def delta(self, t=0.):
@@ -257,28 +471,37 @@ class laserBeam(object):
     def project_pol(self, quant_axis, R=np.array([0., 0., 0.]), t=0,
                     treat_nans=False, calculate_norm=False, invert=False):
         """
-        This method projects the polarization of the laser onto the quantization
-        axis.  The polarization is stored in the Wigner spherical basis.  Takes
-        two arguments:
-            quant_axis: A normalized 3-vector of the quantization axis direction.
-            R: if polarization is a function (dependent on space), R is the
+        Project the polarization onto a quantization axis.
+
+        Parameters
+        ----------
+        quant_axis : array_like, shape (3,)
+            A normalized 3-vector of the quantization axis direction.
+        R : array_like, shape (3,), optional
+            If polarization is a function of R is the
             3-vectors at which the polarization shall be calculated.
-            calculate_norm: renormalizes the quant_axis.
-            treat_nans: every place that nan is encoutnered, replace with the
-            hat{z} axis as the quantization axis.
+        calculate_norm : bool, optional
+            If true, renormalizes the quant_axis.  By default, False.
+        treat_nans : bool, optional
+            If true, every place that nan is encoutnered, replace with the
+            $hat{z}$ axis as the quantization axis.  By default, False.
+        invert : bool, optional
+            If true, invert the process to project the quantization axis
+            onto the specified polarization.
+
+        Returns
+        -------
+        projected_pol : array_like, shape (3,)
+            The polarization projected onto the quantization axis.
         """
 
-        """
-        First, return the polarization at the desired R and t.
-        """
+        # First, return the polarization at the desired R and t.
         pol = self.pol(R, t)
 
-        """
-        Second, check the quanitization axis if specified by the user.  The fun
-        thing here is that we may only need to do this once, since it should
-        overwrite the original variable with the improper quant_axis with the
-        proper one.
-        """
+        # Second, check the quanitization axis if specified by the user.  The fun
+        # thing here is that we may only need to do this once, since it should
+        # overwrite the original variable with the improper quant_axis with the
+        # proper one.
         if calculate_norm:
             quant_axis2 = np.zeros(quant_axis.shape)
             quant_axis[2] = 1.0  # Make the third entry all ones.
@@ -295,14 +518,12 @@ class laserBeam(object):
                 else:
                     quant_axis[ii][np.isnan(quant_axis[-1])] = 1.0
 
-        """
-        To project the full three-vector, we want to determine the Euler
-        angles alpha, beta, and gamma that rotate the z-axis into the
-        quantization axis.  The final Euler angle, gamma, only sets the
-        phase of the -1 to +1 component, so it does not have any physical
-        meaning for the rate equations (where we expect this method to
-        mostly be used.)  Thus, we just set that angle equal to zero here.
-        """
+        # To project the full three-vector, we want to determine the Euler
+        # angles alpha, beta, and gamma that rotate the z-axis into the
+        # quantization axis.  The final Euler angle, gamma, only sets the
+        # phase of the -1 to +1 component, so it does not have any physical
+        # meaning for the rate equations (where we expect this method to
+        # mostly be used.)  Thus, we just set that angle equal to zero here.
         cosbeta = quant_axis[2]
         sinbeta = np.sqrt(1-cosbeta**2)
         if isinstance(cosbeta, (float, int)):
@@ -352,14 +573,46 @@ class laserBeam(object):
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
         """
         Returns the polarization in Cartesian coordinates.
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, size (3,)
+            polarization of the laser beam at R and t in Cartesian basis.
         """
+
         pol = self.pol(R, t)
         return spherical2cart(pol)
 
     def jones_vector(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
         """
-        Returns the 2-element Jones vector, using the orthogonal three-vectors
-        xp and yp to define the two orthogoanl polarization axes.
+        Returns the Jones vector at position
+
+        Parameters
+        ----------
+        xp : array_like, shape (3,)
+            The x vector of the basis in which to calculate the Jones vector.
+            Must be orthogonal to k.
+        yp : array_like, shape (3,)
+            The y vector of the basis in which to calculate the Jones vector.
+            Must be orthogonal to k and `xp`.
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, size (2,)
+            Jones vector of the laser beam at R and t in Cartesian basis.
         """
         # First, run some basic checks.
         if np.abs(np.dot(xp, yp)) > 1e-10:
@@ -382,7 +635,26 @@ class laserBeam(object):
 
     def stokes_parameters(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
         """
-        Returns the Stokes parameters.
+        The Stokes Parameters of the laser beam at R and t
+
+        Parameters
+        ----------
+        xp : array_like, shape (3,)
+            The x vector of the basis in which to calculate the Stokes parameters.
+            Must be orthogonal to k.
+        yp : array_like, shape (3,)
+            The y vector of the basis in which to calculate the Stokes parameters.
+            Must be orthogonal to k and `xp`.
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, shape (3,)
+            Stokes parameters for the laser beam, [Q, U, V]
         """
         jones_vector = self.jones_vector(xp, yp, R, t)
 
@@ -395,7 +667,21 @@ class laserBeam(object):
 
     def polarization_ellipse(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
         """
-        Returns the polarization in terms of the polarization ellipse.
+        The polarization ellipse parameters of the laser beam at R and t
+
+        Parameters
+        ----------
+        xp : array_like, shape (3,)
+            The x vector of the basis in which to calculate the polarization ellipse.
+            Must be orthogonal to k.
+        yp : array_like, shape (3,)
+            The y vector of the basis in which to calculate the polarization ellipse.
+            Must be orthogonal to k and `xp`.
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
         """
         Q, U, V = self.stokes_parameters(xp, yp, R, t)
 
@@ -413,16 +699,27 @@ class laserBeam(object):
 
     def electric_field(self, R, t):
         """
-        Returns the electric field of the laser beam at position R and time t.
-        More specifically, this function returns E^\dagger, or so it would
-        appear.
+        The electric field at position R and t
+
+        Parameters
+        ----------
+        R : array_like, size (3,)
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        Eq : array_like, shape (3,)
+            electric field in the spherical basis.
         """
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
         pol = self.pol(R, t)
         delta = self.delta(t)
 
-        amp = np.sqrt(beta/2)
+        amp = np.sqrt(2*beta)
 
         if isinstance(t, float):
             Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
@@ -435,8 +732,23 @@ class laserBeam(object):
 
     def electric_field_gradient(self, R, t):
         """
-        Returns the gradient of the electric field of the laser beam at
-        position R and time t by numerical computation.
+        The full derivative of electric field at position R and t
+
+        Parameters
+        ----------
+        R : array_like, size (3,)
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float
+            time at which to return the k-vector.  By default, t=0.
+
+        Returns
+        -------
+        dEq : array_like, shape (3, 3)
+            The full gradient of the electric field:
+            [[dE_{-1}/dx, dE_{0}/dx, dE_{1}/dx],
+             [dE_{-1}/dy, dE_{0}/dy, dE_{1}/dy],
+             [dE_{-1}/dz, dE_{0}/dz, dE_{1}/dz]]
         """
         (dx, dy, dz) = return_dx_dy_dz(R, self.eps)
         delEq = np.array([
@@ -471,14 +783,12 @@ class infinitePlaneWaveBeam(laserBeam):
         self.con_beta = beta
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
         # Define attributes to speed up gradient calculation:
-        self.amp = np.sqrt(self.con_beta/2)
+        self.amp = np.sqrt(2*self.con_beta)
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
                               self.con_pol.reshape(1, 3))
 
     def electric_field_gradient(self, R, t):
-        """
-        With an infinite plane wave, the derivative is simple.
-        """
+        # With a plane wave, this is simple:
         delta = self.delta(t)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
@@ -492,8 +802,7 @@ class infinitePlaneWaveBeam(laserBeam):
 
 
 class gaussianBeam(laserBeam):
-    # Created z and wavelength with dummy initial values
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., z=1., wavelength=1., **kwargs):
+    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
@@ -503,39 +812,30 @@ class gaussianBeam(laserBeam):
         # Use super class to define kvec(R, t), pol(R, t), and delta(t)
         super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
 
-        # We might need to edit these later on because it changes in reality...
         # Save the constant values (might be useful):
-        self.con_kvec = kvec 
+        self.con_kvec = kvec
+        self.con_khat = kvec/np.linalg.norm(kvec)
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
         # Save the parameters specific to the Gaussian beam:
         self.beta_max = beta # central saturation parameter
         self.wb = wb # 1/e^2 radius
         self.define_rotation_matrix()
-        
-        # Edits
-        self.z = z
-        self.wavelength = wavelength
-        
+
     def define_rotation_matrix(self):
         # Angles of rotation:
-        th = np.arccos(self.con_kvec[2])
-        phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
-        # square the rotation to save operation in beta
-        self.rvals = np.array([np.cos(th)*np.cos(phi) - np.sin(phi),\
-                               np.cos(phi) + np.cos(th)*np.sin(phi),\
-                               -np.sin(th)])**2
-    
-    # Edits
-    def rayleigh_length(self):
-        return pi*self.wb**2/self.wavelength
+        th = np.arccos(self.con_khat[2])
+        phi = np.arctan2(self.con_khat[1], self.con_khat[0])
         
-    def beam_radius(self):
-        return self.wb*(1+(self.z/self.rayleigh_length())**2)**0.5
+        # Use scipy to define the rotation matrix
+        self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
 
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        return self.beta_max*((self.wb**2)/(self.beam_radius()**2))*np.exp(-2*np.einsum('i,i...->...',self.rvals,\
-                                                  R**2)/self.wb**2)
+        # Rotate up to the z-axis where we can apply formulas:
+        Rp = np.einsum('ij,j...->i...', self.rmat, R)
+        rho_sq=np.sum(Rp[:2]**2, axis=0)
+        # Return the intensity:
+        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
 
 
 class clippedGaussianBeam(gaussianBeam):
@@ -548,15 +848,24 @@ class clippedGaussianBeam(gaussianBeam):
         """
         beta for the slightly more advanced, `clipped' Gaussian beam.
         """
-        rho_sq = np.einsum('i,i...->...',self.rvals, R**2)
-
+        Rp = np.einsum('ij,j...->i...', self.rmat, R)
+        rho_sq = np.sum(Rp[:2]**2, axis=0)
         return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
 
 
 class laserBeams(object):
     """
-    Class laserBeams is a collection of laserBeams.  It extends the
-    functionality and makes
+    A collection of laser beams.
+
+    Parameters
+    ----------
+    laserbeamparams : array_like of laserBeam or array_like of dictionaries
+        If array_like contains laserBeams, the laserBeams in the array will be joined
+        together to form a collection.  If array_like is a list of dictionaries, the
+        dictionaries will be passed as keyword arguments to beam_type
+    beam_type : laserBeam or laserBeam subclass, optional
+        Type of beam to use in the collection of laserBeams.  By default
+        `beam_type=laserBeam`.
     """
     def __init__(self, laserbeamparams=None, beam_type=laserBeam):
         if laserbeamparams is not None:
@@ -588,6 +897,13 @@ class laserBeams(object):
         return laserBeams(self.beam_vector + other.beam_vector)
 
     def add_laser(self, new_laser):
+        """
+        Add a laser to the collection
+
+        Parameters
+        ----------
+        new_laser : laserBeam or laserBeam subclass
+        """
         if isinstance(new_laser, laserBeam):
             self.beam_vector.append(new_laser)
             self.num_of_beams = len(self.beam_vector)
@@ -668,12 +984,73 @@ class laserBeams(object):
                 for beam in self.beam_vector]
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
+        """
+        Returns the polarization of all laser beams in Cartesian coordinates.
+
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the polarization.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the polarization.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, shape (num_of_beams, 3)
+            polarization of the laser beam at R and t in Cartesian basis.
+        """
         return [beam.cartesian_pol(R, t) for beam in self.beam_vector]
 
     def jones_vector(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
+        """
+        Jones vector at position R and time t
+
+        Parameters
+        ----------
+        xp : array_like, shape (3,)
+            The x vector of the basis in which to calculate the Jones vector.
+            Must be orthogonal to k.
+        yp : array_like, shape (3,)
+            The y vector of the basis in which to calculate the Jones vector.
+            Must be orthogonal to k and `xp`.
+        R : array_like, size (3,), optional
+            vector of the position at which to evaluate the Jones vector.  By default,
+            the origin.
+        t : float, optional
+            time at which to evaluate the Jones vector.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, size (num_of_beams, 2)
+            Jones vector of the laser beams at R and t in Cartesian basis.
+        """
+
         return [beam.jones_vector(xp, yp, R, t) for beam in self.beam_vector]
 
     def stokes_parameters(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
+        """
+        The Stokes Parameters of the laser beam at R and t
+
+        Parameters
+        ----------
+        xp : array_like, shape (3,)
+            The x vector of the basis in which to calculate the Stokes parameters.
+            Must be orthogonal to k.
+        yp : array_like, shape (3,)
+            The y vector of the basis in which to calculate the Stokes parameters.
+            Must be orthogonal to k and `xp`.
+        R : array_like, size (3,), optional
+            vector of the position at which to calculate the Stokes parameters.
+            By default, the origin.
+        t : float, optional
+            time at which to calculate the Stokes parameters.  By default, t=0.
+
+        Returns
+        -------
+        pol : array_like, shape (num_of_beams, 3)
+            Stokes parameters for the laser beams, [Q, U, V]
+        """
         return [beam.stokes_parameters(xp, yp, R, t) for beam in self.beam_vector]
 
     def polarization_ellipse(self, xp, yp, R=np.array([0., 0., 0.]), t=0):
@@ -682,17 +1059,26 @@ class laserBeams(object):
 
 class conventional3DMOTBeams(laserBeams):
     def __init__(self, *args, **kwargs):
+        """
+        pylcp.fields.convention3DMOTBeams(beam_type)
+        """
         super().__init__()
 
         beam_type = kwargs.pop('beam_type', laserBeam)
         pol = kwargs.pop('pol', +1)
-
-        self.add_laser(beam_type(np.array([ 1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([-1.,  0.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0., -1.,  0.]), -pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0.,  1.]), +pol, *args, **kwargs))
-        self.add_laser(beam_type(np.array([ 0.,  0., -1.]), +pol, *args, **kwargs))
+        kmag = kwargs.pop('k', 1.)
+        rotation_angles = kwargs.pop('rotation_angles', [0., 0., 0.])
+        rotation_spec = kwargs.pop('rotation_spec', 'ZYZ')
+        
+        rot_mat = Rotation.from_euler(rotation_spec, rotation_angles).as_matrix()
+        
+        kvecs = [np.array([ 1.,  0.,  0.]), np.array([-1.,  0.,  0.]),
+                 np.array([ 0.,  1.,  0.]), np.array([ 0., -1.,  0.]),
+                 np.array([ 0.,  0.,  1.]), np.array([ 0.,  0., -1.])]
+        pols = [-pol, -pol, -pol, -pol, +pol, +pol]
+        
+        for kvec, pol in zip(kvecs, pols):
+            self.add_laser(beam_type(rot_mat @ (kmag*kvec), pol, *args, **kwargs))
 
 
 if __name__ == '__main__':
