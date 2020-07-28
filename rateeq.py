@@ -121,7 +121,7 @@ class rateeq(object):
         # random recoils:
         self.decay_rates = {}
         self.decay_N_indices = {}
-        
+
         # If the matrix is diagonal, we get to do something cheeky.  Let's just
         # construct the decay part of the evolution once:
         if np.all(self.hamiltonian.diagonal):
@@ -133,7 +133,7 @@ class rateeq(object):
             self.recoil_velocity[key] = \
                 self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
                 /self.hamiltonian.mass
-        
+
         # Reset the current solution to
         self.set_initial_position_and_velocity(r, v)
 
@@ -144,7 +144,7 @@ class rateeq(object):
     def construct_evolution_matrix_decay(self, rotated_ham):
         """
         Constructs the decay portion of the evolution matrix.
-        
+
         Parameters
         ----------
         rotated_ham: pylcp.hamiltonian object
@@ -156,29 +156,29 @@ class rateeq(object):
         # contributions to the rate equations.  This would be simpler with
         # rotated_ham.make_full_matrices(), but I would imagine it would
         # be significantly slower.
-        
-        # Let's use the laser_keys dictionary to go through the non-zero d_q: 
+
+        # Let's use the laser_keys dictionary to go through the non-zero d_q:
         for key in self.hamiltonian.laser_keys:
             # The index of the current d_q matrix:
             ind = rotated_ham.laser_keys[key]
-            
+
             # Grab the block of interest:
             d_q_block = rotated_ham.blocks[ind]
-                
+
             # The offset index for the lower states:
             noff = int(np.sum(rotated_ham.ns[:ind[0]]))
             # The offset index for the higher states:
             moff = int(np.sum(rotated_ham.ns[:ind[1]]))
-            
+
             # The number of lower states:
             n = rotated_ham.ns[ind[0]]
             # The number of higher states:
             m = rotated_ham.ns[ind[1]]
-            
+
             # Calculate the decay of the states attached to this block:
             gamma = d_q_block.parameters['gamma']
             k = d_q_block.parameters['k']
-            
+
             # Let's see if we can avoid a for loop here:
 #             for jj in range(rotated_ham.ns[ll]):
 #                 self.Rev_decay[n+jj, n+jj] -= gamma*\
@@ -189,11 +189,11 @@ class rateeq(object):
             self.decay_rates[key] = gamma*np.sum(abs2(
                 d_q_block.matrix[:, :, :]
             ), axis=(0,1))
-        
+
             # Save the indices for the excited states of this d_q block
             # for the random_recoil function:
             self.decay_N_indices[key] = np.arange(moff, moff+m)
-            
+
             # Add (more accurately, subtract) these decays to the evolution matrix:
             self.Rev_decay[(np.arange(moff, moff+m), np.arange(moff, moff+m))] -= \
             self.decay_rates[key]
@@ -202,7 +202,7 @@ class rateeq(object):
             # d_q:
             self.Rev_decay[noff:noff+n, moff:moff+m] += \
                         gamma*np.sum(abs2(d_q_block.matrix), axis=0)
-            
+
         return self.Rev_decay
 
 
@@ -255,7 +255,7 @@ class rateeq(object):
             Eu, El = np.meshgrid(np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix),
                                  np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix))
             """
-            
+
             # Initialize the pumping matrix:
             self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
                                       d_q.shape[1:])
@@ -281,7 +281,7 @@ class rateeq(object):
                             self.Rijl[key][ll, ii, jj] = gamma*beta/2*\
                                 fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
                                              np.dot(kvec, v))**2/gamma**2)
-            
+
             # Loop through each laser beam driving this transition:
             """for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
                 fijq = np.abs(np.sum(d_q*proj[::-1].reshape(3,1,1)))**2
@@ -494,11 +494,11 @@ class rateeq(object):
                     y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes))
 
                 total_P += np.sum(P)
-                
+
             # Calculate a new maximum dt to make sure we evolve while not
             # exceeding dt max:
             new_dt_max = (max_scatter_probability/total_P)*dt
-            
+
             return (num_of_scatters, new_dt_max)
 
 
@@ -522,11 +522,11 @@ class rateeq(object):
 
                 # Save the total probability of a scatter:
                 total_P += np.sum(P)
-                
+
             # Calculate a new maximum dt to make sure we evolve while not
             # exceeding dt max:
             new_dt_max = (max_scatter_probability/total_P)*dt
-            
+
             return (num_of_scatters, new_dt_max)
 
         y0 = np.concatenate((self.N0, self.v0, self.r0))
@@ -546,7 +546,7 @@ class rateeq(object):
             progress.update(1.)
 
         # Rearrange the solution:
-        self.sol.N = self.sol.y[-6:]
+        self.sol.N = self.sol.y[:-6]
         self.sol.v = self.sol.y[-6:-3]
         self.sol.r = self.sol.y[-3:]
 
