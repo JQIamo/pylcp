@@ -1,5 +1,5 @@
 import numpy as np
-from pylcp.fields import laserBeams, infinitePlaneWaveBeam, clippedGaussianBeam
+from pylcp.fields import laserBeams, infinitePlaneWaveBeam, collimatedGaussianBeam
 import numba
 
 @numba.njit
@@ -252,7 +252,7 @@ class infiniteGratingMOTBeams(laserBeams):
 
         return output
 
-class inputGaussianBeam(clippedGaussianBeam):
+class inputGaussianBeam(collimatedGaussianBeam):
     def __init__(self, kvec=np.array([0, 0, 1]), beta=1., delta=-1.,
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  pol_coord='cartesian', wb=1., rs=2., nr=3, center_hole=0.0, zgrating=1.0, grating_angle=0, **kwargs):
@@ -310,7 +310,7 @@ class inputGaussianBeam(clippedGaussianBeam):
             return BETA
 
 
-class reflectedGaussianBeam(clippedGaussianBeam):
+class reflectedGaussianBeam(collimnatedGaussianBeam):
     def __init__(self, kvec=np.array([-1/np.sqrt(2), 0, -1/np.sqrt(2)]),
                  beta=1., delta=-1.,
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
