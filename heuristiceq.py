@@ -95,11 +95,10 @@ class heuristiceq(object):
         else:
             Bhat = B/np.linalg.norm(B)
 
-        kvecs = self.laserBeams['g->e'].kvec(r, t)
-        betas = self.laserBeams['g->e'].beta(r, t)
-        pols = self.laserBeams['g->e'].project_pol(Bhat, r, t)
-        deltas = self.laserBeams['g->e'].delta(t)
+        (kvecs, pols, betas, deltas) = self.laserBeams['g->e'].local_parameters(r, t)
 
+        pols = self.laserBeams['g->e'].project_pol(Bhat, R=r, t=t)
+        
         totbeta = np.sum(betas)
 
         for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
@@ -109,7 +108,7 @@ class heuristiceq(object):
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
         if return_kvecs:
-            return self.R, kvecs
+            return self.R, np.array(list(kvecs[:]))
         else:
             return self.R
 

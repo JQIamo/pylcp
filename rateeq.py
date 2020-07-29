@@ -261,9 +261,7 @@ class rateeq(object):
                                       d_q.shape[1:])
 
             # Grab the laser parameters:
-            kvecs = self.laserBeams[key].kvec(r, t)
-            betas = self.laserBeams[key].beta(r, t)
-            deltas = self.laserBeams[key].delta(t)
+            (kvecs, pols, betas, deltas) = self.laserBeams[key].local_parameters(r, t)
 
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 

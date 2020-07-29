@@ -467,7 +467,34 @@ class laserBeam(object):
 
     def delta(self, t=0.):
         pass
+    
+    
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the k-vector, polarization, intensity, and detuning of the laser
+        
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
 
+        Returns
+        -------
+        kvec : array_like, shape(3, ...)
+            the k vector at position R and time t.
+        pol : array_like, shape (3, ...)
+            polarization of the laser beam at R and t in spherical basis.
+        beta : float or array_like
+            saturation parameter of the laser beam at R and t.
+        det : float or array_like
+            laser beam detuning at t.
+        """
+        return (self.kvec(R, t), self.pol(R, t), self.beta(R, t), self.delta(t))
+
+    
     # TODO: add testing of kvec/pol orthogonality.
     def project_pol(self, quant_axis, R=np.array([0., 0., 0.]), t=0,
                     treat_nans=False, calculate_norm=False, invert=False):
@@ -715,10 +742,7 @@ class laserBeam(object):
         Eq : array_like, shape (3,)
             electric field in the spherical basis.
         """
-        kvec = self.kvec(R, t)
-        beta = self.beta(R, t)
-        pol = self.pol(R, t)
-        delta = self.delta(t)
+        (kvec, beta, pol, delta) = self.local_parameters(R, t)
 
         amp = np.sqrt(2*beta)
 
@@ -1078,6 +1102,9 @@ class laserBeams(object):
     def delta(self, t=0):
         return np.array([beam.delta(t) for beam in self.beam_vector])
 
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        return np.array([beam.local_parameters(R, t) for beam in self.beam_vector]).T
+    
     def electric_field(self, R=np.array([0., 0., 0.]), t=0.):
         return np.array([beam.electric_field(R, t) for beam in self.beam_vector])
 
