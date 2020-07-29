@@ -801,41 +801,41 @@ class infinitePlaneWaveBeam(laserBeam):
         return delEq
 
 
-class gaussianBeam(laserBeam):
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
-        if callable(kvec):
-            raise TypeError('kvec cannot be a function for a Gaussian beam.')
+# class gaussianBeam(laserBeam):
+#     def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
+#         if callable(kvec):
+#             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
-        if callable(pol):
-            raise TypeError('Polarization cannot be a function for a Gaussian beam.')
+#         if callable(pol):
+#             raise TypeError('Polarization cannot be a function for a Gaussian beam.')
 
-        # Use super class to define kvec(R, t), pol(R, t), and delta(t)
-        super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
+#         # Use super class to define kvec(R, t), pol(R, t), and delta(t)
+#         super().__init__(kvec=kvec, pol=pol, delta=delta, **kwargs)
 
-        # Save the constant values (might be useful):
-        self.con_kvec = kvec
-        self.con_khat = kvec/np.linalg.norm(kvec)
-        self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
+#         # Save the constant values (might be useful):
+#         self.con_kvec = kvec
+#         self.con_khat = kvec/np.linalg.norm(kvec)
+#         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
-        # Save the parameters specific to the Gaussian beam:
-        self.beta_max = beta # central saturation parameter
-        self.wb = wb # 1/e^2 radius
-        self.define_rotation_matrix()
+#         # Save the parameters specific to the Gaussian beam:
+#         self.beta_max = beta # central saturation parameter
+#         self.wb = wb # 1/e^2 radius
+#         self.define_rotation_matrix()
 
-    def define_rotation_matrix(self):
-        # Angles of rotation:
-        th = np.arccos(self.con_khat[2])
-        phi = np.arctan2(self.con_khat[1], self.con_khat[0])
+#     def define_rotation_matrix(self):
+#         # Angles of rotation:
+#         th = np.arccos(self.con_khat[2])
+#         phi = np.arctan2(self.con_khat[1], self.con_khat[0])
         
-        # Use scipy to define the rotation matrix
-        self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
+#         # Use scipy to define the rotation matrix
+#         self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        # Rotate up to the z-axis where we can apply formulas:
-        Rp = np.einsum('ij,j...->i...', self.rmat, R)
-        rho_sq=np.sum(Rp[:2]**2, axis=0)
-        # Return the intensity:
-        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
+#     def beta(self, R=np.array([0., 0., 0.]), t=0.):
+#         # Rotate up to the z-axis where we can apply formulas:
+#         Rp = np.einsum('ij,j...->i...', self.rmat, R)
+#         rho_sq=np.sum(Rp[:2]**2, axis=0)
+#         # Return the intensity:
+#         return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
 
 
 class clippedGaussianBeam(gaussianBeam):
@@ -851,6 +851,143 @@ class clippedGaussianBeam(gaussianBeam):
         Rp = np.einsum('ij,j...->i...', self.rmat, R)
         rho_sq = np.sum(Rp[:2]**2, axis=0)
         return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
+    
+class gaussianBeam(pylcp.laserBeam):
+    def __init__(self, kvec=np.array([1., 0., 0.]), pol=np.array([0., 0., 1.]), beta=1.,
+                 delta=0., wb=1., r0=np.array([0.,0.,0.]), **kwargs):
+        if callable(kvec):
+            raise TypeError('kvec cannot be a function for a Gaussian beam.')
+
+        if callable(pol):
+            raise TypeError('Polarization cannot be a function for a Gaussian beam.')
+
+        # Save the constant values (might be useful):
+        self.con_kvec = kvec
+        self.con_kmag = np.linalg.norm(kvec)
+        self.con_khat = kvec/self.con_kmag
+        self.con_pol = pol
+
+        # Save the parameters specific to the Gaussian beam:
+        self.beta_max = beta    # central saturation parameter
+        self.wb = wb            # 1/e^2 radius
+        self.wavelength = 2*np.pi/(np.linalg.norm(kvec))  
+        self.zr = np.pi*self.wb**2/(self.wavelength)  # Rayleigh length
+        self.r0 = r0    # Position of focus?
+
+        # Define the global rotation matrix
+        self.global_rotation_matrix()
+        
+        # Use super class to define delta(t):
+        super().__init__(delta=delta, **kwargs)
+   
+
+    def global_rotation_matrix(self):
+        th = np.arccos(self.con_khat[2])
+        ph = np.arctan2(self.con_khat[1], self.con_khat[0])
+        
+        rz = np.array([[np.cos(ph),-np.sin(ph),0.], [np.sin(ph),np.cos(ph),0.], [0.,0.,1.]])
+        ry = np.array([[np.cos(th),0.,np.sin(th)], [0.,1.,0.], [-np.sin(th),0.,np.cos(th)]])
+        
+        self.rmat = rz@ry@np.linalg.inv(rz)
+        self.rmat_inv = np.linalg.inv(self.rmat)
+        return self.rmat
+    
+    
+    def define_rotation_matrix(self):
+        # Angles of rotation:|
+        th = np.arccos(self.con_khat[2])
+        phi = np.arctan2(self.con_khat[1], self.con_khat[0])
+        
+        # Use scipy to define the rotation matrix
+        self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix() 
+        self.rmat_inv = np.linalg.inv(self.rmat)
+
+        
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the local k-vector, polarization, and intensity and position R and t
+        
+        Parameters
+        ----------
+        R : array_like, shape (3, ...)
+            The local position at which to evaluate.
+        t : float or array_like
+            The time at which to to evaluate.
+            
+        Returns
+        -------
+        kvec : array_like, same shape as R
+            The k-vector of the beam at (R, t)
+        pol : array_like, same shape as R
+            The polarization of the beam at (R, t)
+        intensity : float or array_like, same shape/type as R[0]
+            The local intensity
+        """
+        
+        # Adjust offset:
+        Rp = R - self.r0.reshape((3,) + (1,)*(R.ndim-1))
+    
+        # Rotate up to the z-axis where we can apply formulas:
+        Rp = np.einsum('ij,j...->i...', self.rmat_inv, Rp)
+        rho_sq=np.sum(Rp[:2]**2, axis=0)
+       
+        # The waist at the position of interest:
+        w = self.wb*np.sqrt(1+(Rp[2]**2/self.zr**2)) # w0*sqrt(1+(z/zr).^2);
+        
+        # Return the intensity:
+        I = self.beta_max*(self.wb**2)/(w**2)*np.exp(-2*rho_sq/w**2) #Beta*(w0./w).^2.*exp(-2*r.^2./w.^2);
+        
+        # Now calculate the local k-vector in cylindrical coordinates:
+        kr = (np.sqrt(rho_sq))*(Rp[2])/(self.zr**2+Rp[2]**2) # r.*z./(zr^2+z.^2);
+        kt = np.zeros(Rp[0].shape)
+        kz = np.ones(Rp[0].shape)
+        
+        # Convert to Cartesian: 
+        kx = (kr*Rp[0]+kt*Rp[1])/(np.sqrt(Rp[0]**2+Rp[1]**2+1e-100))
+        ky = (kr*Rp[1]+kt*Rp[0])/(np.sqrt(Rp[0]**2+Rp[1]**2+1e-100))
+        
+        # Normalize:
+        kxn=kx/np.sqrt(kx**2+ky**2+kz**2) # normalized
+        kyn=ky/np.sqrt(kx**2+ky**2+kz**2)
+        kzn=kz/np.sqrt(kx**2+ky**2+kz**2)
+        
+        # Put into full array:
+        kn=np.array([kxn,kyn,kzn])
+        
+        # Think about a way to do this without having to this without the FOR loop:
+        it = np.nditer([kn[0], kn[1], kn[2], None, None, None], op_dtypes=['float64', 'float64', 'float64', 'complex128', 'complex128', 'complex128'])
+        for (kxn, kyn, kzn, px, py, pz) in it:       
+            thn = np.arccos(kzn)
+            phn = np.arctan2(kyn, kxn)
+            
+            rzn = np.array([[np.cos(phn), -np.sin(phn), 0.],
+                            [np.sin(phn),  np.cos(phn), 0.],
+                            [         0.,           0., 1.]])
+            ryn = np.array([[np.cos(thn),  0., np.sin(thn)],
+                            [0.,           1.,          0.],
+                            [-np.sin(thn), 0., np.cos(thn)]])
+            
+            rmatn = rzn@ryn@np.linalg.inv(rzn)
+
+            (px[...], py[...], pz[...]) = self.rmat@rmatn@np.transpose(self.con_pol)
+            
+        # Rotate back:
+        k = np.einsum('ij,j...->i...', self.rmat, kn)
+        
+        return k, cart2spherical(np.array(it.operands[3:])), I
+    
+    
+    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+        k, P, I = self.local_parameters(R, t)
+        return I
+    
+    def pol(self, R=np.array([0., 0., 0.]), t=0.):
+        k, P, I = self.local_parameters(R, t)
+        return P
+    
+    def kvec(self, R=np.array([0., 0., 0.]), t=0.):
+        k, P, I = self.local_parameters(R, t)
+        return k
 
 
 class laserBeams(object):
