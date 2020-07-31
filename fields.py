@@ -912,7 +912,7 @@ class gaussianBeam(laserBeam):
         self.wb = wb            # 1/e^2 radius
         self.wavelength = 2*np.pi/(np.linalg.norm(kvec))  
         self.zr = np.pi*self.wb**2/(self.wavelength)  # Rayleigh length
-        self.r0 = r0    # Position of focus?
+        self.r0 = r0    # Position of focus
 
         # Define the global rotation matrix
         self.global_rotation_matrix()
