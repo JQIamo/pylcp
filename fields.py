@@ -905,6 +905,11 @@ class gaussianBeam(laserBeam):
         self.con_kvec = kvec
         self.con_kmag = np.linalg.norm(kvec)
         self.con_khat = kvec/self.con_kmag
+        if isinstance(pol, int) or isinstance(pol, float):
+            if pol>0:
+                pol = np.array([1., -1j, 0.])/np.sqrt(2)
+            else:
+                pol = np.array([1., +1j, 0.])/np.sqrt(2)
         self.con_pol = pol
 
         # Save the parameters specific to the Gaussian beam:
@@ -1012,21 +1017,21 @@ class gaussianBeam(laserBeam):
             (px[...], py[...], pz[...]) = self.rmat@rmatn@np.transpose(self.con_pol)
             
         # Rotate back:
-        k = np.einsum('ij,j...->i...', self.rmat, kn)
+        k = np.einsum('ij,j...->i...', self.rmat, kn)*self.con_kmag
         
-        return k, cart2spherical(np.array(it.operands[3:])), I
+        return k, cart2spherical(np.array(it.operands[3:])), I, self.delta(t)
     
     
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        k, P, I = self.local_parameters(R, t)
+        k, P, I, D = self.local_parameters(R, t)
         return I
     
     def pol(self, R=np.array([0., 0., 0.]), t=0.):
-        k, P, I = self.local_parameters(R, t)
+        k, P, I, D = self.local_parameters(R, t)
         return P
     
     def kvec(self, R=np.array([0., 0., 0.]), t=0.):
-        k, P, I = self.local_parameters(R, t)
+        k, P, I, D = self.local_parameters(R, t)
         return k
 
 
