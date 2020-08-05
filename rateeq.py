@@ -125,7 +125,7 @@ class rateeq(object):
         # If the matrix is diagonal, we get to do something cheeky.  Let's just
         # construct the decay part of the evolution once:
         if np.all(self.hamiltonian.diagonal):
-            self.construct_evolution_matrix_decay(self.hamiltonian)
+            self.__calc_decay_comp_of_Rev(self.hamiltonian)
 
         # Save the recoil velocity for the relevant transitions:
         self.recoil_velocity = {}
@@ -137,11 +137,14 @@ class rateeq(object):
         # Reset the current solution to
         self.set_initial_position_and_velocity(r, v)
 
+        # A dictionary to store the pumping rates.
+        self.Rijl = {}
+        
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
 
-    def construct_evolution_matrix_decay(self, rotated_ham):
+    def __calc_decay_comp_of_Rev(self, rotated_ham):
         """
         Constructs the decay portion of the evolution matrix.
 
@@ -205,51 +208,20 @@ class rateeq(object):
 
         return self.Rev_decay
 
-
-    def construct_evolution_matrix(self, r, v, t=0.,
-                                   default_axis=np.array([0., 0., 1.])):
+        
+    def __calc_pumping_rates(self, r, v, t, Bhat):
         """
-        Method to generate the rate equation evolution matrix.  Expects
-        several arguments:
-            r: a three-element vector specifying the position of interest
-            v: a three-element vector specifying the velocity of interest
+        This method calculates the pumping rates for each laser beam:
         """
-        # What is the magnetic field?
-        if self.tdepend['B']:
-            B = self.magField.Field(r, t)
-        else:
-            B = self.magField.Field(r)
-
-        # Calculate its magnitude:
-        Bmag = np.linalg.norm(B, axis=0)
-
-        # Calculate the Bhat direction:
-        if Bmag > 1e-10:
-            Bhat = B/Bmag
-        else:
-            Bhat = default_axis
-
-        # Diagonalize at Bmag.  This is required if the Hamiltonian has any
-        # non-diagonal elements of the Hamiltonian that are dependent on Bz.
-        rotated_ham = self.hamiltonian.diag_static_field(Bmag)
-        if not np.all(self.hamiltonian.diagonal):
-            # Reconstruct the decay matrix to match this new field.
-            self.Rev_decay = self.construct_evolution_matrix_decay(rotated_ham)
-
-        # Now add in the lasers
-        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-        self.Rev += self.Rev_decay
-        self.Rijl = {}
-
         for key in self.laserBeams:
             # Extract the relevant d_q matrix:
-            ind = rotated_ham.laser_keys[key]
-            d_q = rotated_ham.blocks[ind].matrix
+            ind = self.hamiltonian.rotated_hamiltonian.laser_keys[key]
+            d_q = self.hamiltonian.rotated_hamiltonian.blocks[ind].matrix
             gamma = self.hamiltonian.blocks[ind].parameters['gamma']
 
             # Extract the energies:
-            E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
-            E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
+            E1 = np.diag(self.hamiltonian.rotated_hamiltonian.blocks[ind[0],ind[0]].matrix)
+            E2 = np.diag(self.hamiltonian.rotated_hamiltonian.blocks[ind[1],ind[1]].matrix)
 
             """
             Eu, El = np.meshgrid(np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix),
@@ -287,10 +259,14 @@ class rateeq(object):
                 fijq = np.abs(np.sum(d_q*proj[::-1].reshape(3,1,1)))**2
                 self.Rijl[key][ll] = gamma*beta/2*\
                     fijq/(1 + 4*(-(Eu - El) + delta - np.dot(kvec, v))**2/gamma**2)"""
-
-            # Now add the pumping rates into the rate equation propogation matrix:
-            n = sum(rotated_ham.ns[:ind[0]])
-            m = sum(rotated_ham.ns[:ind[1]])
+            
+    def __add_pumping_rates_to_Rev(self):
+        # Now add the pumping rates into the rate equation propogation matrix:
+        for key in self.laserBeams:
+            ind = self.hamiltonian.rotated_hamiltonian.laser_keys[key]
+            
+            n = sum(self.hamiltonian.rotated_hamiltonian.ns[:ind[0]])
+            m = sum(self.hamiltonian.rotated_hamiltonian.ns[:ind[1]])
             for ii in range(self.Rijl[key].shape[1]):
                 for jj in range(self.Rijl[key].shape[2]):
                     self.Rev[n+ii, n+ii] += -np.sum(self.Rijl[key][:, ii, jj])
@@ -298,8 +274,51 @@ class rateeq(object):
                     self.Rev[m+jj, n+ii] += np.sum(self.Rijl[key][:, ii, jj])
                     self.Rev[m+jj, m+jj] += -np.sum(self.Rijl[key][:, ii, jj])
 
-        return self.Rev, self.Rijl
 
+    def construct_evolution_matrix(self, r, v, t=0., default_axis=np.array([0., 0., 1.])):
+        """
+        Constructs the
+        
+        Parameters
+        ----------
+            r: a three-element vector specifying the position of interest
+            v: a three-element vector specifying the velocity of interest
+        """
+        if self.tdepend['B']:
+            B = self.magField.Field(r, t)
+        else:
+            B = self.magField.Field(r)
+
+        # Calculate its magnitude:
+        Bmag = np.linalg.norm(B, axis=0)
+
+        # Calculate the Bhat direction:
+        if Bmag > 1e-10:
+            Bhat = B/Bmag
+        else:
+            Bhat = default_axis
+            
+        # Diagonalize the hamiltonian at this location:
+        self.hamiltonian.diag_static_field(Bmag)
+            
+        # Re-initialize the evolution matrix:
+        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+        
+        if not np.all(self.hamiltonian.diagonal):
+            # Reconstruct the decay matrix to match this new field.
+            self.Rev_decay = self.__calc_decay_comp_of_Rev(
+                self.hamiltonian.rotated_hamiltonian
+            )
+            
+        self.Rev += self.Rev_decay
+        
+        # Recalculate the pumping rates:
+        Bhat = self.__calc_pumping_rates(r, v, t, Bhat)
+        
+        # Add the pumping rates to the evolution matrix:
+        self.__add_pumping_rates_to_Rev()
+                                         
+        return self.Rev, self.Rijl
 
     def equilibrium_populations(self, r, v, t, **kwargs):
         """
