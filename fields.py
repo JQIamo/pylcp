@@ -565,9 +565,10 @@ class laserBeam(object):
 
         # TODO: This probably won't work in the case pol.shape=3\times\cdots
         # case
-        rotated_pol = np.tensordot(D, pol, ([1],[0]))
-
-        return rotated_pol
+        if pol.shape == (3,) and quant_axis.shape == (3,):
+            return D @ pol
+        else:
+            return np.tensordot(D, pol, ([1],[0]))
 
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
@@ -980,8 +981,11 @@ class laserBeams(object):
              (1+cosbeta)/2*np.exp(1j*alpha-1j*gamma)]
              ])
 
-        return [np.tensordot(D, beam.pol(R, t), ([1],[0]))
-                for beam in self.beam_vector]
+        if quant_axis.shape == (3,) and R.shape == (3,):
+            return [D @ beam.pol(R, t) for beam in self.beam_vector]
+        else:
+            return [np.tensordot(D, beam.pol(R, t), ([1],[0]))
+                    for beam in self.beam_vector]
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
         """
