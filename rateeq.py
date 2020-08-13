@@ -436,6 +436,7 @@ class rateeq(object):
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
         random_recoil_flag = kwargs.pop('random_recoil', False)
         random_force_flag = kwargs.pop('random_force', False)
+        use_equilibrium_force = kwargs.pop('use_equilibrium_force', True)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
         record_force = kwargs.pop('record_force', False)
@@ -447,6 +448,21 @@ class rateeq(object):
             ts = []
             Fs = []
 
+        def equilibrium_motion(t, y):
+            v = y[-6:-3]
+            r = y[-3:]
+            
+            F = self.equilibrium_force(r, v, t, return_details=False)
+
+            dydt = np.concatenate((F*free_axes/self.hamiltonian.mass+
+                                   self.constant_accel,
+                                   v))
+
+            if progress_bar:
+                progress.update(t/t_span[-1])
+
+            return dydt
+                
         def motion(t, y):
             N = y[:-6]
             v = y[-6:-3]
@@ -541,26 +557,39 @@ class rateeq(object):
 
             return (num_of_scatters, new_dt_max)
 
-        y0 = np.concatenate((self.N0, self.v0, self.r0))
-        if random_force_flag:
-            self.sol = solve_ivp_random(motion, random_force, t_span, y0,
+        
+        if use_equilibrium_force:
+            y0 = np.concatenate((self.v0, self.r0))
+            self.sol = solve_ivp_random(equilibrium_motion, random_force,
+                                        t_span, y0,
                                         initial_max_step=max_scatter_probability,
                                         **kwargs)
-        elif random_recoil_flag:
-            self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
-                                        initial_max_step=max_scatter_probability,
-                                        **kwargs)
+            
+            # Rearrange the solution:
+            self.sol.v = self.sol.y[-6:-3]
+            self.sol.r = self.sol.y[-3:]
         else:
-            self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+            y0 = np.concatenate((self.N0, self.v0, self.r0))
+            
+            if random_force_flag:
+                self.sol = solve_ivp_random(motion, random_force, t_span, y0,
+                                            initial_max_step=max_scatter_probability,
+                                            **kwargs)
+            elif random_recoil_flag:
+                self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
+                                            initial_max_step=max_scatter_probability,
+                                            **kwargs)
+            else:
+                self.sol = solve_ivp(motion, t_span, y0, **kwargs)
+                
+            # Rearrange the solution:
+            self.sol.N = self.sol.y[:-6]
+            self.sol.v = self.sol.y[-6:-3]
+            self.sol.r = self.sol.y[-3:]
 
         if progress_bar:
             # Just in case the solve_ivp_random terminated due to an event.
             progress.update(1.)
-
-        # Rearrange the solution:
-        self.sol.N = self.sol.y[:-6]
-        self.sol.v = self.sol.y[-6:-3]
-        self.sol.r = self.sol.y[-3:]
 
         if record_force:
             f = interp1d(ts[:-1], np.array([f[0] for f in Fs[:-1]]).T)
@@ -578,7 +607,7 @@ class rateeq(object):
         del self.sol.y
 
 
-    def find_equilibrium_force(self, **kwargs):
+    def equilibrium_force(self, r, v, t, **kwargs):
         """
         Determines the force from the lasers at position r based on the
         populations Npop, scattering rate Rijl, and laserBeams.
@@ -589,15 +618,31 @@ class rateeq(object):
             raise NotImplementedError('Time dependence not yet implemented.')
         else:
             N_eq, Rev, Rijl = self.equilibrium_populations(
-                self.r0, self.v0, t=0, return_details=True, **kwargs
-                )
+                r, v, t, return_details=True, **kwargs
+            )
 
-            F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
+            F_eq, f_eq, f_mag = self.force(r, t, N_eq)
 
         if return_details:
             return F_eq, f_eq, N_eq, Rijl, f_mag
         else:
             return F_eq
+        
+
+    def find_equilibrium_force(self, **kwargs):
+        """
+        Determines the force from the lasers at position r based on the
+        populations Npop, scattering rate Rijl, and laserBeams.
+        """
+        return_details = kwargs.pop('return_details', False)
+
+        if any([self.tdepend[key] for key in self.tdepend.keys()]):
+            raise NotImplementedError('Time dependence not yet implemented.')
+        else:
+            return self.equilibrium_force(self.r0, self.v0, 0.,
+                                          return_details=return_details,
+                                          **kwargs)
+        
 
     def generate_force_profile(self, R, V, **kwargs):
         """
