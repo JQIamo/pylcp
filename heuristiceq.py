@@ -7,11 +7,14 @@ from scipy.interpolate import interp1d
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart)
+                     cart2spherical, spherical2cart, governingeq)
 from .common import base_force_profile as force_profile
 
-class heuristiceq(object):
+class heuristiceq(governingeq):
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Do argument checking specific 
         if len(args) < 2:
             raise ValueError('You must specify laserBeams and magField')
         elif len(args) == 2:
@@ -53,38 +56,15 @@ class heuristiceq(object):
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Now handle keyword arguments:
-        r0 = kwargs.pop('r', np.array([0., 0., 0.]))
-        v0 = kwargs.pop('v', np.array([0., 0., 0.]))
-        self.set_initial_position_and_velocity(r0, v0)
-
         # Finally, handle optional arguments:
         self.mass = kwargs.pop('mass', 100)
         self.gamma = kwargs.pop('mass', 1)
-
-        # Set up a dictionary to store any resulting force profiles.
-        self.profile = {}
-
-        # Reset the current solution to None
-        self.sol = None
 
         # Make some variables to store F, F_laser, and R_sc:
         self.F = np.array([0., 0., 0.])
         self.F_laser = {}
         self.F_laser['g->e'] = np.zeros((3, self.laserBeams['g->e'].num_of_beams))
         self.R = np.zeros((self.laserBeams['g->e'].num_of_beams, ))
-
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-        self.sol = None
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
-        self.sol = None
 
     def scattering_rate(self, r, v, t, return_kvecs=False):
         B = self.magField.Field(r, t)
