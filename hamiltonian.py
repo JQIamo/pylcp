@@ -71,7 +71,7 @@ class hamiltonian():
             self.add_H_0_block('e', args[1])
             self.add_mu_q_block('g', args[2])
             self.add_mu_q_block('e', args[3])
-            self.add_d_q_block('g', 'e', args[4])
+            self.add_d_q_block('g', 'e', args[4], **kwargs)
         elif len(args)>2:
             raise ValueError('Unknown nummber of arguments.')
         elif len(args)>0:

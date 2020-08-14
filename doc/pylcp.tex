@@ -487,8 +487,53 @@ $\sigma^+$ and $\sigma^-$ light (with a phase angle in between).
 
 None of this gets us closer to the final result, but it is interesting.
 
+\section{Heuristic equation}
+A final governing equation is also included in the package, titled the heuristic equation.  This equation calculates the force on that atom assuming a basic $F=0\rightarrow F=1$ atom,
+\begin{equation}
+	F = \frac{\hbar k \Gamma}{2}\sum_{l,q} \frac{\beta_l \left(\epsilon_{l,q}\cdot \hat{B}\right)}{1+\sum_j\beta_j+4(\Delta^2 - \mathbf{k}\cdot\mathbf{v} - q |B|)^2/\Gamma^2} 
+\end{equation}
+This
 \section{Examples}
-Optical pumping.
+In this section, we cover several intriguing examples of laser cooling techniques.  These examples described herein are a small subset of the examples contained with the {\tt pylcp} package.
+
+\subsection{Optical pumping \& Rabi flopping}
+\begin{figure}
+	\center
+	\includegraphics{figs/damped_rabi_flopping.pdf}
+	\caption{\label{fig:rabi_flopping} Damped Rabi flopping for a  }
+\end{figure}
+
+As a first example, consider an $F=1\rightarrow F=2$ atom illuminated by $\pi$ light, starting in a stretched state.  In this configuration, optical pumping will 
+
+\begin{figure}
+	\center
+	\includegraphics{figs/optical_pumping_f2_f3.pdf}
+	\caption{\label{fig:optical_pumping} Optical pumping on an $F=2\rightarrow F'=3$ transition of an atom.  The $m_F=-2, 1, 0, 1, 2$ states are shown in blue, orange, green, red, and purple, respectively.  The solution from the rate equations (OBEs) are shown as dashed (solid) curves.  See text for other parameters.}
+\end{figure}
+
+We next show an example of optical pumping, both with the rate equations and the optical Bloch equations.  We compare this directly to Unager, et. al.~\cite{Unager1989}.
+
+\subsection{Equilibrium forces in molasses}
+Equilibrium forces in an optical molasses are most accurately 
+
+
+\subsection{Sub-Doppler molasses}
+
+
+\subsection{Type-II 1D molasses}
+
+
+\subsection{Equilibrium force in MOTs}
+
+
+\subsection{Capture velocity of 1D MOT}
+
+
+\subsection{Temperatures in MOTs}
+
+
+\subsection{Bi-chromatic forces}
+
 
 
 %% The Appendices part is started with the command \appendix;

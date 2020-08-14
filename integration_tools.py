@@ -386,7 +386,11 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
     if method in METHODS:
         method = METHODS[method]
 
-    solver = method(fun, t0, y0, tf, vectorized=vectorized, **options)
+    max_step_initial = options.pop('initial_max_step', np.inf)
+    max_step_global = options.pop('max_step', np.inf)
+    
+    solver = method(fun, t0, y0, tf, vectorized=vectorized,
+                    max_step=max_step_initial, **options)
 
     if t_eval is None:
         ts = [t0]
@@ -434,7 +438,7 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
         (random_event_number, max_step) = random_func(solver.t, solver.y,
                                                       solver.step_size)
         if not max_step is None:
-            solver.max_step = max_step
+            solver.max_step = np.min([max_step, max_step_global])
 
         t_old = solver.t_old
         t = solver.t

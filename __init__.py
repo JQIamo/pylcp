@@ -14,4 +14,4 @@ from .hamiltonian import hamiltonian
 from .rateeq import trap as trap_rateeq
 from .fields import (magField, constantMagneticField, quadrupoleMagneticField, iPMagneticField,
                      laserBeam, laserBeams, infinitePlaneWaveBeam, gaussianBeam,
-                     clippedGaussianBeam)
+                     clippedGaussianBeam, conventional3DMOTBeams)

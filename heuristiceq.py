@@ -13,19 +13,19 @@ from .common import base_force_profile as force_profile
 class heuristiceq(governingeq):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
-        # Do argument checking specific 
+
+        # Do argument checking specific
         if len(args) < 2:
             raise ValueError('You must specify laserBeams and magField')
         elif len(args) == 2:
             self.constant_accel = np.array([0., 0., 0.])
         elif len(args) == 3:
-            if not isinstance(args[3], np.ndarray):
+            if not isinstance(args[2], np.ndarray):
                 raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
+            elif args[2].size != 3:
                 raise ValueError('Constant acceleration must have length 3.')
             else:
-                self.constant_accel = args[3]
+                self.constant_accel = args[2]
         else:
             raise ValueError('No more than four positional arguments accepted.')
 
@@ -58,7 +58,14 @@ class heuristiceq(governingeq):
 
         # Finally, handle optional arguments:
         self.mass = kwargs.pop('mass', 100)
-        self.gamma = kwargs.pop('mass', 1)
+        self.gamma = kwargs.pop('gamma', 1)
+        self.k = kwargs.pop('k', 1)
+
+        # Set up a dictionary to store any resulting force profiles.
+        self.profile = {}
+
+        # Reset the current solution to None
+        self.sol = None
 
         # Make some variables to store F, F_laser, and R_sc:
         self.F = np.array([0., 0., 0.])
@@ -83,7 +90,7 @@ class heuristiceq(governingeq):
 
         for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
             self.R[ii] = 0.
-            for q, pol_i, in zip(np.array([-1., 0., 1.]), pol):
+            for (q, pol_i) in zip(np.array([-1., 0., 1.]), pol):
                 self.R[ii] += self.gamma/2*beta*np.abs(pol_i)/\
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
@@ -103,6 +110,7 @@ class heuristiceq(governingeq):
     def evolve_motion(self, t_span, **kwargs):
         free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
         random_recoil_flag = kwargs.pop('random_recoil', False)
+        random_force_flag = kwargs.pop('random_force', False)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
 
@@ -120,23 +128,54 @@ class heuristiceq(governingeq):
                 y[0:3]
                 ))
 
+        def dydt_random_force(t, y):
+            if progress_bar:
+                progress.update(t/t_span[1])
+
+            return np.concatenate((self.constant_accel, y[0:3]))
+
         def random_recoil(t, y, dt):
+            num_of_scatters = 0
             total_P = np.sum(self.R)*dt
-            if np.rand(1)<total_P:
-                y[0:3] += self.k/self.mass*random_vector()
+            if np.random.rand(1)<total_P:
+                y[0:3] += self.k/self.mass*(random_vector(free_axes)+
+                                            random_vector(free_axes))
+                num_of_scatters += 1
 
             new_dt_max = (max_scatter_probability/total_P)*dt
 
             return (num_of_scatters, new_dt_max)
 
-        if not random_recoil_flag:
+        def random_force(t, y, dt):
+            R, kvecs = self.scattering_rate(y[3:6], y[0:3], t, return_kvecs=True)
+
+            num_of_scatters = 0
+            for kvec in kvecs[np.random.rand(len(R))<R*dt]:
+                y[-6:-3] += kvec/self.mass
+                y[-6:-3] += self.k/self.mass*random_vector(free_axes)
+
+                num_of_scatters += 1
+
+            total_P = np.sum(self.R)*dt
+            new_dt_max = (max_scatter_probability/total_P)*dt
+
+            return (num_of_scatters, new_dt_max)
+
+        if not random_recoil_flag and not random_force_flag:
             self.sol = solve_ivp(
                 dydt, t_span, np.concatenate((self.v0, self.r0)),
+                **kwargs)
+        elif random_force_flag:
+            self.sol = solve_ivp_random(
+                dydt_random_force, random_force, t_span,
+                np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
                 **kwargs)
         else:
             self.sol = solve_ivp_random(
                 dydt, random_recoil, t_span,
                 np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
                 **kwargs
                 )
 
@@ -147,6 +186,16 @@ class heuristiceq(governingeq):
         self.sol.r = self.sol.y[3:]
         self.sol.v = self.sol.y[:3]
 
+
+    def find_equilibrium_force(self, **kwargs):
+        return_details = kwargs.pop('return_details', False)
+
+        F, F_laser = self.force(self.r0, self.v0, t=0.)
+
+        if return_details:
+            return F, F_laser, self.R
+        else:
+            return F
 
     def generate_force_profile(self, R, V,  **kwargs):
         """

@@ -600,14 +600,26 @@ class obe():
         Any additional keyword arguments get passed to solve_ivp, which is
         what actually does the integration.
         """
+        progress_bar = kwargs.pop('progress_bar', False)
+
         a = np.zeros((3,))
 
+        if progress_bar:
+            progress = progressBar()
+
         def dydt(t, y):
+            if progress_bar:
+                progress.update(t/t_span[1])
+
             return np.concatenate((self.drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
 
         self.sol = solve_ivp(dydt, t_span,
                              np.concatenate((self.rho0, self.v0, self.r0)),
                              **kwargs)
+
+        if progress_bar:
+            # Just in case the solve_ivp_random terminated due to an event.
+            progress.update(1.)
 
         # Remake the solution:
         self.reshape_sol()
@@ -773,12 +785,19 @@ class obe():
             # First, determine the average mu_q:
             # This returns a (3,) + rho.shape[2:] array
             mu_q_av = self.observable(self.hamiltonian.d_q_bare[key], rho)
+            gamma = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['gamma']
 
             if not return_details:
                 delE = self.laserBeams[key].total_electric_field_gradient(np.real(r), t)
 
+                # We are just looking at the d_q, whereas the full observable
+                # is \nabla (d_q \cdot E^\dagger) + (d_q^* E)) =
+                # 2 Re[\nabla (d_q\cdot E^\dagger)].  Putting in the units,
+                # we see we need a factor of gamma/4, making
+                # this 2 Re[\nabla (d_q\cdot E^\dagger)]/4 =
+                # Re[\nabla (d_q\cdot E^\dagger)]/2
                 for jj, q in enumerate(np.arange(-1., 2., 1.)):
-                    f += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
+                    f += np.real((-1)**q*gamma*mu_q_av[jj]*delE[:, 2-jj])/2
             else:
                 f_laser_q[key] = np.zeros((3, 3, self.laserBeams[key].num_of_beams)
                                           + rho.shape[2:])
@@ -793,7 +812,8 @@ class obe():
                         delE = beam.electric_field_gradient(r, t)
 
                     for jj, q in enumerate(np.arange(-1., 2., 1.)):
-                        f_laser_q[key][:, jj, ii] += np.real((-1)**q*mu_q_av[jj]*delE[:, 2-jj])
+                        f_laser_q[key][:, jj, ii] += \
+                        np.real((-1)**q*gamma*mu_q_av[jj]*delE[:, 2-jj])/2
 
                     f_laser[key][:, ii] = np.sum(f_laser_q[key][:, :, ii], axis=1)
 
@@ -831,7 +851,8 @@ class obe():
         rel = kwargs.pop('rel', 1e-5)
         abs = kwargs.pop('abs', 1e-9)
         debug = kwargs.pop('debug', False)
-
+        return_details = kwargs.pop('return_details', False)
+        
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
         if debug:
@@ -871,16 +892,19 @@ class obe():
                                                        self.sol.v[:, -1])
                 ii+=1
 
-        f_mag = np.mean(f_mag, axis=1)
+        if return_details:
+            f_mag = np.mean(f_mag, axis=1)
 
-        f_laser_avg = {}
-        f_laser_avg_q = {}
-        for key in f_laser:
-            f_laser_avg[key] = np.mean(f_laser[key], axis=2)
-            f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
+            f_laser_avg = {}
+            f_laser_avg_q = {}
+            for key in f_laser:
+                f_laser_avg[key] = np.mean(f_laser[key], axis=2)
+                f_laser_avg_q[key] = np.mean(f_laser_q[key], axis=3)
 
-        Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
-        return (f_avg, f_laser_avg, f_laser_avg_q, f_mag, Neq, ii)
+            Neq = np.real(np.diagonal(np.mean(self.sol.rho, axis=2)))
+            return (f_avg, f_laser_avg, f_laser_avg_q, f_mag, Neq, ii)
+        else:
+            return f_avg
 
 
     def generate_force_profile(self, R, V,  **kwargs):
@@ -936,7 +960,8 @@ class obe():
                     kwargs['deltat'] = deltat_tmax
                 else:
                     kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
-
+                    
+            kwargs['return_details'] = True
             F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,

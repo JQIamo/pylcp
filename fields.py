@@ -369,7 +369,8 @@ class laserBeam(object):
             self.pol, self.pol_sig = promote_to_lambda(self.pol, var_name='polarization')
 
             # Project onto the actual k-vector:
-            self.pol = self.project_pol(self.kvec(), invert=True).astype('complex128')
+            self.pol = self.project_pol(self.kvec()/np.linalg.norm(self.kvec()),
+                                        invert=True).astype('complex128')
 
         elif isinstance(pol, np.ndarray):
             if pol.shape != (3,):
@@ -564,9 +565,10 @@ class laserBeam(object):
 
         # TODO: This probably won't work in the case pol.shape=3\times\cdots
         # case
-        rotated_pol = np.tensordot(D, pol, ([1],[0]))
-
-        return rotated_pol
+        if pol.shape == (3,) and quant_axis.shape == (3,):
+            return D @ pol
+        else:
+            return np.tensordot(D, pol, ([1],[0]))
 
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
@@ -813,6 +815,7 @@ class gaussianBeam(laserBeam):
 
         # Save the constant values (might be useful):
         self.con_kvec = kvec
+        self.con_khat = kvec/np.linalg.norm(kvec)
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
         # Save the parameters specific to the Gaussian beam:
@@ -822,8 +825,8 @@ class gaussianBeam(laserBeam):
 
     def define_rotation_matrix(self):
         # Angles of rotation:
-        th = np.arccos(self.con_kvec[2])
-        phi = np.arctan2(self.con_kvec[1], self.con_kvec[0])
+        th = np.arccos(self.con_khat[2])
+        phi = np.arctan2(self.con_khat[1], self.con_khat[0])
         
         # Use scipy to define the rotation matrix
         self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
@@ -978,8 +981,11 @@ class laserBeams(object):
              (1+cosbeta)/2*np.exp(1j*alpha-1j*gamma)]
              ])
 
-        return [np.tensordot(D, beam.pol(R, t), ([1],[0]))
-                for beam in self.beam_vector]
+        if quant_axis.shape == (3,) and R.shape == (3,):
+            return [D @ beam.pol(R, t) for beam in self.beam_vector]
+        else:
+            return [np.tensordot(D, beam.pol(R, t), ([1],[0]))
+                    for beam in self.beam_vector]
 
     def cartesian_pol(self, R=np.array([0., 0., 0.]), t=0):
         """
