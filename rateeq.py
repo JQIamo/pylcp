@@ -5,7 +5,7 @@ Tools for solving the rate equations.
 """
 import numpy as np
 import copy
-from scipy.optimize import minimize, fsolve
+from scipy.optimize import minimize
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
@@ -50,7 +50,7 @@ class rateeq(governingeq):
         hamiltonian.
         """
         super().__init__(**kwargs)
-        
+
         if len(args) < 3:
             raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
         elif len(args) == 3:
@@ -136,7 +136,7 @@ class rateeq(governingeq):
 
         # A dictionary to store the pumping rates.
         self.Rijl = {}
-        
+
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
@@ -205,7 +205,7 @@ class rateeq(governingeq):
 
         return self.Rev_decay
 
-        
+
     def _calc_pumping_rates(self, r, v, t, Bhat):
         """
         This method calculates the pumping rates for each laser beam:
@@ -242,7 +242,7 @@ class rateeq(governingeq):
                 self.Rijl[key][ll] = gamma*beta/2*\
                     fijq/(1 + 4*(-(E2 - E1) + delta - np.dot(kvec, v))**2/gamma**2)
 
-    
+
     def _add_pumping_rates_to_Rev(self):
         # Now add the pumping rates into the rate equation propogation matrix:
         for key in self.laserBeams:
@@ -268,7 +268,7 @@ class rateeq(governingeq):
     def construct_evolution_matrix(self, r, v, t=0., default_axis=np.array([0., 0., 1.])):
         """
         Constructs the
-        
+
         Parameters
         ----------
             r: a three-element vector specifying the position of interest
@@ -287,27 +287,27 @@ class rateeq(governingeq):
             Bhat = B/Bmag
         else:
             Bhat = default_axis
-            
+
         # Diagonalize the hamiltonian at this location:
         self.hamiltonian.diag_static_field(Bmag)
-            
+
         # Re-initialize the evolution matrix:
         self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-        
+
         if not np.all(self.hamiltonian.diagonal):
             # Reconstruct the decay matrix to match this new field.
             self.Rev_decay = self._calc_decay_comp_of_Rev(
                 self.hamiltonian.rotated_hamiltonian
             )
-            
+
         self.Rev += self.Rev_decay
-        
+
         # Recalculate the pumping rates:
         Bhat = self._calc_pumping_rates(r, v, t, Bhat)
-        
+
         # Add the pumping rates to the evolution matrix:
         self._add_pumping_rates_to_Rev()
-                                         
+
         return self.Rev, self.Rijl
 
     def equilibrium_populations(self, r, v, t, **kwargs):
@@ -353,7 +353,7 @@ class rateeq(governingeq):
             m = self.hamiltonian.ns[ind[1]]
 
             Ne, Ng = np.meshgrid(Npop[m_off:(m_off+m)], Npop[n_off:(n_off+n)], )
-            
+
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 kvec = beam.kvec(r, t)
                 f[key][:, ll] += kvec*np.sum(self.Rijl[key][ll]*(Ng - Ne), axis=(0,1))

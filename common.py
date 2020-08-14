@@ -1,6 +1,7 @@
 import time
 import copy
 import numpy as np
+from scipy.optimize import fsolve
 
 class progressBar(object):
     def __init__(self, decimals=1, fill='█', prefix='Progress:',
@@ -145,7 +146,7 @@ def random_vector(free_axes=[True, True, True]):
 
 def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
                           maxiter=1000, tol=1e-9, invert=False, debug=False):
-    
+
     guess = np.array([initial_guess]).astype('float64')
     boolarray = np.array([0]).astype('bool')
     ind = 0
@@ -153,18 +154,18 @@ def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
 
     while i<maxiter:
         i+=1 #Increment the counter.
-        
+
         # Run the user-supplied function
         if not invert:
-            boolarray[ind] = fun(guess[ind], *args, **kwargs) 
+            boolarray[ind] = fun(guess[ind], *args, **kwargs)
         else:
             boolarray[ind] = not fun(guess[ind], *args, **kwargs)
-            
+
         # Print debug information:
         if (debug):
             print(guess)
             print(boolarray)
-        
+
         # Check to see if there is a place where the function turns from true to false:
         if guess.size>2:
             # Find the first non captured one:
@@ -174,14 +175,14 @@ def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
                     np.mean(guess[ind_noncap-1:ind_noncap+1]))<tol:
                     x = np.mean(guess[ind_noncap-1:ind_noncap+1])
                     break
-            
+
         # Now, we track our bisection by continually building our array:
-        # First condition, we are at the end of the array and we have been captured 
+        # First condition, we are at the end of the array and we have been captured
         if (boolarray[ind] and boolarray.size==ind+1):
             boolarray = np.append(boolarray,np.array([0]).astype('bool'))
             guess = np.append(guess,2*guess[ind])
             ind = ind+1
-        # Second condition, we are at the beginning of the array and we have not been captured 
+        # Second condition, we are at the beginning of the array and we have not been captured
         elif (not(boolarray[ind]) and ind==0):
             boolarray = np.insert(boolarray,0,np.array([0]).astype('bool'))
             guess = np.insert(guess,0,guess[0]/2)
@@ -197,24 +198,24 @@ def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
             ind = ind
         else:
             raise ValueError('bisectFindChangeValue:Unknown condition during bisection')
-    
-       
+
+
     if i==maxiter:
         x = np.nan
-        
+
     return (x, i)
 
 
 class governingeq(object):
     """
     Base class for a governing equation for atomic motion in a trap.
-    
+
     Parameters
     ----------
-    laserBeams: array_like of laserBeam, dictionary of lists of laser_beams, 
+    laserBeams: array_like of laserBeam, dictionary of lists of laser_beams,
     magField:
-    
-    
+
+
     """
     def __init__(self, *args, **kwargs):
         r0 = kwargs.pop('r', np.array([0., 0., 0.]))
@@ -223,10 +224,10 @@ class governingeq(object):
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
-        
+
         # Set the initial sol to zero:
         self.sol = None
-        
+
         # Set an attribute for the equillibrium position:
         self.r_eq = None
 
@@ -241,13 +242,13 @@ class governingeq(object):
     def set_initial_velocity(self, v0):
         self.v0 = v0
         self.sol = None
-        
+
     def evolve_motion(self):
         pass
-    
+
     def force(self):
         pass
-    
+
     def generate_force_profile(self):
         pass
 
