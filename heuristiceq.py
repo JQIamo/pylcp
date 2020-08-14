@@ -103,8 +103,9 @@ class heuristiceq(object):
 
         for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
             self.R[ii] = 0.
-            for (q, pol_i) in zip(np.array([-1., 0., 1.]), pol):
-                self.R[ii] += self.gamma/2*beta*np.abs(pol_i)/\
+            polsqrd = np.abs(pol)**2
+            for (q, pol_i) in zip(np.array([-1., 0., 1.]), polsqrd):
+                self.R[ii] += self.gamma/2*beta*pol_i/\
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
         if return_kvecs:
