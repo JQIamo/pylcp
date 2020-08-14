@@ -224,8 +224,11 @@ class governingeq(object):
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
         
+        # Set the initial sol to zero:
         self.sol = None
-
+        
+        # Set an attribute for the equillibrium position:
+        self.r_eq = None
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
@@ -330,6 +333,11 @@ class governingeq(object):
         elif r is None:
             r = self.r_eq
 
+        if hasattr(self, 'mass'):
+            mass = self.mass
+        else:
+            mass = self.hamiltonian.mass
+
         for axis in axes:
             if not np.isnan(r[axis]):
                 rpmdri = np.tile(r, (2,1)).T
@@ -345,7 +353,7 @@ class governingeq(object):
                     F[jj] = f[axis]
 
                 if np.diff(F)<0:
-                    self.omega[axis] = np.sqrt(-np.diff(F)/(2*eps[axis]))
+                    self.omega[axis] = np.sqrt(-np.diff(F)/(2*eps[axis]*mass))
                 else:
                     self.omega[axis] = 0
             else:
