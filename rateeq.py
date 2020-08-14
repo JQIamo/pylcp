@@ -121,11 +121,11 @@ class rateeq(object):
         # random recoils:
         self.decay_rates = {}
         self.decay_N_indices = {}
-        
+
         # If the matrix is diagonal, we get to do something cheeky.  Let's just
         # construct the decay part of the evolution once:
         if np.all(self.hamiltonian.diagonal):
-            self.construct_evolution_matrix_decay(self.hamiltonian)
+            self._calc_decay_comp_of_Rev(self.hamiltonian)
 
         # Save the recoil velocity for the relevant transitions:
         self.recoil_velocity = {}
@@ -133,18 +133,21 @@ class rateeq(object):
             self.recoil_velocity[key] = \
                 self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
                 /self.hamiltonian.mass
-        
+
         # Reset the current solution to
         self.set_initial_position_and_velocity(r, v)
 
+        # A dictionary to store the pumping rates.
+        self.Rijl = {}
+        
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
 
-    def construct_evolution_matrix_decay(self, rotated_ham):
+    def _calc_decay_comp_of_Rev(self, rotated_ham):
         """
         Constructs the decay portion of the evolution matrix.
-        
+
         Parameters
         ----------
         rotated_ham: pylcp.hamiltonian object
@@ -156,29 +159,29 @@ class rateeq(object):
         # contributions to the rate equations.  This would be simpler with
         # rotated_ham.make_full_matrices(), but I would imagine it would
         # be significantly slower.
-        
-        # Let's use the laser_keys dictionary to go through the non-zero d_q: 
+
+        # Let's use the laser_keys dictionary to go through the non-zero d_q:
         for key in self.hamiltonian.laser_keys:
             # The index of the current d_q matrix:
             ind = rotated_ham.laser_keys[key]
-            
+
             # Grab the block of interest:
             d_q_block = rotated_ham.blocks[ind]
-                
+
             # The offset index for the lower states:
             noff = int(np.sum(rotated_ham.ns[:ind[0]]))
             # The offset index for the higher states:
             moff = int(np.sum(rotated_ham.ns[:ind[1]]))
-            
+
             # The number of lower states:
             n = rotated_ham.ns[ind[0]]
             # The number of higher states:
             m = rotated_ham.ns[ind[1]]
-            
+
             # Calculate the decay of the states attached to this block:
             gamma = d_q_block.parameters['gamma']
             k = d_q_block.parameters['k']
-            
+
             # Let's see if we can avoid a for loop here:
 #             for jj in range(rotated_ham.ns[ll]):
 #                 self.Rev_decay[n+jj, n+jj] -= gamma*\
@@ -189,11 +192,11 @@ class rateeq(object):
             self.decay_rates[key] = gamma*np.sum(abs2(
                 d_q_block.matrix[:, :, :]
             ), axis=(0,1))
-        
+
             # Save the indices for the excited states of this d_q block
             # for the random_recoil function:
             self.decay_N_indices[key] = np.arange(moff, moff+m)
-            
+
             # Add (more accurately, subtract) these decays to the evolution matrix:
             self.Rev_decay[(np.arange(moff, moff+m), np.arange(moff, moff+m))] -= \
             self.decay_rates[key]
@@ -202,19 +205,76 @@ class rateeq(object):
             # d_q:
             self.Rev_decay[noff:noff+n, moff:moff+m] += \
                         gamma*np.sum(abs2(d_q_block.matrix), axis=0)
-            
+
         return self.Rev_decay
 
-
-    def construct_evolution_matrix(self, r, v, t=0.,
-                                   default_axis=np.array([0., 0., 1.])):
+        
+    def _calc_pumping_rates(self, r, v, t, Bhat):
         """
-        Method to generate the rate equation evolution matrix.  Expects
-        several arguments:
+        This method calculates the pumping rates for each laser beam:
+        """
+        for key in self.laserBeams:
+            # Extract the relevant d_q matrix:
+            ind = self.hamiltonian.rotated_hamiltonian.laser_keys[key]
+            d_q = self.hamiltonian.rotated_hamiltonian.blocks[ind].matrix
+            gamma = self.hamiltonian.blocks[ind].parameters['gamma']
+
+            # Extract the energies:
+            E1 = np.diag(self.hamiltonian.rotated_hamiltonian.blocks[ind[0],ind[0]].matrix)
+            E2 = np.diag(self.hamiltonian.rotated_hamiltonian.blocks[ind[1],ind[1]].matrix)
+
+            E2, E1 = np.meshgrid(E2, E1)
+
+            # Initialize the pumping matrix:
+            self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
+                                      d_q.shape[1:])
+
+            # Grab the laser parameters:
+            (kvecs, pols, betas, deltas) = self.laserBeams[key].local_parameters(r, t)
+
+            projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
+
+            # Loop through each laser beam driving this transition:
+            for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
+                fijq = np.abs(d_q[0]*proj[2] + d_q[1]*proj[1] +d_q[2]*proj[0])**2
+
+                # Finally, calculate the scattering rate the polarization
+                # onto the appropriate basis:
+                self.Rijl[key][ll] = gamma*beta/2*\
+                    fijq/(1 + 4*(-(E2 - E1) + delta - np.dot(kvec, v))**2/gamma**2)
+
+    
+    def _add_pumping_rates_to_Rev(self):
+        # Now add the pumping rates into the rate equation propogation matrix:
+        for key in self.laserBeams:
+            ind = self.hamiltonian.rotated_hamiltonian.laser_keys[key]
+
+            n_off = sum(self.hamiltonian.rotated_hamiltonian.ns[:ind[0]])
+            n = self.hamiltonian.rotated_hamiltonian.ns[ind[0]]
+            m_off = sum(self.hamiltonian.rotated_hamiltonian.ns[:ind[1]])
+            m = self.hamiltonian.rotated_hamiltonian.ns[ind[1]]
+
+            # Sum over all lasers:
+            Rij = np.sum(self.Rijl[key], axis=0)
+
+            # Add the off diagonal components:
+            self.Rev[n_off:n_off+n, m_off:(m_off+m)] += Rij
+            self.Rev[m_off:(m_off+m), n_off:n_off+n] += Rij.T
+
+            # Add the diagonal components.
+            self.Rev[(np.arange(n_off, n_off+n), np.arange(n_off, n_off+n))] -= np.sum(Rij, axis=1)
+            self.Rev[(np.arange(m_off, m_off+m), np.arange(m_off, m_off+m))] -= np.sum(Rij, axis=0)
+
+
+    def construct_evolution_matrix(self, r, v, t=0., default_axis=np.array([0., 0., 1.])):
+        """
+        Constructs the
+        
+        Parameters
+        ----------
             r: a three-element vector specifying the position of interest
             v: a three-element vector specifying the velocity of interest
         """
-        # What is the magnetic field?
         if self.tdepend['B']:
             B = self.magField.Field(r, t)
         else:
@@ -228,76 +288,28 @@ class rateeq(object):
             Bhat = B/Bmag
         else:
             Bhat = default_axis
-
-        # Diagonalize at Bmag.  This is required if the Hamiltonian has any
-        # non-diagonal elements of the Hamiltonian that are dependent on Bz.
-        rotated_ham = self.hamiltonian.diag_static_field(Bmag)
+            
+        # Diagonalize the hamiltonian at this location:
+        self.hamiltonian.diag_static_field(Bmag)
+            
+        # Re-initialize the evolution matrix:
+        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+        
         if not np.all(self.hamiltonian.diagonal):
             # Reconstruct the decay matrix to match this new field.
-            self.Rev_decay = self.construct_evolution_matrix_decay(rotated_ham)
-
-        # Now add in the lasers
-        self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
+            self.Rev_decay = self._calc_decay_comp_of_Rev(
+                self.hamiltonian.rotated_hamiltonian
+            )
+            
         self.Rev += self.Rev_decay
-        self.Rijl = {}
-
-        for key in self.laserBeams:
-            # Extract the relevant d_q matrix:
-            ind = rotated_ham.laser_keys[key]
-            d_q = rotated_ham.blocks[ind].matrix
-            gamma = self.hamiltonian.blocks[ind].parameters['gamma']
-
-            # Extract the energies:
-            E1 = np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix)
-            E2 = np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix)
-
-            """
-            Eu, El = np.meshgrid(np.diag(rotated_ham.blocks[ind[0],ind[0]].matrix),
-                                 np.diag(rotated_ham.blocks[ind[1],ind[1]].matrix))
-            """
-            
-            # Initialize the pumping matrix:
-            self.Rijl[key] = np.zeros((len(self.laserBeams[key].beam_vector),) +
-                                      d_q.shape[1:])
-
-            # Grab the laser parameters:
-            (kvecs, pols, betas, deltas) = self.laserBeams[key].local_parameters(r, t)
-
-            projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
-
-            # Loop through each laser beam driving this transition:
-            for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
-                for ii in range(d_q.shape[1]):
-                    for jj in range(d_q.shape[2]):
-                        fijq = np.abs(np.dot(d_q[:, ii, jj], proj[::-1]))**2
-                        if fijq > 0:
-                            # Finally, calculate the scattering rate the polarization
-                            # onto the appropriate basis:
-                            """Rijl[ll, ii, jj] = beam.beta(r)/2*fijq/\
-                            (1 + 4*(beam.delta - (H0[ng+jj, ng+jj] - H0[ii, ii]) -
-                                    np.dot(kvec, v))**2)"""
-                            self.Rijl[key][ll, ii, jj] = gamma*beta/2*\
-                                fijq/(1 + 4*(-(E2[jj] - E1[ii]) + delta -
-                                             np.dot(kvec, v))**2/gamma**2)
-            
-            # Loop through each laser beam driving this transition:
-            """for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
-                fijq = np.abs(np.sum(d_q*proj[::-1].reshape(3,1,1)))**2
-                self.Rijl[key][ll] = gamma*beta/2*\
-                    fijq/(1 + 4*(-(Eu - El) + delta - np.dot(kvec, v))**2/gamma**2)"""
-
-            # Now add the pumping rates into the rate equation propogation matrix:
-            n = sum(rotated_ham.ns[:ind[0]])
-            m = sum(rotated_ham.ns[:ind[1]])
-            for ii in range(self.Rijl[key].shape[1]):
-                for jj in range(self.Rijl[key].shape[2]):
-                    self.Rev[n+ii, n+ii] += -np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[n+ii, m+jj] += np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[m+jj, n+ii] += np.sum(self.Rijl[key][:, ii, jj])
-                    self.Rev[m+jj, m+jj] += -np.sum(self.Rijl[key][:, ii, jj])
-
+        
+        # Recalculate the pumping rates:
+        Bhat = self._calc_pumping_rates(r, v, t, Bhat)
+        
+        # Add the pumping rates to the evolution matrix:
+        self._add_pumping_rates_to_Rev()
+                                         
         return self.Rev, self.Rijl
-
 
     def equilibrium_populations(self, r, v, t, **kwargs):
         """
@@ -336,17 +348,16 @@ class rateeq(object):
             f[key] = np.zeros((3, len(self.laserBeams[key].beam_vector)))
 
             ind = self.hamiltonian.laser_keys[key]
-            n = sum(self.hamiltonian.ns[:ind[0]])
-            m = sum(self.hamiltonian.ns[:ind[1]])
-            for ll, beam in enumerate(self.laserBeams[key].beam_vector):
-                # If kvec is callable, evaluate kvec:
-                kvec = beam.kvec(r, t)
+            n_off = sum(self.hamiltonian.ns[:ind[0]])
+            n = self.hamiltonian.ns[ind[0]]
+            m_off = sum(self.hamiltonian.ns[:ind[1]])
+            m = self.hamiltonian.ns[ind[1]]
 
-                for ii in range(self.Rijl[key].shape[1]):
-                    for jj in range(self.Rijl[key].shape[2]):
-                        if self.Rijl[key][ll, ii, jj]>0:
-                            f[key][:, ll] += kvec*self.Rijl[key][ll, ii, jj]*\
-                                (Npop[n+ii] - Npop[m+jj])
+            Ne, Ng = np.meshgrid(Npop[m_off:(m_off+m)], Npop[n_off:(n_off+n)], )
+            
+            for ll, beam in enumerate(self.laserBeams[key].beam_vector):
+                kvec = beam.kvec(r, t)
+                f[key][:, ll] += kvec*np.sum(self.Rijl[key][ll]*(Ng - Ne), axis=(0,1))
 
             F += np.sum(f[key], axis=1)
 
@@ -382,6 +393,7 @@ class rateeq(object):
             return F, f, fmag
         else:
             return F
+
 
     def set_initial_position_and_velocity(self, r0, v0):
         self.set_initial_position(r0)
@@ -492,11 +504,11 @@ class rateeq(object):
                     y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes))
 
                 total_P += np.sum(P)
-                
+
             # Calculate a new maximum dt to make sure we evolve while not
             # exceeding dt max:
             new_dt_max = (max_scatter_probability/total_P)*dt
-            
+
             return (num_of_scatters, new_dt_max)
 
 
@@ -520,11 +532,11 @@ class rateeq(object):
 
                 # Save the total probability of a scatter:
                 total_P += np.sum(P)
-                
+
             # Calculate a new maximum dt to make sure we evolve while not
             # exceeding dt max:
             new_dt_max = (max_scatter_probability/total_P)*dt
-            
+
             return (num_of_scatters, new_dt_max)
 
         y0 = np.concatenate((self.N0, self.v0, self.r0))
@@ -544,7 +556,7 @@ class rateeq(object):
             progress.update(1.)
 
         # Rearrange the solution:
-        self.sol.N = self.sol.y[-6:]
+        self.sol.N = self.sol.y[:-6]
         self.sol.v = self.sol.y[-6:-3]
         self.sol.r = self.sol.y[-3:]
 
