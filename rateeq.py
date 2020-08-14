@@ -9,7 +9,9 @@ from scipy.optimize import minimize, fsolve
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
-from .common import random_vector, base_force_profile, progressBar
+from .common import (progressBar, random_vector, spherical_dot,
+                     cart2spherical, spherical2cart, governingeq,
+                     base_force_profile)
 from .integration_tools import solve_ivp_random
 from scipy.interpolate import interp1d
 
@@ -37,7 +39,7 @@ class force_profile(base_force_profile):
             self.Rijl[key][ind] = Rijl[key]
 
 
-class rateeq(object):
+class rateeq(governingeq):
     """
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
@@ -47,6 +49,8 @@ class rateeq(object):
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
         """
+        super().__init__(**kwargs)
+        
         if len(args) < 3:
             raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
         elif len(args) == 3:
@@ -89,10 +93,6 @@ class rateeq(object):
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Now handle keyword arguments:
-        r=kwargs.pop('r', np.array([0., 0., 0.]))
-        v=kwargs.pop('v', np.array([0., 0., 0.]))
-
         self.include_mag_forces = kwargs.pop('include_mag_forces', True)
         self.svd_eps = kwargs.pop('svd_eps', 1e-10)
 
@@ -133,9 +133,6 @@ class rateeq(object):
             self.recoil_velocity[key] = \
                 self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
                 /self.hamiltonian.mass
-
-        # Reset the current solution to
-        self.set_initial_position_and_velocity(r, v)
 
         # A dictionary to store the pumping rates.
         self.Rijl = {}
@@ -396,16 +393,6 @@ class rateeq(object):
         else:
             return F
 
-
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
 
     def set_initial_pop(self, N0):
         self.N0 = N0
