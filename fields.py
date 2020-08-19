@@ -895,7 +895,7 @@ class gaussianBeam(laserBeam):
     con_kvec : array_like, shape (3,)
         Nominal k-vector of the Gaussian beam.
     """
-    def __init__(self, kvec, pol, beta, delta, wb, r0=np.array([0.,0.,0.]), **kwargs):
+    def __init__(self, kvec, pol, beta, delta, wb, r0=np.array([0.,0.,0.]), rs=np.inf,**kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
@@ -919,6 +919,7 @@ class gaussianBeam(laserBeam):
         self.wavelength = 2*np.pi/(np.linalg.norm(kvec))  
         self.zr = np.pi*self.wb**2/(self.wavelength)  # Rayleigh length
         self.r0 = r0    # Position of focus
+        self.rs = rs # stop
 
         # Define the global rotation matrix
         self.global_rotation_matrix()
