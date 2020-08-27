@@ -94,7 +94,7 @@
 %% \address{Address\fnref{label3}}
 %% \fntext[label3]{}
 
-\title{PyLCP: A package for computing complicated laser cooling physics}
+\title{PyLCP: A python package for computing complicated laser cooling physics}
 
 %% use optional labels to link authors explicitly to addresses:
 %% \author[label1,label2]{<author name>}
@@ -169,11 +169,17 @@ of programs previously published in the CPC Program Library.\\
 %% main text
 \section{Introduction}
 \label{sec:intro}
-Laser cooling is ubiquitous in modern atomic physics.  The 
+Laser cooling is ubiquitous in modern atomic physics.  Cooling, trapping, and manipulating atoms has led to huge advances in clocks, inertial sensors, magnetometers, emerging quantum technologies, and tests of fundamental symmetries.  On its surface, laser cooling may appear simple, with straightforward models being used to qualitatively describe the essential features, like magneto-optical trapping and Doppler and sub-Doppler cooling.  A full description that takes into account the complicated level structures and complicated geometries of the process and the quantitative results such a description would produce is often out of reach.
 
-Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary optical (laser) and magnetic fields.  The fundamental piece of the program.
+For example, consider a $^{23}$Na atom in a standard, six-beam magneto-optical trap.  The trap has a spherical quadrupole magnetic field and six independent laser beams with at least two frequency components, driving transitions between at least 28 different states.  Describing this system  with the optical Bloch equations results in $28^2=784$ coupled, first-order differential equations for the internal states plus an additional 6 to account for its motion.  Moreover, these equations change as the atom moves about the trap.  Clearly, automatically generating and efficiently solving these equations for an arbitrary combination of atom, laser fields and magnetic fields would be a necessity for theoretically quantifying the quality of different kinds of traps.  
 
-\section{The optical Bloch equations}
+Here we introduce a python-based program that computes the movement of atoms or molecules with complex level structures in arbitrary optical (laser) and magnetic fields.  Our program allows for multiple levels of approximation from the complete optical Bloch equations through to a simple heuristic model.  Importantly, for the user's given laser geometry, level structure, and magnetic field configuration, our code automatically generates the governing equations for the atom, saving the user time and effort to construct them.  We leverage advanced python packages to both integrate the resulting 
+
+This paper is organized as follows.  In Sec.~\ref{sec:governing_equations}, we present the governing equations included in the code.  We start with the optical Bloch equations, then present approximations that result in the rate equations and further approximations that result in a heuristic equation.  In each of these derivations, we focus on the elements that are important for its efficient programming.  In Sec.~\ref{sec:examples}, we present several examples of the code in action producing standard results.
+
+\section{The governing equations}
+\label{sec:governing_equations}
+\subsection{The optical Bloch equations}
 Here, we consider the generic problem of coupling $N$ states together in arbitrary optical and magnetic fields.
 We group these states into manifolds: a collection of states that are degenerate or nearly degenerate, e.g., the $^2S_0$ states of an alkali atom, the ro-vibrational states of molecules, etc.
 We denote the $i$th state and its manifold index $n$ by by $\ket{i, n}$.
@@ -310,7 +316,7 @@ where $\ddot{r}$ is the acceleration of the particle, $\mathbf{a}$ is a constant
 
 Momentum diffusion [...]. Random scattering [...]
 
-\subsection{Representation of the Hamiltonian}
+\subsubsection{Representation of the Hamiltonian}
 In {\tt pylcp}, we represent this Hamiltonian as a series of blocks, with each block containing a manifold of states (e.g., Zeeman sub-levels or a manifold of hyperfine states). A completely generic basis set vector can then be written as
 \begin{equation}
     \ket{\phi} = \left(\begin{array}{c} \begin{array}{c} \ket{l_1} \\ \vdots \\ \ket{l_{l_{N_l}}} \end{array} \\ \begin{array}{c} \ket{n_1} \\ \vdots \\ \ket{n_{N_n}} \end{array} \end{array}\right)\ ,
@@ -330,7 +336,7 @@ where each element in the matrix $H_g$, $H_e$, etc. is itself a matrix.  In gene
 
 To specify the problem, the user defines a Hamiltonian like Eq. (5) by providing the requisite $H_0$, $\boldsymbol{\mu}_l$, and $\boldsymbol{d}_{lm}$ and combining them in the {\tt hamiltonian} class.  The class creates and stores the block structure of the Hamiltonian, and also contains methods that are useful for its manipulation.  The vectors $\boldsymbol{\mu}$ and $\boldsymbol{d}$ are represented in spherical polar coordinates, allowing for translation into $\sigma^{\pm}$ circular polarization and $\pi$ polarizations.  For these vectors, we denote the component $q$ as $d^q$.
 
-\subsection{Fields}
+\subsubsection{Fields}
 In its construction, {\tt pylcp} assumes a that the Hamiltonian is written in a co-rotating frame with a frequency close to that of the laser light, with the number of rotating frames equal to $N_m-1$.  The electric field has the form
 \begin{equation}
 	\mathbf{E}_{lm} = \frac{1}{2}\hat{\boldsymbol{\epsilon}}(r, t) E_{lm}(r, t)e^{i\mathbf{k}(r,t)\cdot\mathbf{r}-i \Delta t + \phi(t)}
@@ -342,7 +348,7 @@ Laser beams are collected by which manifold transition they address.
 
 Finally, the magnetic field $\mathbf{B}$ is specified simply as a user-defined function  of space and time.
 
-\subsection{Units}
+\subsubsection{Units}
 \label{sec:obe_units}
 For {\tt pylcp}, $\hbar=1$ so that angular frequencies and energies are equivalent. Thus, the user specifies $H_0/\hbar$, rather than $H_0$.
 
@@ -369,12 +375,11 @@ For random scattering, the recoil velocity $\hbar \mathbf{k}/m$ vector must also
 \end{equation}
 {\it Once again, I hate ending a paragraph or even a section with a sentence.}
 
-\subsection{Additional details}
+\subsubsection{Additional details}
 The optical Bloch equations are symmetric under population exchange, i.e., $\rho_{l_i, m_j} = \rho^*_{m_j, l_i}$.  The package {\tt pylcp} takes advantage of this symmetry to transform the optical Bloch equations into real and imaginary parts, increasing computational speed.
 
-\section{The Rate Equations}
-Here, we follow the construction of the rate equations from Ref.~\cite{Tarbutt2015} and, to a lesser extent, the Ref.~\cite{Tollett1995}.
-In order to do a rate equation model, we first consider that we have a set of
+\subsection{The Rate Equations}
+Here, we follow the construction of the rate equations from Ref.~\cite{Tarbutt2015}.  We first consider that we have a set of
 eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal. 
 
 In the rate equation model, we neglect the coherences in the optical Bloch equations and instead calculate just the populations in the state $i$ in manifold $m$, $N^n_i = \ket{n, i}\bra{n, i}$.  The evolution of $N^n_i$ is given by
@@ -404,13 +409,13 @@ Finally, the motion of the atom in the trap is given by
 	\mathbf{\ddot{r}} = \sum_{l} \frac{\hbar \mathbf{k}_l}{2m}\sum_{m, n, i,j} R_{ij,l}^{n\rightarrow m}(N^m_j - N^n_i) + \mathbf{a}
 \end{equation}
 
-\subsection{Rotation of the Hamiltonian}
+\subsubsection{Rotation of the Hamiltonian}
 Because the pumping rate \eqref{eq:rate_eq:pumping_rate} depends on the energies of the two states $\omega_i$ and $\omega_j$, the Hamitlonian must be diagonalized for each submatrix at every magnetic field $B$.  Then the $d^{nm}$ matrices must be rotated accordingly in order to recalculate.
 
 The net effect of this is to 
 
 
-\subsection{A word about polarization}
+\subsubsection{A word about polarization}
 We have thusfar considered the polarization to be contained $E^l_q$.  However,
 computing this quantity is not necessarily trivial.  First, one takes the
 magnitude out realizing that is related to the intensity, i.e., $E^l_q =
@@ -487,23 +492,26 @@ $\sigma^+$ and $\sigma^-$ light (with a phase angle in between).
 
 None of this gets us closer to the final result, but it is interesting.
 
-\section{Heuristic equation}
+\subsection{Heuristic equation}
 A final governing equation is also included in the package, titled the heuristic equation.  This equation calculates the force on that atom assuming a basic $F=0\rightarrow F=1$ atom,
 \begin{equation}
 	F = \frac{\hbar k \Gamma}{2}\sum_{l,q} \frac{\beta_l \left(\epsilon_{l,q}\cdot \hat{B}\right)}{1+\sum_j\beta_j+4(\Delta^2 - \mathbf{k}\cdot\mathbf{v} - q |B|)^2/\Gamma^2} 
 \end{equation}
 This
+
 \section{Examples}
-In this section, we cover several intriguing examples of laser cooling techniques.  These examples described herein are a small subset of the examples contained with the {\tt pylcp} package.
+In this section, we cover several standard examples of laser cooling and show that we can use {\tt pylcp} to reproduce standard results.  These examples described herein are a small subset of the available examples contained with the {\tt pylcp} package.
 
 \subsection{Optical pumping \& Rabi flopping}
+We start with the well-known example of Rabi flopping.  When a two-level atom is illuminated with off-resonant laser light $\Delta/\Gamma=??$ and $s_0 = ??$, it drives oscillations in the population of the state.  The decay of the excited state leads to the oscillation decaying and the population achieving an equilibrium value.  In Fig.~\ref{fig:rabi_flopping}, the solution with both the optical Bloch equations and the rate equations are shown.  Unlike the OBEs, the rate equations show no oscillation.  This is expected as the rate equations neglect the coherences in the OBEs.  Nevertheless, they both asymptotically approach the same equilibrium value.
+
 \begin{figure}
 	\center
 	\includegraphics{figs/damped_rabi_flopping.pdf}
-	\caption{\label{fig:rabi_flopping} Damped Rabi flopping for a  }
+	\caption{\label{fig:rabi_flopping} Damped Rabi flopping for a two level atom with states $\ket{0}$ and $\ket{1}$ with corresponding density operators.}
 \end{figure}
 
-As a first example, consider an $F=1\rightarrow F=2$ atom illuminated by $\pi$ light, starting in a stretched state.  In this configuration, optical pumping will 
+Next, consider a slightly more complicated $F=2\rightarrow F=3$ atom illuminated by $\pi$ light, starting in a stretched state $m_F=-2$.  In this configuration, the lasers will optically pump the atoms into a stretched state with $\langle F_z \rangle = 0$, corresponding to equal populations between $\pm m_F=0$ with maximal population in $m_F=0$.  This pumping process is depicted in Fig.~\ref{fig:optical_pumping}, using a detuning $\Delta/\Gamma = ??$ and $s_0=??$, parameters that match the parameters used for a similar simulation in Ungar, {\it et. al.}~\cite{Ungar1989}\footnote{Note that $s_0$ therein is defined with the detuning included.}.  Fig.~\ref{fig:optical_pumping} also shows the solution to rate equations, which are nearly identical except at early times.
 
 \begin{figure}
 	\center
@@ -511,29 +519,55 @@ As a first example, consider an $F=1\rightarrow F=2$ atom illuminated by $\pi$ l
 	\caption{\label{fig:optical_pumping} Optical pumping on an $F=2\rightarrow F'=3$ transition of an atom.  The $m_F=-2, 1, 0, 1, 2$ states are shown in blue, orange, green, red, and purple, respectively.  The solution from the rate equations (OBEs) are shown as dashed (solid) curves.  See text for other parameters.}
 \end{figure}
 
-We next show an example of optical pumping, both with the rate equations and the optical Bloch equations.  We compare this directly to Unager, et. al.~\cite{Unager1989}.
+\subsection{Electromagnetically induced transparency}
+Beyond the two-level atom considered above, the three-level atom can produce a multitude of more complicated physical phenomenon.  Perhaps the most well known is electromagnetically inducted transparency.   Consider an three-level atom in the $\Lambda$ configuration, with ground state $\ket{g}$, intermediate meta-stable state $\ket{r}$, and excited state $\ket{e}$.  When driven with two lasers resonantly, 
 
-\subsection{Equilibrium forces in molasses}
-Equilibrium forces in an optical molasses are most accurately 
+\begin{figure}
+	\center
+	\includegraphics{figs/eit_susceptibility.pdf}
+	\caption{\label{fig:eit_susceptibility} Susceptibility ($\rho_{re}$) of a three-level atom.  See text for other parameters.}
+\end{figure}
+
+
+\subsection{Two-level optical molasses}
+While the previous examples focused exclusively on the internal structure of the atom, {\tt pylcp} is mostly focused on the coupling of the internal dynamics to the external motion.  Perhaps the most well-understood problem in this realm is the two-level atom moving in  
+
+Equilibrium forces in an optical molasses are most accurately described 
+
+\begin{figure}
+	\center
+	\includegraphics{figs/final_temperature_two_level_1D_molasses_rate_eqn.pdf}
+
+	\caption{\label{fig:doppler_limit} Final temperature of 100? independent atoms in a 1D optical molasses.}
+\end{figure}
+
 
 
 \subsection{Sub-Doppler molasses}
 
+\begin{figure}
+	\center
+	\includegraphics{figs/F2_to_F3_subDoppler_force}
+	\caption{\label{fig:sub_doppler_force} Sub-doppler force profile for various polarizations.}
+\end{figure}
 
-\subsection{Type-II 1D molasses}
+\begin{figure}
+	\center
+	\includegraphics{figs/temperature_histogram_F2_to_F3}
+	\caption{\label{fig:sub_doppler_temperature} Sub-doppler temperature.}
+\end{figure}
 
+\subsection{Force, capture, and temperature in MOTs}
 
-\subsection{Equilibrium force in MOTs}
-
-
-\subsection{Capture velocity of 1D MOT}
-
-
-\subsection{Temperatures in MOTs}
+\begin{figure}
+	\center
+	\includegraphics{figs/F0_to_F1_MOT_force_with_incoming_trajectories.pdf}
+	\caption{\label{fig:mot_forces}}
+\end{figure}
 
 
 \subsection{Bi-chromatic forces}
-
+Citation: \cite{Soding1997}.
 
 
 %% The Appendices part is started with the command \appendix;
@@ -554,7 +588,7 @@ Equilibrium forces in an optical molasses are most accurately
 %% References with bibTeX database:
 
 \bibliographystyle{elsarticle-num}
-\bibliography{<your-bib-database>}
+\bibliography{pylcp}
 
 %% Authors are advised to submit their bibtex database files. They are
 %% requested to list a bibtex style file in the manuscript if they do

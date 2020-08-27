@@ -136,3 +136,6 @@ dmypy.json
 .DS_Store
 *.fls
 *.pkl
+doc/pylcp.bbl
+doc/pylcp.blg
+doc/pylcp.out
