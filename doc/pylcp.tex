@@ -503,20 +503,20 @@ This
 In this section, we cover several standard examples of laser cooling and show that we can use {\tt pylcp} to reproduce standard results.  These examples described herein are a small subset of the available examples contained with the {\tt pylcp} package.
 
 \subsection{Optical pumping \& Rabi flopping}
-We start with the well-known example of Rabi flopping.  When a two-level atom is illuminated with off-resonant laser light $\Delta/\Gamma=??$ and $s_0 = ??$, it drives oscillations in the population of the state.  The decay of the excited state leads to the oscillation decaying and the population achieving an equilibrium value.  In Fig.~\ref{fig:rabi_flopping}, the solution with both the optical Bloch equations and the rate equations are shown.  Unlike the OBEs, the rate equations show no oscillation.  This is expected as the rate equations neglect the coherences in the OBEs.  Nevertheless, they both asymptotically approach the same equilibrium value.
+We start with the well-known example of Rabi flopping.  When a two-level atom is illuminated with off-resonant laser light $\Delta/\Gamma=-4$ and $s_0 = 20$, it drives oscillations in the population of the state.  The decay of the excited state leads to the oscillation decaying and the population achieving an equilibrium value.  In Fig.~\ref{fig:rabi_flopping}, the solution with both the optical Bloch equations and the rate equations are shown.  Unlike the OBEs, the rate equations show no oscillation.  This is expected as the rate equations neglect the coherences in the OBEs.  Nevertheless, they both asymptotically approach the same equilibrium value.
 
 \begin{figure}
 	\center
 	\includegraphics{figs/damped_rabi_flopping.pdf}
-	\caption{\label{fig:rabi_flopping} Damped Rabi flopping for a two level atom with states $\ket{0}$ and $\ket{1}$ with corresponding density operators.}
+	\caption{\label{fig:rabi_flopping} Damped Rabi flopping for a two level atom with states $\ket{0}$ and $\ket{1}$ with corresponding density operators $\rho_{00}$ (blue) and $\rho_{11}$ (red) with both the OBEs (solid) and the rate equations (dashed).  The paramters of the calculation are $\Delta/\Gamma=-4$ and $s_0=20$.}
 \end{figure}
 
-Next, consider a slightly more complicated $F=2\rightarrow F=3$ atom illuminated by $\pi$ light, starting in a stretched state $m_F=-2$.  In this configuration, the lasers will optically pump the atoms into a stretched state with $\langle F_z \rangle = 0$, corresponding to equal populations between $\pm m_F=0$ with maximal population in $m_F=0$.  This pumping process is depicted in Fig.~\ref{fig:optical_pumping}, using a detuning $\Delta/\Gamma = ??$ and $s_0=??$, parameters that match the parameters used for a similar simulation in Ungar, {\it et. al.}~\cite{Ungar1989}\footnote{Note that $s_0$ therein is defined with the detuning included.}.  Fig.~\ref{fig:optical_pumping} also shows the solution to rate equations, which are nearly identical except at early times.
+Next, consider a slightly more complicated $F=2\rightarrow F=3$ atom illuminated by $\pi$ light, starting in a stretched state $m_F=-2$.  In this configuration, the lasers will optically pump the atoms into a stretched state with $\langle F_z \rangle = 0$, corresponding to equal populations between $\pm m_F$ with maximal population in $m_F=0$.  This pumping process is depicted in Fig.~\ref{fig:optical_pumping}, using a detuning $\Delta/\Gamma = -2.73$ and $s_0\approx 1.35$, parameters that match the parameters used for a similar simulation in Ungar, {\it et. al.}~\cite{Ungar1989}\footnote{Note that $s_0$ therein is defined with the detuning included.}.  Fig.~\ref{fig:optical_pumping} also shows the solution to rate equations, which are nearly identical except at early times.  Within the simulation contained within the simulation directory, 
 
 \begin{figure}
 	\center
 	\includegraphics{figs/optical_pumping_f2_f3.pdf}
-	\caption{\label{fig:optical_pumping} Optical pumping on an $F=2\rightarrow F'=3$ transition of an atom.  The $m_F=-2, 1, 0, 1, 2$ states are shown in blue, orange, green, red, and purple, respectively.  The solution from the rate equations (OBEs) are shown as dashed (solid) curves.  See text for other parameters.}
+	\caption{\label{fig:optical_pumping} Optical pumping on an $F=2\rightarrow F'=3$ transition of an atom.  The populations of the $m_F=-2, 1, 0, 1, 2$ states are shown in blue, orange, green, red, and purple, respectively.  The solution from the rate equations (OBEs) are shown as dashed (solid) curves.  See text for other parameters.}
 \end{figure}
 
 \subsection{Electromagnetically induced transparency}
@@ -530,14 +530,20 @@ Beyond the two-level atom considered above, the three-level atom can produce a m
 
 
 \subsection{Two-level optical molasses}
-While the previous examples focused exclusively on the internal structure of the atom, {\tt pylcp} is mostly focused on the coupling of the internal dynamics to the external motion.  Perhaps the most well-understood problem in this realm is the two-level atom moving in  
+While the previous examples focused exclusively on the internal structure of the atom, {\tt pylcp} is mostly focused on the coupling of the internal dynamics to the external motion.  Perhaps the most well-understood problem in this realm is the two-level atom moving in one dimension.  This can be calculated in many ways, and 
+
+The first step is to calculate the average force vs. velocity
+\begin{figure}
+	\center
+	\includegraphics{figs/two_level_molasses_forces.pdf}
+	\caption{\label{fig:two_level_molasses_forces} Average force $F$ vs. velocity $v$ in a one-dimensional two-level molasses.  The three curves show the differences between the OBE (blue, solid), rate equations (orange, dashed), and heuristic equation (green, dashed).}
+\end{figure}
 
 Equilibrium forces in an optical molasses are most accurately described 
 
 \begin{figure}
 	\center
 	\includegraphics{figs/final_temperature_two_level_1D_molasses_rate_eqn.pdf}
-
 	\caption{\label{fig:doppler_limit} Final temperature of 100? independent atoms in a 1D optical molasses.}
 \end{figure}
 
