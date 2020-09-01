@@ -93,7 +93,7 @@ class obe(governingeq):
                 the hamiltonian class.
         """
         super().__init__(**kwargs)
-        
+
         if len(args) < 3:
             raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
         elif len(args) == 3:
@@ -831,7 +831,7 @@ class obe(governingeq):
         abs = kwargs.pop('abs', 1e-9)
         debug = kwargs.pop('debug', False)
         return_details = kwargs.pop('return_details', False)
-        
+
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
         if debug:
@@ -891,6 +891,7 @@ class obe(governingeq):
         Method that maps out the equilbirium forces:
         """
         def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
+            deltat = None
             if deltat_v is not None:
                 vabs = np.sqrt(np.sum(v**2))
                 if vabs==0.:
@@ -904,16 +905,16 @@ class obe(governingeq):
                     deltat = deltat_tmax
                 else:
                     deltat = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
-            
+
             return deltat
 
         name = kwargs.pop('name', None)
         progress_bar = kwargs.pop('progress_bar', False)
-        deltat_r = kwargs.pop('deltat_r', np.inf)
-        deltat_v = kwargs.pop('deltat_v', 10.)
-        deltat_tmax = kwargs.pop('deltat_tmax', 2*np.pi*100)
+        deltat_r = kwargs.pop('deltat_r', None)
+        deltat_v = kwargs.pop('deltat_v', None)
+        deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
         deltat_func = kwargs.pop(
-            'deltat_func', 
+            'deltat_func',
             lambda r, v: default_deltat(r, v, deltat_v, deltat_r, deltat_tmax)
         )
         initial_rho = kwargs.pop('initial_rho', 'rateeq')
@@ -947,9 +948,10 @@ class obe(governingeq):
             else:
                 raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
-            kwargs['deltat'] = deltat_func(r, v)
+            if not deltat_func(r, v) is None:
+                kwargs['deltat'] = deltat_func(r, v)
             kwargs['return_details'] = True
-            
+
             F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
