@@ -502,7 +502,7 @@ A final governing equation is also included in the package, titled the heuristic
 This
 
 \section{Examples}
-In this section, we cover several standard examples of laser cooling and show that we can use {\tt pylcp} to reproduce standard results.  These examples described herein are a small subset of the available examples contained with the {\tt pylcp} package.
+In this section, we cover several standard examples of laser cooling and show that we can use {\tt pylcp} to reproduce standard results.  These examples described herein are a small subset of the available examples contained with the {\tt pylcp} package.  All examples are saved as {\tt jupyter} notebooks that include comments and saved output figures.
 
 \subsection{Optical pumping \& Rabi flopping}
 We start with the well-known example of Rabi flopping.  When a two-level atom is illuminated with off-resonant laser light $\Delta/\Gamma=-4$ and $s_0 = 20$, it drives oscillations in the population of the state.  The decay of the excited state leads to the oscillation decaying and the population achieving an equilibrium value.  In Fig.~\ref{fig:rabi_flopping}, the solution with both the optical Bloch equations and the rate equations are shown.  Unlike the OBEs, the rate equations show no oscillation.  This is expected as the rate equations neglect the coherences in the OBEs.  Nevertheless, they both asymptotically approach the same equilibrium value.
@@ -580,14 +580,27 @@ Contained in the examples directory, but omitted here, is a calculation of one-d
 Another type of sub-Doppler molasses that is useful is that of three-level $\Lambda$-enhanced cooling~\cite{Grier2013}.  This molasses technique is unique compared to the others described above in that it uses a three-manifold system rather than a two-manifold.  We have simulated this process using {\tt pylcp}, and the script and results are contained with the other molasses examples.  The numerical results match the theoretical results of Ref.~\cite{Grier2013}.
 
 \subsection{Force, capture, and temperature in MOTs}
-Forces in a magneto-optical trap are slightly more complex than those of optical molasses, as they also depend on position as well as velocity.  Figure~\ref{fig:mot_forces} show such forces, calculated using the heuristic equation for such a one-dimensional MOT.  While this 
-
 \begin{figure}
 	\center
 	\includegraphics{figs/F0_to_F1_MOT_force_with_incoming_trajectories.pdf}
-	\caption{\label{fig:mot_forces}}
+	\caption{\label{fig:mot_forces} Force $F$ vs. both position $x$ and velocity $v$ in a one-dimensional magneto-optical trap with laser parameters $\Delta/\Gamma=1.5$ and $s_0=1$.  The white curves show trajectories through phase space for atoms entering the MOT with different initial velocities $v_0$.}
 \end{figure}
 
+Forces in a magneto-optical trap are slightly more complex than those of optical molasses, as they also depend on position as well as velocity.  Figure~\ref{fig:mot_forces} show such forces, calculated using the heuristic equation for such a one-dimensional MOT.  The laser parameters for this calculation are $\Delta/\Gamma=-1.5$ and $s_0=1$.  The white curves show trajectories, calculated without random scattering, of atoms injected into the MOT at a position $z=-20(\hbar \Gamma/\mu_B B')$ with varying initial velocity $v_0$.  Trajectories with $v_0 < 14\Gamma/k$ are captured, whereas trajectories with $v_0\geq 14 \Gamma/k$ escape.  By calculating such trajectories and bisecting the initial velocity repeatedly, one can obtain the MOT capture velocity numerically.  Figure~\ref{fig:capture} shows the result of such a calculation along with the prediction of a simple model found in Ref.~\cite{}.  This procedure has been extended to three-dimensional MOTs with non-standard geometry and should be the subject a forthcoming paper.
+
+\begin{figure}
+	\center
+	\includegraphics{figs/F0_to_F1_MOT_capture}
+	\caption{\label{fig:mot_forces} Capture velocity $v_c$ vs. laser detuning $\Delta$ for $s_0=$ calculated using the heuristic equation.}
+\end{figure}
+
+This above example uses the heuristic equation, which calculates the textbook example of an $F=0\rightarrow F'=1$ atom.  Extending to larger $F$ and $F'$ in the one-dimensional case produces some intriguing results.  Consider Fig.~\ref{fig:} which shows an $F=9/2\rightarrow F'=11/2$ one-dimensional MOT with $g_F=0$ and $g_F'=1/F'$.  In this case, the restoring forces rapidly disappear around $v=0$.  This disappearance is caused by shifting of the non-resonant $m_F$ component.  Specifically, consider the highlighted line along 
+
+We also include a calculation of the temperature of a magneto-optical trap, calculated in three dimensions with the optical Bloch equations.
+
+Finally, we have also repeated the calculation of Ref.~\cite{} of a MOT 
+
+Other MOT examples included with {\tt pylcp} include calculating MOT damping forces and trapping frequencies along with comparison to analytic formulas~\cite{}, the forces on both $D_1$ and $D_2$ lines of alkali atoms, the forces in the two color MOT of Ref.~\cite{}, the forces for a variety of different type-I and type-II MOTs considered in Ref.~\cite{Tarbutt2015}, and the forces involved in trapping CaF in Ref.~\cite{}. 
 
 \subsection{Bi-chromatic forces}
 
