@@ -94,7 +94,7 @@
 %% \address{Address\fnref{label3}}
 %% \fntext[label3]{}
 
-\title{PyLCP: A python package for computing complicated laser cooling physics}
+\title{PyLCP: A python package for computing laser cooling physics}
 
 %% use optional labels to link authors explicitly to addresses:
 %% \author[label1,label2]{<author name>}
@@ -103,7 +103,9 @@
 
 \author[a]{Stephen Eckel\corref{author}}
 \author[a]{Daniel Barker}
+\author[a]{James Fedchak}
 \author[a]{Eric Norrgard}
+\author[a]{Julia Scherschligt}
 
 \cortext[author] {Corresponding author.\\\textit{E-mail address:} stephen.eckel@nist.gov}
 \address[a]{National Institute of Standards and Technology, Sensor Sciences Division, 100 Bureau Dr., Gaithersburg, MD 20899}
@@ -520,36 +522,44 @@ Next, consider a slightly more complicated $F=2\rightarrow F=3$ atom illuminated
 \end{figure}
 
 \subsection{Electromagnetically induced transparency}
-Beyond the two-level atom considered above, the three-level atom can produce a multitude of more complicated physical phenomenon.  Perhaps the most well known is electromagnetically inducted transparency.   Consider an three-level atom in the $\Lambda$ configuration, with ground state $\ket{g}$, intermediate meta-stable state $\ket{r}$, and excited state $\ket{e}$.  When driven with two lasers resonantly, 
+Beyond the two-level atom considered above, the three-level atom can produce a multitude of more complicated physical phenomenon.  Perhaps the most well known is electromagnetically inducted transparency.   Consider an three-level atom in the $\Lambda$ configuration, with ground state $\ket{g}$, intermediate meta-stable state $\ket{r}$, and excited state $\ket{e}$.  We assume that $\Omega_{ge} = \Braket{g|d\cdot E|e} \gg \Omega_{re} = \Braket{r|d\cdot E|e}$.   In this limit, if both lasers are resonant with their respective ground state  to excited state transition, the strong laser opens a transparency window in the otherwise absorptive transition [??].
 
 \begin{figure}
 	\center
 	\includegraphics{figs/eit_susceptibility.pdf}
-	\caption{\label{fig:eit_susceptibility} Susceptibility ($\rho_{re}$) of a three-level atom.  See text for other parameters.}
+	\caption{\label{fig:eit_susceptibility} Susceptibility ($\rho_{re}$) of a three-level atom as a function of $\delta = \Delta_{ge}-\Delta_{re}$ for $\Delta_{ge}/\Gamma=-5$ (blue), $-1$ (orange), and $-0.1$ (green).}
 \end{figure}
 
+This effect is most easily seen by observing the susceptibility of the photons to the atom through the coherence $\rho_{re}$.  Figure~\ref{fig:eit_susceptibility} shows the numerically calculated $\rho_{re}$ for various values of $\delta/\Gamma = \Delta_{ge}/\Gamma-\Delta_{re}/\Gamma$, where $\Delta_{ie}$ is the detuning of the $i$th state laser from two-photon resonance with $\ket{e}$ for various $\Delta_{ge}$.  Here the parameters are $2(\Omega_{ge}/\Gamma)^2=10$ and $2(\Omega_{re}/\Gamma)^2=0.1$.  For $|\Delta_{ge}|\gg 1$, the absorption profile looks normal, except there is a small glitch in the susceptibility near Raman resonance at $\delta=0$.
 
 \subsection{Two-level optical molasses}
-While the previous examples focused exclusively on the internal structure of the atom, {\tt pylcp} is mostly focused on the coupling of the internal dynamics to the external motion.  Perhaps the most well-understood problem in this realm is the two-level atom moving in one dimension.  This can be calculated in many ways, and 
+While the previous examples focused exclusively on the internal structure of the atom, {\tt pylcp} is mostly focused on the coupling of the internal dynamics to the external motion.  Perhaps the most well-understood problem in this realm is the two-level atom moving in one dimension.
 
-The first step is to calculate the average force vs. velocity
 \begin{figure}
 	\center
 	\includegraphics{figs/two_level_molasses_forces.pdf}
-	\caption{\label{fig:two_level_molasses_forces} Average force $F$ vs. velocity $v$ in a one-dimensional two-level molasses.  The three curves show the differences between the OBE (blue, solid), rate equations (orange, dashed), and heuristic equation (green, dashed).}
+	\caption{\label{fig:two_level_molasses_forces} Force $F$ vs. velocity $v$ in a one-dimensional two-level molasses.  The three curves show the differences between the OBE (blue, solid), rate equations (orange, dashed), and heuristic equation (green, dashed).}
 \end{figure}
 
-Equilibrium forces in an optical molasses are most accurately described 
+The first step is to calculate the average force vs. velocity.  Fig.~\ref{fig:two_level_molasses_forces} shows such a force calculated using our three different governing equations for $\Delta/\Gamma=-2$ and $s_0=1.5$.  Equilibrium forces in an optical molasses are most accurately described using either the OBEs or the rate equations, which accurately account for saturation from the beams for all velocities.  The heuristic equation overestimates the saturation except near the origin, causing a reduction in force at $|v|\gg \Gamma/k$.  
 
 \begin{figure}
 	\center
 	\includegraphics{figs/final_temperature_two_level_1D_molasses_rate_eqn.pdf}
-	\caption{\label{fig:doppler_limit} Final temperature of 100? independent atoms in a 1D optical molasses.}
+	\caption{\label{fig:doppler_limit} Final temperature $T$ vs. detuning $\Delta$ and $s_0=0.3,\ 1,\ 3$ (blue, orange, green, respectively) for two-level atoms in a 1D molasses.  Error bars indicated 1-$\sigma$ uncertainty in the temperature.}
 \end{figure}
 
-
+Nevertheless, the damping force near the origin is nearly identical between the three equations when $\Delta/\Gamma$ is small.  This allows the results of two-level molasses~\cite{Lett1989} to be applicable to all three in such a regime.
+Figure~\ref{fig:doppler_limit} shows the simulated temperatures of small clouds ($N=100$ atoms) simulated with the rate equations in such a 1D molasses.  We see reasonably good agreement with the expectation of Doppler cooling, Eq. (18) in Ref.~~\cite{Lett1989}.  Specifically, the solid curves show the expected value of 
+\begin{equation}
+	\label{eq:general_doppler_limit}
+	\frac{T}{T_D} = \frac{1+2s_0+4(\Delta/\Gamma)^2}{4|\Delta/\Gamma|},
+\end{equation}
+where $T_D = \hbar \Gamma/2k_B$.  We note that in general we see a lower temperature than that predicted by \eqref{eq:general_doppler_limit} because 
+the heuristic equation tends to underestimate the damping at larger detuning, and \eqref{eq:general_doppler_limit} comes from an analysis of the heuristic equation.
 
 \subsection{Sub-Doppler molasses}
+We can easily extend this study of one-dimenionsal molasses with more complicated level structures.  In particular, we focus on the $F=2\rightarrow F'=3$ transition in $^{23}$Na, which was studied first by Ungar, {\it et. al.}~\cite{Ungar1989}.  The calculate force profiles are shown in Fig.~\ref{fig:sub_doppler_force}.  This figure contains all of the essential features that were discussed in Ref.~\cite{Ungar1989}.  First, linear polarizations $\phi\neq=0$ and the so-called `corkscrew' polarization $\sigma^+\sigma^-$ produce sub-Doppler force features near zero velocity that are responsible for the additional damping.  Second, compared to the `two state' $\sigma^+\sigma^+$ polarization, $\sigma^+\sigma^-$ produces excess force due to the sub-Doppler discontinuty at $v=0$ that continues out to near $v/k\approx \Delta$, where one of the two lasers is dominantly resonant with the atom.  In the same example notebook, but omitted here, we also replicate the force's dependence on $s_0$ and detuning $\Delta$ observed in Ref.~\cite{Ungar1989}.
 
 \begin{figure}
 	\center
@@ -557,13 +567,20 @@ Equilibrium forces in an optical molasses are most accurately described
 	\caption{\label{fig:sub_doppler_force} Sub-doppler force profile for various polarizations.}
 \end{figure}
 
-\begin{figure}
-	\center
-	\includegraphics{figs/temperature_histogram_F2_to_F3}
-	\caption{\label{fig:sub_doppler_temperature} Sub-doppler temperature.}
-\end{figure}
+%\begin{figure}
+%	\center
+%	\includegraphics{figs/temperature_histogram_F2_to_F3}
+%	\caption{\label{fig:sub_doppler_temperature} Sub-doppler temperature.}
+%\end{figure}
+
+In addition to the static force profiles, we also replicate the temperature observed via Monte-Carlo in Ref.~\cite{Ungar1989}.  In particular, we have simulated 96 atoms in the $\sigma^+\sigma^-$ configuration for a time $T=10^4/\Gamma$, and by sampling each atoms' velocity at a time interval $\delta t=500/\Gamma$ after allowing them to come into equilibrium with the light field for $2000/\Gamma$.  Fitting the resulting sampled velocities to a Gaussian reveals a temperature of  of $6.1(1.5)$~$\mu$K.  This temperature  compares nicely to the 8.2~$\mu$K obtained in Ref.~\cite{Ungar1989}.  We note that our temperature should be lower than that of Ref.~\cite{Ungar1989} as we do not include contributions to the momentum diffusion tensor from stimulated emission, for which they include an approximate contribution.
+
+Contained in the examples directory, but omitted here, is a calculation of one-dimensional molasses for a variety of different polarizations and level structures, including those that utilize type-II transitions that have dark states.  Molasses operating on these transitions was studied in Ref.~\cite{Devlin2016} and the essential results are reproduced in the examples.
+
+Another type of sub-Doppler molasses that is useful is that of three-level $\Lambda$-enhanced cooling~\cite{Grier2013}.  This molasses technique is unique compared to the others described above in that it uses a three-manifold system rather than a two-manifold.  We have simulated this process using {\tt pylcp}, and the script and results are contained with the other molasses examples.  The numerical results match the theoretical results of Ref.~\cite{Grier2013}.
 
 \subsection{Force, capture, and temperature in MOTs}
+Forces in a magneto-optical trap are slightly more complex than those of optical molasses, as they also depend on position as well as velocity.  Figure~\ref{fig:mot_forces} show such forces, calculated using the heuristic equation for such a one-dimensional MOT.  While this 
 
 \begin{figure}
 	\center
@@ -573,9 +590,18 @@ Equilibrium forces in an optical molasses are most accurately described
 
 
 \subsection{Bi-chromatic forces}
+
+\begin{figure}
+	\center
+	\includegraphics{figs/bichromatic_force}
+	\caption{\label{fig:bichromatic} Force vs. velocity for a two-level atom in an intense bi-chromatic standing wave for $\Delta/\Gamma=39$.  The intensities are $\Omega =39\Gamma$ (left), $\Omega =43\Gamma$ (middle), and $\Omega =47\Gamma$ (right), juts as in Ref.~\cite{Soding1997}.}
+\end{figure}
+
+In sufficiently 
 Citation: \cite{Soding1997}.
 
-
+\section{Conclusion}
+We have presented 
 %% The Appendices part is started with the command \appendix;
 %% appendix sections are then done as normal sections
 %% \appendix

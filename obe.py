@@ -911,11 +911,32 @@ class obe():
         """
         Method that maps out the equilbirium forces:
         """
+        def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
+            if deltat_v is not None:
+                vabs = np.sqrt(np.sum(v**2))
+                if vabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_v/vabs, deltat_tmax])
+
+            if deltat_r is not None:
+                rabs = np.sqrt(np.sum(r**2))
+                if rabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
+            
+            return deltat
+
         name = kwargs.pop('name', None)
         progress_bar = kwargs.pop('progress_bar', False)
-        deltat_r = kwargs.pop('deltat_r', None)
-        deltat_v = kwargs.pop('deltat_v', None)
-        deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
+        deltat_r = kwargs.pop('deltat_r', np.inf)
+        deltat_v = kwargs.pop('deltat_v', 10.)
+        deltat_tmax = kwargs.pop('deltat_tmax', 2*np.pi*100)
+        deltat_func = kwargs.pop(
+            'deltat_func', 
+            lambda r, v: default_deltat(r, v, deltat_v, deltat_r, deltat_tmax)
+        )
         initial_rho = kwargs.pop('initial_rho', 'rateeq')
 
         if not name:
@@ -947,21 +968,9 @@ class obe():
             else:
                 raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
-            if deltat_v is not None:
-                vabs = np.sqrt(np.sum(v**2))
-                if vabs==0.:
-                    kwargs['deltat'] = deltat_tmax
-                else:
-                    kwargs['deltat'] = np.min([2*np.pi*deltat_v/vabs, deltat_tmax])
-
-            if deltat_r is not None:
-                rabs = np.sqrt(np.sum(r**2))
-                if rabs==0.:
-                    kwargs['deltat'] = deltat_tmax
-                else:
-                    kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
-                    
+            kwargs['deltat'] = deltat_func(r, v)
             kwargs['return_details'] = True
+            
             F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
