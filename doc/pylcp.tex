@@ -27,6 +27,7 @@
 \usepackage{amsmath}
 \usepackage{amssymb}
 \usepackage{braket}
+\usepackage{color}
 
 %% natbib.sty is loaded by default. However, natbib options can be
 %% provided with \biboptions{...} command. Following options are
@@ -68,6 +69,10 @@
  {\endlist}
 
 \journal{Computer Physics Communications}
+
+\newcommand{\DSB}[1]{\textcolor{blue}{\textsf{[DSB: #1]}}}
+\newcommand{\SPE}[1]{\textcolor{red}{\textsf{[SPE: #1]}}}
+\newcommand{\Q}[1]{\textcolor{magenta}{\textsf{[DO: #1]}}}
 
 \begin{document}
 
@@ -111,22 +116,11 @@
 \address[a]{National Institute of Standards and Technology, Sensor Sciences Division, 100 Bureau Dr., Gaithersburg, MD 20899}
 
 \begin{abstract}
-%% Text of abstract
-A submitted program is expected to be of benefit to other physicists or physical chemists, or be an exemplar of good programming practice, or illustrate new or novel programming techniques which are of importance to some branch of computational physics or physical chemistry.
-
-Acceptable program descriptions can take different forms. The following Long Write-Up structure is a suggested structure but it is not obligatory. Actual structure will depend on the length of the program, the extent to which the algorithms or software have already been described in literature, and the detail provided in the user manual.
-
-Your manuscript and figure sources should be submitted through the Elsevier Editorial System (EES) by using the online submission tool at \\
-http://www.ees.elsevier.com/cpc.
-
-In addition to the manuscript you must supply: the program source code; job control scripts, where applicable; a README file giving the names and a brief description of all the files that make up the package and clear instructions on the installation and execution of the program; sample input and output data for at least one comprehensive test run; and, where appropriate, a user manual. These should be sent, via email as a compressed archive file, to the CPC Program Librarian at cpc@qub.ac.uk.
-
+We present a python object-orientated computer program for simulated various aspects of laser cooling physics.  Our software is designed to be both easy to use and as adaptable as possible, allowing the user to easily specify the atom's level structure, magnetic field profile, or the geometry, detuning, intensity of the laser beams involved.  The program contains three levels of approximation for the motion of the atom, applicable in different regimes offering cross checks for calculations and computational efficiency depending on the physical situation.  Herein, we present several examples of its use.
 \end{abstract}
 
 \begin{keyword}
-%% keywords here, in the form: keyword \sep keyword
-keyword1; keyword2; keyword3; etc.
-
+atomic physics \sep laser cooling \sep python
 \end{keyword}
 
 \end{frontmatter}
@@ -136,8 +130,7 @@ keyword1; keyword2; keyword3; etc.
 %%
 % \linenumbers
 
-% Computer program descriptions should contain the following
-% PROGRAM SUMMARY.
+
 
 {\bf PROGRAM SUMMARY}
   %Delete as appropriate.
@@ -148,23 +141,22 @@ keyword1; keyword2; keyword3; etc.
 {\em Licensing provisions(please choose one): GPLv3}                                   \\
 {\em Programming language: Python}                                   \\
 
-{\em Nature of problem(approx. 50-250 words):}\\
-  %Describe the nature of the problem here. \\
-{\em Solution method(approx. 50-250 words):}\\
+{\em Nature of problem:} Accurate simulation of laser cooling physics presents a non-linear problem that is highly dependent on atomic structure and host of control parameters including laser geometry, detuning, intensity, beam shape, polarization, magnetic field strength and profile.  Easy exploration the possible parameter space can be difficult, as most laser-cooling simulations to date have been coded only for specific situations.\\
+  
+{\em Solution method:}
+ An object-orientated python package that allows for easy modification of the control parameters and internal structure of the atom followed by automated construction of the governing equations to simulate the particular experimental interest.\\
   %Describe the method solution here.
-{\em Additional comments including Restrictions and Unusual features (approx. 50-250 words):}\\
-  %Provide any additional comments here.
-   \\
 
-\begin{thebibliography}{0}
-\bibitem{1}Reference 1         % This list should only contain those items referenced in the
-\bibitem{2}Reference 2         % Program Summary section.
-\bibitem{3}Reference 3         % Type references in text as [1], [2], etc.
-                               % This list is different from the bibliography at the end of
-                               % the Long Write-Up.
-\end{thebibliography}
-* Items marked with an asterisk are only required for new versions
-of programs previously published in the CPC Program Library.\\
+
+%\begin{thebibliography}{0}
+%\bibitem{1}Reference 1         % This list should only contain those items referenced in the
+%\bibitem{2}Reference 2         % Program Summary section.
+%\bibitem{3}Reference 3         % Type references in text as [1], [2], etc.
+%                               % This list is different from the bibliography at the end of
+%                               % the Long Write-Up.
+%\end{thebibliography}
+%* Items marked with an asterisk are only required for new versions
+%of programs previously published in the CPC Program Library.\\
 \end{small}
 
 
@@ -182,7 +174,9 @@ This paper is organized as follows.  In Sec.~\ref{sec:governing_equations}, we p
 \section{The governing equations}
 \label{sec:governing_equations}
 \subsection{The optical Bloch equations}
-Here, we consider the generic problem of coupling $N$ states together in arbitrary optical and magnetic fields.
+We first consider the optical Bloch equations.
+Our derivation follows those in Refs.~\cite{Gordon1980, Ungar1989, Devlin2018}.  
+We consider the generic problem of coupling $N$ states together in arbitrary optical and magnetic fields.
 We group these states into manifolds: a collection of states that are degenerate or nearly degenerate, e.g., the $^2S_0$ states of an alkali atom, the ro-vibrational states of molecules, etc.
 We denote the $i$th state and its manifold index $n$ by by $\ket{i, n}$.
 The manifolds will be useful for both defining appropriate rotating frames and for applying the rotating wave approximation.
@@ -384,7 +378,7 @@ The optical Bloch equations are symmetric under population exchange, i.e., $\rho
 Here, we follow the construction of the rate equations from Ref.~\cite{Tarbutt2015}.  We first consider that we have a set of
 eigenstates and that the matrix~\ref{eq:obe:ham_without_fields} is diagonal. 
 
-In the rate equation model, we neglect the coherences in the optical Bloch equations and instead calculate just the populations in the state $i$ in manifold $m$, $N^n_i = \ket{n, i}\bra{n, i}$.  The evolution of $N^n_i$ is given by
+In the rate equation model, we neglect the coherences in the optical Bloch equations and instead calculate just the populations in the state $i$ in manifold $n$, $N^n_i = \ket{n, i}\bra{n, i}$.  The evolution of $N^n_i$ is given by
 \begin{equation}
     \dot{N}^n_i = \pm\sum_{m,j,l} R^{n\rightarrow m}_{ij,l} (N^n_i - N^m_j) + \sum_{m>n
     } \Gamma^{m\rightarrow n}_{ij} N^m_j - \sum_{m<n}\Gamma^{n\rightarrow m} N^n_i,
@@ -404,6 +398,7 @@ We calculate the optical pumping rates $R_{ij, l}^{n\rightarrow m}$, due to the 
 \end{equation}
 where the excitation rate is\footnote{Note that there is a factor of two difference between $d\cdot E$ in Sec.~\ref{sec:obe_units} and the definition of the Rabi rate $\Omega$ used here.}
 \begin{equation}
+	\label{eq:rabi_rate_rate_eq}
 	\Omega_{ij,l}^{n\rightarrow m} = \frac{\Gamma^{m\rightarrow n}}{2} (\mathbf{d}_{ij}^{nm}\cdot \boldsymbol{\epsilon}_l) \sqrt{2I/I_\text{sat}}.
 \end{equation}
 Finally, the motion of the atom in the trap is given by
@@ -495,13 +490,14 @@ $\sigma^+$ and $\sigma^-$ light (with a phase angle in between).
 None of this gets us closer to the final result, but it is interesting.
 
 \subsection{Heuristic equation}
-A final governing equation is also included in the package, titled the heuristic equation.  This equation calculates the force on that atom assuming a basic $F=0\rightarrow F=1$ atom,
+A final governing equation is also included in the package, titled the heuristic equation.  This equation calculates the force on that atom assuming a basic $F=0\rightarrow F=1$ atom.  This atom has equal Clebsch-Gordon coefficients for all transitions, making the $(\mathbf{d}_{ij}^{nm}\cdot \boldsymbol{\epsilon}_l) = \epsilon_l$ and
 \begin{equation}
-	F = \frac{\hbar k \Gamma}{2}\sum_{l,q} \frac{\beta_l \left(\epsilon_{l,q}\cdot \hat{B}\right)}{1+\sum_j\beta_j+4(\Delta^2 - \mathbf{k}\cdot\mathbf{v} - q |B|)^2/\Gamma^2} 
+	F = \frac{\hbar k \Gamma}{2}\sum_{l,q} \frac{\beta_l \left(\epsilon_{l,q}\cdot \hat{B}\right)^2}{1+\sum_j\beta_j+4(\Delta^2 - \mathbf{k}\cdot\mathbf{v} - q |B|)^2/\Gamma^2} 
 \end{equation}
-This
+Here, we have applied the approximation that the total saturation is simply given by $\sum_j \beta_j(\mathbf{r})$ as used in Ref.~\cite{Lett1989}.
 
 \section{Examples}
+\label{sec:examples}
 In this section, we cover several standard examples of laser cooling and show that we can use {\tt pylcp} to reproduce standard results.  These examples described herein are a small subset of the available examples contained with the {\tt pylcp} package.  All examples are saved as {\tt jupyter} notebooks that include comments and saved output figures.
 
 \subsection{Optical pumping \& Rabi flopping}
@@ -564,7 +560,7 @@ We can easily extend this study of one-dimenionsal molasses with more complicate
 \begin{figure}
 	\center
 	\includegraphics{figs/F2_to_F3_subDoppler_force}
-	\caption{\label{fig:sub_doppler_force} Sub-doppler force profile for various polarizations.}
+	\caption{\label{fig:sub_doppler_force} Forces in a one-dimensional $F=2\rightarrow F'=3$ molasses with $\Delta/\Gamma=-2.5$ and $s_0=1.0$.  The solid curve correspond to circularly polarized beams: $\sigma^+\sigma^+$ (orange) and $\sigma^+\sigma^-$ (blue).  Dashed lines show linearly-polarized input beams with angles $\phi=0$ (green), $\phi=\pi/4$ (red), $\phi=\pi/2$ (purple). Inset shows features close to the origin.}
 \end{figure}
 
 %\begin{figure}
@@ -580,27 +576,36 @@ Contained in the examples directory, but omitted here, is a calculation of one-d
 Another type of sub-Doppler molasses that is useful is that of three-level $\Lambda$-enhanced cooling~\cite{Grier2013}.  This molasses technique is unique compared to the others described above in that it uses a three-manifold system rather than a two-manifold.  We have simulated this process using {\tt pylcp}, and the script and results are contained with the other molasses examples.  The numerical results match the theoretical results of Ref.~\cite{Grier2013}.
 
 \subsection{Force, capture, and temperature in MOTs}
+
+
+Forces in a magneto-optical trap are slightly more complex than those of optical molasses, as they also depend on position as well as velocity.  Figure~\ref{fig:mot_forces} show such forces, calculated using the heuristic equation for such a one-dimensional MOT.  The laser parameters for this calculation are $\Delta/\Gamma=-1.5$ and $s_0=1$.  The white curves show trajectories, calculated without random scattering, of atoms injected into the MOT at a position $z=-20(\hbar \Gamma/\mu_B B')$ with varying initial velocity $v_0$.  Trajectories with $v_0 < 14\Gamma/k$ are captured, whereas trajectories with $v_0\geq 14 \Gamma/k$ escape.  ({\tt pylcp} contains routines to handle such bisection; no existing python package was found that does so.)  By calculating such trajectories and bisecting the initial velocity repeatedly, one can obtain the MOT capture velocity numerically.  Figure~\ref{fig:mot_forces} shows the result of such a calculation along with the prediction of a simple model found in Ref.~\cite{Haubrich1993}.  The two calculations agree rather well for small $s_0\leq 1$, but diverged by more than 10~\% for larger $s_0>1$.  This procedure has been extended to three-dimensional MOTs with non-standard geometry and should be the subject a forthcoming paper.
+
 \begin{figure}
 	\center
 	\includegraphics{figs/F0_to_F1_MOT_force_with_incoming_trajectories.pdf}
-	\caption{\label{fig:mot_forces} Force $F$ vs. both position $x$ and velocity $v$ in a one-dimensional magneto-optical trap with laser parameters $\Delta/\Gamma=1.5$ and $s_0=1$.  The white curves show trajectories through phase space for atoms entering the MOT with different initial velocities $v_0$.}
+	\includegraphics{figs/F0_to_F1_MOT_capture}
+	\caption{\label{fig:mot_forces} (Top) Force $F$ vs. both position $x$ and velocity $v$ in a one-dimensional magneto-optical trap with laser parameters $\Delta/\Gamma=1.5$ and $s_0=1$.  The white curves show trajectories through phase space for atoms entering the MOT with different initial velocities $v_0$. (Bottom) Capture velocity $v_c$ vs. laser detuning $\Delta$ for $s_0=$ calculated using the heuristic equation for $s_0=0.3$ (blue), $1.0$ (orange), and $3.0$ (green).  Solid curves are the numerical results from {\tt pylcp}; dashed curves are the theoretical result from Ref.~\cite{Haubrich1993}.}
 \end{figure}
 
-Forces in a magneto-optical trap are slightly more complex than those of optical molasses, as they also depend on position as well as velocity.  Figure~\ref{fig:mot_forces} show such forces, calculated using the heuristic equation for such a one-dimensional MOT.  The laser parameters for this calculation are $\Delta/\Gamma=-1.5$ and $s_0=1$.  The white curves show trajectories, calculated without random scattering, of atoms injected into the MOT at a position $z=-20(\hbar \Gamma/\mu_B B')$ with varying initial velocity $v_0$.  Trajectories with $v_0 < 14\Gamma/k$ are captured, whereas trajectories with $v_0\geq 14 \Gamma/k$ escape.  By calculating such trajectories and bisecting the initial velocity repeatedly, one can obtain the MOT capture velocity numerically.  Figure~\ref{fig:capture} shows the result of such a calculation along with the prediction of a simple model found in Ref.~\cite{}.  This procedure has been extended to three-dimensional MOTs with non-standard geometry and should be the subject a forthcoming paper.
+This above example uses the heuristic equation, which calculates the textbook example of an $F=0\rightarrow F'=1$ atom.  Extending to larger $F$ and $F'$ in the one-dimensional case produces some intriguing results.  Consider Fig.~\ref{fig:mot_F1_to_F2} which shows an $F=1\rightarrow F'=2$ one-dimensional MOT with $g_F=0$ and $g_F'=1/F'$.  While not directly applicable to a specific atom, it is a good example of what occurs in alkaline earth atoms with nuclear spin, where the Lande g-factor in the ground state is $g_F\approx 0$.  Following the dashed line in Fig.~\ref{fig:mot_F1_to_F2}, which indicates the velocities/positions at which the rightward-going beam is resonant, we calculate the scattering rate for various transitions.  For $x<0$, the leftward going beam can become resonant, driving population from the cycling transition operating on $m_F=-1\rightarrow m_F'=-2$ into states with larger $m_F$.  For $x\ll \hbar\Gamma/\mu_B B'$, the atoms are mostly pumped into $m_F=+1$, wherem due to Clebsch-Gordon coefficients, they are significantly darker and therefore experience less force.  This curious effect is well known in narrow-line MOTs for alkaline earth atoms and requires a mixing laser to stir up population amongst the ground states of the atom in order to maintain optical cycling [??].
 
 \begin{figure}
 	\center
-	\includegraphics{figs/F0_to_F1_MOT_capture}
-	\caption{\label{fig:mot_forces} Capture velocity $v_c$ vs. laser detuning $\Delta$ for $s_0=$ calculated using the heuristic equation.}
+	\includegraphics{figs/F1_to_F2_MOT_merged}
+	\caption{\label{fig:mot_F1_to_F2} Anamoulous forces in a $F=1\rightarrow F'=2$ MOT with $g_F=0$ and $g_F'=1/F'$.  (a) Force $F$ vs. position $x$ and velocity $v$ for $\Delta/\Gamma=-4$ and $s_0=5$.  The dashed white line indicates the velocity/position combinations that are resonant with the laser beam traveling in the $+\hat{x}$ direction.  (b) Pumping rates from grond state $m_F=-1, 0, 1$ (orange, green, red, respectively) by the $+\hat{x}$ directed laser (solid) and the $-\hat{x}$ directed laser (dashed).  (c) Populations of the $m_F$ levels for ground (solid) and excited (dashed) states: $-2$ (blue), $-1$ (orange), $0$ (green), $1$ (red), $2$ (purple).}
 \end{figure}
 
-This above example uses the heuristic equation, which calculates the textbook example of an $F=0\rightarrow F'=1$ atom.  Extending to larger $F$ and $F'$ in the one-dimensional case produces some intriguing results.  Consider Fig.~\ref{fig:} which shows an $F=9/2\rightarrow F'=11/2$ one-dimensional MOT with $g_F=0$ and $g_F'=1/F'$.  In this case, the restoring forces rapidly disappear around $v=0$.  This disappearance is caused by shifting of the non-resonant $m_F$ component.  Specifically, consider the highlighted line along 
+We also include an example calculation of the temperature of a magneto-optical trap, calculated in three dimensions with the optical Bloch equations.  In this particular instance, we assume 
 
-We also include a calculation of the temperature of a magneto-optical trap, calculated in three dimensions with the optical Bloch equations.
+\begin{figure*}
+	\center
+	\includegraphics{figs/88Sr_red_MOT_differnt_detunings}
+	\caption{\label{fig:recoil_limited_MOT} Simulated MOT images of the narrow line $^{88}$Sr MOT formed on the $^1 \mbox{S}_{0}\rightarrow ^3\mbox{P}_1$ transition for various detunings $\Delta$ and $s_0=??$.  Gravity is in the $-\hat{z}$ direction.  The red, dashed ellipses denote the spatial location where the beam detuning matches the Zeeman shift.  This figure should be compared to Ref.~\cite{Hanley2018}.}
+\end{figure*}
 
-Finally, we have also repeated the calculation of Ref.~\cite{} of a MOT 
+Finally, we have also verified the calculation of Ref.~\cite{Hanley2018} of a recoil limited MOT.   Using the rate equations with random scattering and the parameters of $^{88}$Sr, we simulate the narrow-line MOT formed on the $^1 \mbox{S}_{0}\rightarrow ^3\mbox{P}_1$ transition.  The resulting images of the MOT with $N=1024$ atoms are shown in Fig.~\ref{fig:recoil_limited_MOT}.  One of the most unique features of this MOT is that it sags under the effect of gravity.  The vertical position and shape are mostly determined.  One effect we notice in our simulations that was not discussed in Ref.~\cite{Hanley2018} is atom loss.  We find that for $\Delta/\Gamma=-26.7$, we lose about 5~\% of the atoms from the MOT during a 50~ms simulation, and this increases with increasing detuning.  \SPE{Re-run to determine loss rate vs. detuning.} \SPE{Dan: consistent with experiment?}
 
-Other MOT examples included with {\tt pylcp} include calculating MOT damping forces and trapping frequencies along with comparison to analytic formulas~\cite{}, the forces on both $D_1$ and $D_2$ lines of alkali atoms, the forces in the two color MOT of Ref.~\cite{}, the forces for a variety of different type-I and type-II MOTs considered in Ref.~\cite{Tarbutt2015}, and the forces involved in trapping CaF in Ref.~\cite{}. 
+Other MOT examples included with {\tt pylcp} include calculating MOT damping forces and trapping frequencies along with comparison to analytic formulas, the forces on both $D_1$ and $D_2$ lines of alkali atoms, the forces for a variety of different type-I and type-II MOTs considered in Ref.~\cite{Tarbutt2015}, and the forces in the two color CaF MOT of Ref.~\cite{Tarbutt2015a}. 
 
 \subsection{Bi-chromatic forces}
 
@@ -611,6 +616,7 @@ Other MOT examples included with {\tt pylcp} include calculating MOT damping for
 \end{figure}
 
 In sufficiently 
+
 Citation: \cite{Soding1997}.
 
 \section{Conclusion}
