@@ -282,53 +282,54 @@ class quadrupoleMagneticField(magField):
     
 # First, define the laser beam class:
 class laserBeam(object):
+    """
+    Base laser beam class, for a single laser beam
+
+    Parameters
+    ----------
+    kvec : array_like with shape (3,) or callable
+        The k-vector of the laser beam, specified as either a three-element
+        list or numpy array or as callable function.  If a callable, it
+        must have a signature like (R, t), (R), or (t) where R is an array_like with
+        shape (3,) and t is a float and it must return an array_like with three
+        elements.
+    pol : int, float, array_like with shape (3,), or callable
+        The polarization of the laser beam, specified as either an integer, float
+        array_like with shape(3,), or as callable function.  If an integer or float,
+        if `pol<0` the polarization will be left circular polarized relative to
+        the k-vector of the light.  If `pol>0`, the polarization will be right
+        circular polarized.  If array_like, polarization will be specified by the
+        vector, whose basis is specified by `pol_coord`. If a callable, it must
+        have a signature like (R, t), (R), or (t) where R is an array_like with
+        shape (3,) and t is a float and it must return an array_like with three
+        elements.
+    beta : float or callable
+        The intensity of the laser beam, specified as either a float or as
+        callable function.  If a callable, it must have a signature
+        like (R, t), (R), or (t) where R is an array_like with shape (3,) and
+        t is a float and it must return a float.
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a
+        signature like (t) where t is a float and it must return a float.
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    pol_coord : string, optional
+        Polarization basis of the input polarization vector: 'cartesian' (default)
+        or 'spherical'.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
+
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    """
     def __init__(self, kvec=None, beta=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
-        """
-        Base laser beam class, for a single laser beam
 
-        Parameters
-        ----------
-        kvec : array_like with shape (3,) or callable
-            The k-vector of the laser beam, specified as either a three-element
-            list or numpy array or as callable function.  If a callable, it
-            must have a signature like (R, t), (R), or (t) where R is an array_like with
-            shape (3,) and t is a float and it must return an array_like with three
-            elements.
-        pol : int, float, array_like with shape (3,), or callable
-            The polarization of the laser beam, specified as either an integer, float
-            array_like with shape(3,), or as callable function.  If an integer or float,
-            if `pol<0` the polarization will be left circular polarized relative to
-            the k-vector of the light.  If `pol>0`, the polarization will be right
-            circular polarized.  If array_like, polarization will be specified by the
-            vector, whose basis is specified by `pol_coord`. If a callable, it must
-            have a signature like (R, t), (R), or (t) where R is an array_like with
-            shape (3,) and t is a float and it must return an array_like with three
-            elements.
-        beta : float or callable
-            The intensity of the laser beam, specified as either a float or as
-            callable function.  If a callable, it must have a signature
-            like (R, t), (R), or (t) where R is an array_like with shape (3,) and
-            t is a float and it must return a float.
-        delta: float or callable
-            Detuning of the laser beam.  If a callable, it must have a
-            signature like (t) where t is a float and it must return a float.
-        phase : float, optional
-            Phase of laser beam.  By default, zero.
-        pol_coord : string, optional
-            Polarization basis of the input polarization vector: 'cartesian' (default)
-            or 'spherical'.
-        eps : float, optional
-            Small distance to use in calculation of numerical derivatives.  By default
-            `eps=1e-4`.
-
-        Attributes
-        ----------
-        eps : float
-            Small epsilon used for computing derivatives
-        phase : float
-            Overall phase of the laser beam.
-        """
         # Promote it to a lambda func:
         if not kvec is None:
             self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
@@ -466,7 +467,34 @@ class laserBeam(object):
 
     def delta(self, t=0.):
         pass
+    
+    
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the k-vector, polarization, intensity, and detuning of the laser
+        
+        Parameters
+        ----------
+        R : array_like, size (3,), optional
+            vector of the position at which to return the kvector.  By default,
+            the origin.
+        t : float, optional
+            time at which to return the k-vector.  By default, t=0.
 
+        Returns
+        -------
+        kvec : array_like, shape(3, ...)
+            the k vector at position R and time t.
+        pol : array_like, shape (3, ...)
+            polarization of the laser beam at R and t in spherical basis.
+        beta : float or array_like
+            saturation parameter of the laser beam at R and t.
+        det : float or array_like
+            laser beam detuning at t.
+        """
+        return (self.kvec(R, t), self.pol(R, t), self.beta(R, t), self.delta(t))
+
+    
     # TODO: add testing of kvec/pol orthogonality.
     def project_pol(self, quant_axis, R=np.array([0., 0., 0.]), t=0,
                     treat_nans=False, calculate_norm=False, invert=False):
@@ -715,10 +743,7 @@ class laserBeam(object):
         Eq : array_like, shape (3,)
             electric field in the spherical basis.
         """
-        kvec = self.kvec(R, t)
-        beta = self.beta(R, t)
-        pol = self.pol(R, t)
-        delta = self.delta(t)
+        (kvec, beta, pol, delta) = self.local_parameters(R, t)
 
         amp = np.sqrt(2*beta)
 
@@ -765,7 +790,7 @@ class laserBeam(object):
 
 
 class infinitePlaneWaveBeam(laserBeam):
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., **kwargs):
+    def __init__(self, kvec, pol, beta, delta, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for an infinite plane wave.')
 
@@ -783,6 +808,7 @@ class infinitePlaneWaveBeam(laserBeam):
         self.con_kvec = kvec
         self.con_beta = beta
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
+        
         # Define attributes to speed up gradient calculation:
         self.amp = np.sqrt(2*self.con_beta)
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
@@ -802,8 +828,8 @@ class infinitePlaneWaveBeam(laserBeam):
         return delEq
 
 
-class gaussianBeam(laserBeam):
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., **kwargs):
+class collimatedGaussianBeam(laserBeam):
+    def __init__(self, kvec, pol, beta, delta, wb, rs=np.inf, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
@@ -838,20 +864,177 @@ class gaussianBeam(laserBeam):
         # Return the intensity:
         return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
 
+    
+class gaussianBeam(laserBeam):
+    """
+    Gaussian laser beam class
 
-class clippedGaussianBeam(gaussianBeam):
-    def __init__(self, kvec=np.array([1,0,0]), pol=np.array([0,0,1]), beta=1., delta=0., wb=1., rs=2., **kwargs):
-        super().__init__(kvec=kvec, pol=pol, beta=beta, delta=delta, wb=wb, **kwargs)
+    Parameters
+    ----------
+    kvec : array_like with shape (3,)
+        The nominal, on-axis k-vector of the Gaussian beam
+    pol : array_like with shape (3,)
+        The polarization of the laser beam if the beam is rotated up to the z-axis.
+    beta : float or callable
+        The intensity at the focus of the beam specified as a float
+    delta: float or callable
+        Detuning of the laser beam.  If a callable, it must have a
+        signature like (t) where t is a float and it must return a float.
+    phase : float, optional
+        Phase of laser beam.  By default, zero.
+    eps : float, optional
+        Small distance to use in calculation of numerical derivatives.  By default
+        `eps=1e-4`.
 
-        self.rs = rs # Save the radius of the stop.
+    Attributes
+    ----------
+    eps : float
+        Small epsilon used for computing derivatives
+    phase : float
+        Overall phase of the laser beam.
+    con_kvec : array_like, shape (3,)
+        Nominal k-vector of the Gaussian beam.
+    """
+    def __init__(self, kvec, pol, beta, delta, wb, r0=np.array([0.,0.,0.]), rs=np.inf,**kwargs):
+        if callable(kvec):
+            raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
+        if callable(pol):
+            raise TypeError('Polarization cannot be a function for a Gaussian beam.')
+
+        # Save the constant values (might be useful):
+        self.con_kvec = kvec
+        self.con_kmag = np.linalg.norm(kvec)
+        self.con_khat = kvec/self.con_kmag
+        if isinstance(pol, int) or isinstance(pol, float):
+            if pol>0:
+                pol = np.array([1., -1j, 0.])/np.sqrt(2)
+            else:
+                pol = np.array([1., +1j, 0.])/np.sqrt(2)
+        self.con_pol = pol
+
+        # Save the parameters specific to the Gaussian beam:
+        self.beta_max = beta    # central saturation parameter
+        self.wb = wb            # 1/e^2 radius
+        self.wavelength = 2*np.pi/(np.linalg.norm(kvec))  
+        self.zr = np.pi*self.wb**2/(self.wavelength)  # Rayleigh length
+        self.r0 = r0    # Position of focus
+        self.rs = rs # stop
+
+        # Define the global rotation matrix
+        self.global_rotation_matrix()
+        
+        # Use super class to define delta(t):
+        super().__init__(delta=delta, **kwargs)
+   
+
+    def global_rotation_matrix(self):
+        th = np.arccos(self.con_khat[2])
+        ph = np.arctan2(self.con_khat[1], self.con_khat[0])
+        
+        rz = np.array([[np.cos(ph),-np.sin(ph),0.], [np.sin(ph),np.cos(ph),0.], [0.,0.,1.]])
+        ry = np.array([[np.cos(th),0.,np.sin(th)], [0.,1.,0.], [-np.sin(th),0.,np.cos(th)]])
+        
+        self.rmat = rz@ry@np.linalg.inv(rz)
+        self.rmat_inv = np.linalg.inv(self.rmat)
+        return self.rmat
+    
+    
+    def define_rotation_matrix(self):
+        # Angles of rotation:|
+        th = np.arccos(self.con_khat[2])
+        phi = np.arctan2(self.con_khat[1], self.con_khat[0])
+        
+        # Use scipy to define the rotation matrix
+        self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix() 
+        self.rmat_inv = np.linalg.inv(self.rmat)
+
+        
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        """
+        Returns the local k-vector, polarization, and intensity and position R and t
+        
+        Parameters
+        ----------
+        R : array_like, shape (3, ...)
+            The local position at which to evaluate.
+        t : float or array_like
+            The time at which to to evaluate.
+            
+        Returns
+        -------
+        kvec : array_like, same shape as R
+            The k-vector of the beam at (R, t)
+        pol : array_like, same shape as R
+            The polarization of the beam at (R, t)
+        intensity : float or array_like, same shape/type as R[0]
+            The local intensity
+        """
+        
+        # Adjust offset:
+        Rp = R - self.r0.reshape((3,) + (1,)*(R.ndim-1))
+    
+        # Rotate up to the z-axis where we can apply formulas:
+        Rp = np.einsum('ij,j...->i...', self.rmat_inv, Rp)
+        rho_sq=np.sum(Rp[:2]**2, axis=0)
+       
+        # The waist at the position of interest:
+        w = self.wb*np.sqrt(1+(Rp[2]**2/self.zr**2)) # w0*sqrt(1+(z/zr).^2);
+        
+        # Return the intensity:
+        I = self.beta_max*(self.wb**2)/(w**2)*np.exp(-2*rho_sq/w**2) #Beta*(w0./w).^2.*exp(-2*r.^2./w.^2);
+        
+        # Now calculate the local k-vector in cylindrical coordinates:
+        kr = (np.sqrt(rho_sq))*(Rp[2])/(self.zr**2+Rp[2]**2) # r.*z./(zr^2+z.^2);
+        kt = np.zeros(Rp[0].shape)
+        kz = np.ones(Rp[0].shape)
+        
+        # Convert to Cartesian: 
+        kx = (kr*Rp[0]+kt*Rp[1])/(np.sqrt(Rp[0]**2+Rp[1]**2+1e-100))
+        ky = (kr*Rp[1]+kt*Rp[0])/(np.sqrt(Rp[0]**2+Rp[1]**2+1e-100))
+        
+        # Normalize:
+        kxn=kx/np.sqrt(kx**2+ky**2+kz**2) # normalized
+        kyn=ky/np.sqrt(kx**2+ky**2+kz**2)
+        kzn=kz/np.sqrt(kx**2+ky**2+kz**2)
+        
+        # Put into full array:
+        kn=np.array([kxn,kyn,kzn])
+        
+        # Think about a way to do this without having to this without the FOR loop:
+        it = np.nditer([kn[0], kn[1], kn[2], None, None, None], op_dtypes=['float64', 'float64', 'float64', 'complex128', 'complex128', 'complex128'])
+        for (kxn, kyn, kzn, px, py, pz) in it:       
+            thn = np.arccos(kzn)
+            phn = np.arctan2(kyn, kxn)
+            
+            rzn = np.array([[np.cos(phn), -np.sin(phn), 0.],
+                            [np.sin(phn),  np.cos(phn), 0.],
+                            [         0.,           0., 1.]])
+            ryn = np.array([[np.cos(thn),  0., np.sin(thn)],
+                            [0.,           1.,          0.],
+                            [-np.sin(thn), 0., np.cos(thn)]])
+            
+            rmatn = rzn@ryn@np.linalg.inv(rzn)
+
+            (px[...], py[...], pz[...]) = self.rmat@rmatn@np.transpose(self.con_pol)
+            
+        # Rotate back:
+        k = np.einsum('ij,j...->i...', self.rmat, kn)*self.con_kmag
+        
+        return k, cart2spherical(np.array(it.operands[3:])), I, self.delta(t)
+    
+    
     def beta(self, R=np.array([0., 0., 0.]), t=0.):
-        """
-        beta for the slightly more advanced, `clipped' Gaussian beam.
-        """
-        Rp = np.einsum('ij,j...->i...', self.rmat, R)
-        rho_sq = np.sum(Rp[:2]**2, axis=0)
-        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
+        k, P, I, D = self.local_parameters(R, t)
+        return I
+    
+    def pol(self, R=np.array([0., 0., 0.]), t=0.):
+        k, P, I, D = self.local_parameters(R, t)
+        return P
+    
+    def kvec(self, R=np.array([0., 0., 0.]), t=0.):
+        k, P, I, D = self.local_parameters(R, t)
+        return k
 
 
 class laserBeams(object):
@@ -926,6 +1109,9 @@ class laserBeams(object):
     def delta(self, t=0):
         return np.array([beam.delta(t) for beam in self.beam_vector])
 
+    def local_parameters(self, R=np.array([0., 0., 0.]), t=0.):
+        return np.array([beam.local_parameters(R, t) for beam in self.beam_vector]).T
+    
     def electric_field(self, R=np.array([0., 0., 0.]), t=0.):
         return np.array([beam.electric_field(R, t) for beam in self.beam_vector])
 
