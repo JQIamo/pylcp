@@ -5,11 +5,13 @@ Tools for solving the rate equations.
 """
 import numpy as np
 import copy
-from scipy.optimize import minimize, fsolve
+from scipy.optimize import minimize
 from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
-from .common import random_vector, base_force_profile, progressBar
+from .common import (progressBar, random_vector, spherical_dot,
+                     cart2spherical, spherical2cart, governingeq,
+                     base_force_profile)
 from .integration_tools import solve_ivp_random
 from scipy.interpolate import interp1d
 
@@ -37,7 +39,7 @@ class force_profile(base_force_profile):
             self.Rijl[key][ind] = Rijl[key]
 
 
-class rateeq(object):
+class rateeq(governingeq):
     """
     The class rateeq prduces a set of rate equations for a given
     position and velocity and provides methods for solving them appropriately.
@@ -47,6 +49,8 @@ class rateeq(object):
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
         """
+        super().__init__(**kwargs)
+
         if len(args) < 3:
             raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
         elif len(args) == 3:
@@ -89,10 +93,6 @@ class rateeq(object):
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Now handle keyword arguments:
-        r=kwargs.pop('r', np.array([0., 0., 0.]))
-        v=kwargs.pop('v', np.array([0., 0., 0.]))
-
         self.include_mag_forces = kwargs.pop('include_mag_forces', True)
         self.svd_eps = kwargs.pop('svd_eps', 1e-10)
 
@@ -134,12 +134,9 @@ class rateeq(object):
                 self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']\
                 /self.hamiltonian.mass
 
-        # Reset the current solution to
-        self.set_initial_position_and_velocity(r, v)
-
         # A dictionary to store the pumping rates.
         self.Rijl = {}
-        
+
         # Set up a dictionary to store the profiles.
         self.profile = {}
 
@@ -208,7 +205,7 @@ class rateeq(object):
 
         return self.Rev_decay
 
-        
+
     def _calc_pumping_rates(self, r, v, t, Bhat):
         """
         This method calculates the pumping rates for each laser beam:
@@ -245,7 +242,7 @@ class rateeq(object):
                 self.Rijl[key][ll] = gamma*beta/2*\
                     fijq/(1 + 4*(-(E2 - E1) + delta - np.dot(kvec, v))**2/gamma**2)
 
-    
+
     def _add_pumping_rates_to_Rev(self):
         # Now add the pumping rates into the rate equation propogation matrix:
         for key in self.laserBeams:
@@ -271,7 +268,7 @@ class rateeq(object):
     def construct_evolution_matrix(self, r, v, t=0., default_axis=np.array([0., 0., 1.])):
         """
         Constructs the
-        
+
         Parameters
         ----------
             r: a three-element vector specifying the position of interest
@@ -290,27 +287,27 @@ class rateeq(object):
             Bhat = B/Bmag
         else:
             Bhat = default_axis
-            
+
         # Diagonalize the hamiltonian at this location:
         self.hamiltonian.diag_static_field(Bmag)
-            
+
         # Re-initialize the evolution matrix:
         self.Rev = np.zeros((self.hamiltonian.n, self.hamiltonian.n))
-        
+
         if not np.all(self.hamiltonian.diagonal):
             # Reconstruct the decay matrix to match this new field.
             self.Rev_decay = self._calc_decay_comp_of_Rev(
                 self.hamiltonian.rotated_hamiltonian
             )
-            
+
         self.Rev += self.Rev_decay
-        
+
         # Recalculate the pumping rates:
         Bhat = self._calc_pumping_rates(r, v, t, Bhat)
-        
+
         # Add the pumping rates to the evolution matrix:
         self._add_pumping_rates_to_Rev()
-                                         
+
         return self.Rev, self.Rijl
 
     def equilibrium_populations(self, r, v, t, **kwargs):
@@ -356,7 +353,7 @@ class rateeq(object):
             m = self.hamiltonian.ns[ind[1]]
 
             Ne, Ng = np.meshgrid(Npop[m_off:(m_off+m)], Npop[n_off:(n_off+n)], )
-            
+
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 kvec = beam.kvec(r, t)
                 f[key][:, ll] += kvec*np.sum(self.Rijl[key][ll]*(Ng - Ne), axis=(0,1))
@@ -396,16 +393,6 @@ class rateeq(object):
         else:
             return F
 
-
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
 
     def set_initial_pop(self, N0):
         self.N0 = N0
@@ -643,148 +630,3 @@ class rateeq(object):
                 progress.update((it.iterindex+1)/it.itersize)
 
             self.profile[name].store_data(it.multi_index, Neq, F, f, f_mag, Rijl)
-
-
-class trap(rateeq):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.r_eq = None
-
-
-    def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,
-                                  Npts=51, initial_search=True):
-        if self.r_eq is None:
-            self.r_eq = np.zeros((3,))
-
-        # Next, find the equilibrium point in z, and evaluate derivatives there:
-        r_eqi = np.zeros((3,))
-        z = np.linspace(lower_lim, upper_lim, Npts)
-
-        if initial_search:
-            for axis in axes:
-                v = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r[axis] = z
-
-                default_axis=np.zeros((3,))
-                default_axis[axis] = 1.
-                self.generate_force_profile(r, v, name='root_search',
-                                            default_axis=default_axis)
-
-                z_possible = z[np.where(np.diff(np.sign(
-                    self.profile['root_search'].F[axis]))<0)[0]]
-
-                if z_possible.size>0:
-                    if z_possible.size>1:
-                        ind = np.argmin(z_possible**2)
-                    else:
-                        ind = 0
-                    r_eqi[axis] = z_possible[ind]
-                else:
-                    r_eqi[axis] = np.nan
-
-                del self.profile['root_search']
-
-        #print('Initial guess: %s' % r_eqi[axes])
-        if len(axes)>1:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
-
-                return np.sum(F**2)
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                # Find the center of the trap:
-                result = minimize(simple_wrapper, r_eqi[axes], method='SLSQP')
-                if result.success:
-                    self.r_eq[axes] = result.x
-                else:
-                    self.r_eq[axes] = np.nan
-            else:
-                self.r_eq = np.nan
-        else:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
-
-                return F[axes]
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                self.r_eq[axes] = fsolve(simple_wrapper, r_eqi[axes])[0]
-            else:
-                self.r_eq[axes] = np.nan
-
-        return self.r_eq
-
-    def trapping_frequencies(self, axes=[0, 2], r=None, eps=0.01):
-        self.omega = np.zeros(3,)
-
-        if isinstance(eps, float):
-            eps = np.array([eps]*3)
-
-        if r is None and self.r_eq is None:
-            r = np.array([0., 0., 0.])
-        elif r is None:
-            r = self.r_eq
-
-        for axis in axes:
-            if not np.isnan(r[axis]):
-                rpmdri = np.tile(r, (2,1)).T
-                rpmdri[axis, 1] += eps[axis]
-                rpmdri[axis, 0] -= eps[axis]
-
-                F = np.zeros((2,))
-                for jj in range(2):
-                    self.set_initial_position_and_velocity(rpmdri[:, jj],
-                                                           np.zeros((3,)))
-                    f = self.find_equilibrium_force()
-
-                    F[jj] = f[axis]
-
-                if np.diff(F)<0:
-                    self.omega[axis] = np.sqrt(-np.diff(F)/(2*eps[axis]))
-                else:
-                    self.omega[axis] = 0
-            else:
-                self.omega[axis] = 0
-
-        return self.omega[axes]
-
-    def damping_coeff(self, axes=[0, 2], r=None, eps=0.01):
-        self.beta = np.zeros(3,)
-
-        if isinstance(eps, float):
-            eps = np.array([eps]*3)
-
-        if r is None and self.r_eq is None:
-            r = np.array([0., 0., 0.])
-        elif r is None:
-            r = self.r_eq
-
-        for axis in axes:
-            if not np.isnan(r[axis]):
-                vpmdvi = np.zeros((3,2))
-                vpmdvi[axis, 1] += eps[axis]
-                vpmdvi[axis, 0] -= eps[axis]
-
-                F = np.zeros((2,))
-                for jj in range(2):
-                    self.set_initial_position_and_velocity(r, vpmdvi[:, jj])
-                    f = self.find_equilibrium_force()
-
-                    F[jj] = f[axis]
-
-                if np.diff(F)<0:
-                    self.beta[axis] = -np.diff(F)/(2*eps[axis])
-                else:
-                    self.beta[axis] = 0
-            else:
-                self.beta[axis] = 0
-
-        return self.beta[axes]

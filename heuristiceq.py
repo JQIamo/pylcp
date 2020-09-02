@@ -7,11 +7,14 @@ from scipy.interpolate import interp1d
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart)
+                     cart2spherical, spherical2cart, governingeq)
 from .common import base_force_profile as force_profile
 
-class heuristiceq(object):
+class heuristiceq(governingeq):
     def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # Do argument checking specific
         if len(args) < 2:
             raise ValueError('You must specify laserBeams and magField')
         elif len(args) == 2:
@@ -53,16 +56,11 @@ class heuristiceq(object):
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Now handle keyword arguments:
-        r0 = kwargs.pop('r', np.array([0., 0., 0.]))
-        v0 = kwargs.pop('v', np.array([0., 0., 0.]))
-        self.set_initial_position_and_velocity(r0, v0)
-
         # Finally, handle optional arguments:
         self.mass = kwargs.pop('mass', 100)
         self.gamma = kwargs.pop('gamma', 1)
         self.k = kwargs.pop('k', 1)
-        
+
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
 
@@ -74,18 +72,6 @@ class heuristiceq(object):
         self.F_laser = {}
         self.F_laser['g->e'] = np.zeros((3, self.laserBeams['g->e'].num_of_beams))
         self.R = np.zeros((self.laserBeams['g->e'].num_of_beams, ))
-
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-        self.sol = None
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
-        self.sol = None
 
     def scattering_rate(self, r, v, t, return_kvecs=False):
         B = self.magField.Field(r, t)
@@ -104,8 +90,9 @@ class heuristiceq(object):
 
         for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
             self.R[ii] = 0.
-            for (q, pol_i) in zip(np.array([-1., 0., 1.]), pol):
-                self.R[ii] += self.gamma/2*beta*np.abs(pol_i)/\
+            polsqrd = np.abs(pol)**2
+            for (q, pol_i) in zip(np.array([-1., 0., 1.]), polsqrd):
+                self.R[ii] += self.gamma/2*beta*pol_i/\
                 (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
         if return_kvecs:
@@ -141,7 +128,7 @@ class heuristiceq(object):
                 1/self.mass*F*free_axes + self.constant_accel,
                 y[0:3]
                 ))
-        
+
         def dydt_random_force(t, y):
             if progress_bar:
                 progress.update(t/t_span[1])
@@ -167,14 +154,14 @@ class heuristiceq(object):
             for kvec in kvecs[np.random.rand(len(R))<R*dt]:
                 y[-6:-3] += kvec/self.mass
                 y[-6:-3] += self.k/self.mass*random_vector(free_axes)
-                
+
                 num_of_scatters += 1
 
             total_P = np.sum(self.R)*dt
             new_dt_max = (max_scatter_probability/total_P)*dt
 
             return (num_of_scatters, new_dt_max)
-        
+
         if not random_recoil_flag and not random_force_flag:
             self.sol = solve_ivp(
                 dydt, t_span, np.concatenate((self.v0, self.r0)),
@@ -200,17 +187,17 @@ class heuristiceq(object):
         self.sol.r = self.sol.y[3:]
         self.sol.v = self.sol.y[:3]
 
-    
+
     def find_equilibrium_force(self, **kwargs):
         return_details = kwargs.pop('return_details', False)
-        
+
         F, F_laser = self.force(self.r0, self.v0, t=0.)
-        
+
         if return_details:
             return F, F_laser, self.R
         else:
             return F
-        
+
     def generate_force_profile(self, R, V,  **kwargs):
         """
         Method that maps out the equilbirium forces:

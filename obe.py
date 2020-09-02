@@ -13,7 +13,8 @@ from .rateeq import rateeq
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, base_force_profile)
+                     cart2spherical, spherical2cart, governingeq,
+                     base_force_profile)
 
 """
 The following is code that will be reintroduced after magnetic_forces branch is
@@ -72,7 +73,7 @@ class force_profile(base_force_profile):
         self.iterations[ind] = iterations
 
 
-class obe():
+class obe(governingeq):
     """
     The class optical bloch equations prduces a set of optical Bloch equations
     for a given position and velocity and provides methods for
@@ -91,6 +92,8 @@ class obe():
             hamiltonian: the internal hamiltonian of the particle as defined by
                 the hamiltonian class.
         """
+        super().__init__(**kwargs)
+
         if len(args) < 3:
             raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
         elif len(args) == 3:
@@ -136,10 +139,6 @@ class obe():
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Now handle keyword arguments:
-        r=kwargs.pop('r', np.array([0., 0., 0.]))
-        v=kwargs.pop('v', np.array([0., 0., 0.]))
-
         self.transform_into_re_im = kwargs.pop('transform_into_re_im', False)
         use_sparse_matrices = kwargs.pop('use_sparse_matrices', None)
         if use_sparse_matrices is None:
@@ -157,12 +156,10 @@ class obe():
         # Reset the current solution to None
         self.sol = None
 
-        """
-        There will be time-dependent and time-independent components of the optical
-        Bloch equations.  The time-independent parts are related to spontaneous
-        emission, applied magnetic field, and the zero-field Hamiltonian.  We
-        compute the latter-two directly from the commuatator.
-        """
+        # There will be time-dependent and time-independent components of the optical
+        # Bloch equations.  The time-independent parts are related to spontaneous
+        # emission, applied magnetic field, and the zero-field Hamiltonian.  We
+        # compute the latter-two directly from the commuatator.
 
         # Build the matricies that control evolution:
         self.ev_mat = {}
@@ -175,9 +172,6 @@ class obe():
 
         if self.use_sparse_matrices:
             self.__convert_to_sparse()
-
-        # Finally, update the position and velocity:
-        self.set_initial_position_and_velocity(r, v)
 
     def __check_consistency_in_lasers_and_d_q(self):
         # Check that laser beam keys and Hamiltonian keys match.
@@ -417,18 +411,6 @@ class obe():
                 self.ev_mat[key] = convert_based_on_shape(self.ev_mat[key])
 
 
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-        self.sol = None
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
-        self.sol = None
-
     def set_initial_rho(self, rho0):
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
@@ -446,9 +428,6 @@ class obe():
             self.rho0 = rho0.astype('complex128')
         else:
             self.rho0 = rho0
-
-
-
 
     def set_initial_rho_equally(self):
         if self.transform_into_re_im:
@@ -852,7 +831,7 @@ class obe():
         abs = kwargs.pop('abs', 1e-9)
         debug = kwargs.pop('debug', False)
         return_details = kwargs.pop('return_details', False)
-        
+
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
         if debug:
@@ -911,11 +890,33 @@ class obe():
         """
         Method that maps out the equilbirium forces:
         """
+        def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
+            deltat = None
+            if deltat_v is not None:
+                vabs = np.sqrt(np.sum(v**2))
+                if vabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_v/vabs, deltat_tmax])
+
+            if deltat_r is not None:
+                rabs = np.sqrt(np.sum(r**2))
+                if rabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
+
+            return deltat
+
         name = kwargs.pop('name', None)
         progress_bar = kwargs.pop('progress_bar', False)
         deltat_r = kwargs.pop('deltat_r', None)
         deltat_v = kwargs.pop('deltat_v', None)
         deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
+        deltat_func = kwargs.pop(
+            'deltat_func',
+            lambda r, v: default_deltat(r, v, deltat_v, deltat_r, deltat_tmax)
+        )
         initial_rho = kwargs.pop('initial_rho', 'rateeq')
 
         if not name:
@@ -947,21 +948,10 @@ class obe():
             else:
                 raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
-            if deltat_v is not None:
-                vabs = np.sqrt(np.sum(v**2))
-                if vabs==0.:
-                    kwargs['deltat'] = deltat_tmax
-                else:
-                    kwargs['deltat'] = np.min([2*np.pi*deltat_v/vabs, deltat_tmax])
-
-            if deltat_r is not None:
-                rabs = np.sqrt(np.sum(r**2))
-                if rabs==0.:
-                    kwargs['deltat'] = deltat_tmax
-                else:
-                    kwargs['deltat'] = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
-                    
+            if not deltat_func(r, v) is None:
+                kwargs['deltat'] = deltat_func(r, v)
             kwargs['return_details'] = True
+
             F, F_laser, F_laser_q, F_mag, Neq, iterations = self.find_equilibrium_force(**kwargs)
 
             self.profile[name].store_data(it.multi_index, Neq, F, F_laser, F_mag,
