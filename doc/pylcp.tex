@@ -600,7 +600,7 @@ We also include an example calculation of the temperature of a magneto-optical t
 \begin{figure*}
 	\center
 	\includegraphics{figs/88Sr_red_MOT_differnt_detunings}
-	\caption{\label{fig:recoil_limited_MOT} Simulated MOT images of the narrow line $^{88}$Sr MOT formed on the $^1 \mbox{S}_{0}\rightarrow ^3\mbox{P}_1$ transition for various detunings $\Delta$ and $s_0=??$.  Gravity is in the $-\hat{z}$ direction.  The red, dashed ellipses denote the spatial location where the beam detuning matches the Zeeman shift.  This figure should be compared to Ref.~\cite{Hanley2018}.}
+	\caption{\label{fig:recoil_limited_MOT} Simulated MOT images of the narrow line $^{88}$Sr MOT formed on the $^1 \mbox{S}_{0}\rightarrow ^3\mbox{P}_1$ transition for various detunings $\Delta$ and $s_0=25$.  Gravity is in the $-\hat{z}$ direction.  The red, dashed ellipses denote the spatial location where the beam detuning matches the Zeeman shift.  This figure should be compared to Ref.~\cite{Hanley2018}.}
 \end{figure*}
 
 Finally, we have also verified the calculation of Ref.~\cite{Hanley2018} of a recoil limited MOT.   Using the rate equations with random scattering and the parameters of $^{88}$Sr, we simulate the narrow-line MOT formed on the $^1 \mbox{S}_{0}\rightarrow ^3\mbox{P}_1$ transition.  The resulting images of the MOT with $N=1024$ atoms are shown in Fig.~\ref{fig:recoil_limited_MOT}.  One of the most unique features of this MOT is that it sags under the effect of gravity.  The vertical position and shape are mostly determined.  One effect we notice in our simulations that was not discussed in Ref.~\cite{Hanley2018} is atom loss.  We find that for $\Delta/\Gamma=-26.7$, we lose about 5~\% of the atoms from the MOT during a 50~ms simulation, and this increases with increasing detuning.  \SPE{Re-run to determine loss rate vs. detuning.} \SPE{Dan: consistent with experiment?}
@@ -612,12 +612,10 @@ Other MOT examples included with {\tt pylcp} include calculating MOT damping for
 \begin{figure}
 	\center
 	\includegraphics{figs/bichromatic_force}
-	\caption{\label{fig:bichromatic} Force vs. velocity for a two-level atom in an intense bi-chromatic standing wave for $\Delta/\Gamma=39$.  The intensities are $\Omega =39\Gamma$ (left), $\Omega =43\Gamma$ (middle), and $\Omega =47\Gamma$ (right), juts as in Ref.~\cite{Soding1997}.}
+	\caption{\label{fig:bichromatic} Force vs. velocity for a two-level atom in an intense bi-chromatic standing wave for $\Delta/\Gamma=39$.  The intensities are $\Omega =39\Gamma$ (left), $\Omega =43\Gamma$ (middle), and $\Omega =47\Gamma$ (right), as in Fig.~1 of Ref.~\cite{Soding1997}.}
 \end{figure}
 
-In sufficiently 
-
-Citation: \cite{Soding1997}.
+One can also calculate forces due to stimulated emission, unlike all the examples prior which relied solely on spontaneous emission.  A common setup for stimulated optical forces is the bichromatic force, which involves creating counterpropogating $\pi$ pulse trains to excite the atom to the excited state from one direction and stimulate it back down to the ground state via $\pi$ pulses from the opposite direction.  This stimulated optical force was examined theoretically and demonstrated experimentally in Ref.~\cite{Soding1997}.   Here, the pulses were made by shining two frequencies of light from both directions, each frequency detuned by $\pm\Delta$.  The necessary phases between all four frequencies must be well established to ensure the direction of stimulated emission is proper.  Fig.~\ref{fig:bichromatic} shows the calculation of the force for a two-level atom in this laser arrangement using {\tt pylcp}.  For each intensity, the force exceeds the spontaneous force limit of $\hbar k \Gamma$, and has a host of curious features including Doppleron resonances.  By simulating these in {\tt pylcp}, one can easily extend this to more complicated systems such as real atoms or molecules, and examine how operating bi-chromatic forces on non-cycling transitions may impact the size of the resulting forces.
 
 \section{Conclusion}
 We have presented 
