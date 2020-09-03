@@ -587,7 +587,7 @@ class obe(governingeq):
             progress = progressBar()
 
         def dydt(t, y):
-            if progress_bar:
+            if progress_bar and t<=t_span[1]:
                 progress.update(t/t_span[1])
 
             return np.concatenate((self.drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
@@ -602,6 +602,8 @@ class obe(governingeq):
 
         # Remake the solution:
         self.reshape_sol()
+        
+        return self.sol
 
 
     def evolve_motion(self, t_span, **kwargs):
@@ -700,6 +702,8 @@ class obe(governingeq):
                 f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
                 self.sol.f[key] = f(self.sol.t)
                 self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
+        
+        return self.sol
 
 
     def observable(self, O, rho=None):
