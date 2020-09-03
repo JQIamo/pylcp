@@ -84,10 +84,17 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
     n_basis = len(basis)
     mu_q = np.zeros((3, n_basis, n_basis))
         
-    # Start with the magnetic field dependent matrix:
-    for ii, state in enumerate(basis): 
-        mu_q[1, ii, ii] = gL*muB*state[0] + gS*muB*state[1] - gI*muB*state[2]
-    
+    # Start with the magnetic field dependent matrices:
+    for kk, q in enumerate([-1, 0, 1]):
+        for jj, (mLp, mSp, mIp) in enumerate(basis):
+            for ii, (mL, mS, mI) in enumerate(basis):
+                if mS==mSp and mIp==mI:
+                    mu_q[kk, ii, jj] += gL*muB*(-1)**(L-mL)*wig3j(L, 1, L, -mL, q, mLp)*np.sqrt(L*(L+1)*(2*L+1))
+                if mL==mLp and mIp==mI:
+                    mu_q[kk, ii, jj] += gS*muB*(-1)**(S-mS)*wig3j(S, 1, S, -mS, q, mSp)*np.sqrt(S*(S+1)*(2*S+1))
+                if mL==mLp and mSp==mS:
+                    mu_q[kk, ii, jj] -= gI*muB*(-1)**(I-mI)*wig3j(I, 1, I, -mI, q, mIp)*np.sqrt(I*(I+1)*(2*I+1))
+                  
     # Need to define the OTHER mu_q matrices!
     
     # Next, fill in the field independent matrix
@@ -170,7 +177,7 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
         return H_0, mu_q, basis
     else:
         return H_0, mu_q
-  
+
 
 def dqij_two_fine_stucture_manifolds_uncoupled(*args):
     if len(args)==2:
@@ -197,11 +204,18 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     H_0 = np.zeros((num_of_states, num_of_states))
     H_Bq = np.zeros((3,num_of_states, num_of_states))
 
-    # First, go through and populate the diagonal (magnetic field) elements:
-    for mJ in np.arange(-J, J+1, 1):
-        for mI in np.arange(-I, I+1, 1):
-            H_Bq[1, index(J, I, mJ, mI), index(J, I, mJ, mI)] += \
-                (-gJ*muB*mJ + gI*muB*mI)
+    # Start with the magnetic field dependent matrices:
+    for kk, q in enumerate([-1, 0, 1]):
+        for mJ in np.arange(-J, J+0.1, 1):
+            for mJp in np.arange(-J, J+0.1, 1):
+                for mI in np.arange(-I, I+0.1, 1):
+                    for mIp in np.arange(-I, I+0.1, 1):
+                        if mIp==mI:
+                            mu_q[kk, index(J, I, mJ, mI), index(J, I, mJp, mIp)] += \
+                            gJ*muB*(-1)**(J-mJ)*wig3j(J, 1, J, -mJ, q, mJp)*np.sqrt(J*(J+1)*(2*J+1))
+                        if mJ==mJp:
+                            mu_q[kk, index(J, I, mJ, mI), index(J, I, mJp, mIp)] -= \
+                            gI*muB*(-1)**(I-mI)*wig3j(I, 1, I, -mI, q, mIp)*np.sqrt(I*(I+1)*(2*I+1))
 
     # Next, do the J_zI_z diagonal elements of J\dotI operator:
     for mJ in np.arange(-J, J+1, 1):
