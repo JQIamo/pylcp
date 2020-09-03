@@ -26,6 +26,175 @@ def uncoupled_index(J, I, mJ, mI):
     return int((mI+I)+(2*I+1)*(mJ+J))
 
 
+def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
+                             muB, return_basis=False):
+    """
+    Returns the full fine structure manifold in the uncoupled basis.
+    
+    Parameters
+    ----------
+    L : int
+        Orbital angular momentum of interest
+    S : int or float
+        Spin angular momentum of interest
+    I : int or float
+        Nuclear angular momentum of interest
+    xi : float
+        Fine structure splitting
+    a_c : float
+        Contact interaction constant
+    a_orb : float
+        Orbital interaction constant
+    a_dip : float
+        Dipole interaction constant
+    gL : float
+        Orbital g-factor
+    gS : float
+        Spin g-factor
+    gI : float
+        Nuclear g-factor
+    muB : float
+        Bohr magneton
+    return_basis : bool, optional
+        Return the basis vectors as well as gthe
+        
+    Returns
+    -------
+    H_0 : array (NxN)
+        Field free Hamiltonian, where N is the number of states
+    mu_q : array (3xNxN)
+        Zeeman splitting array
+        
+    Notes
+    -----
+    See J.D.Lyons and T.P.Das, Phys.Rev.A,2,2250 (1970) and 
+    H.Orth et al,Z.Physik A,273,221 (1975) for details of Hamiltonian
+    and splitting constants.
+    
+    This function is adapted from the one found in Tollet, "Permanent magnetic
+    trap for Li atoms", thesis, Rice University, 1994.
+    """
+    # Set up a basis
+    basis = []
+    for mL in np.arange(-L, L+1):
+        for mS in np.arange(-S, S+1):
+            for mI in np.arange(-I, I+1): 
+                basis.append((mL, mS, mI))
+       
+    n_basis = len(basis)
+    mu_q = np.zeros((3, n_basis, n_basis))
+        
+    # Start with the magnetic field dependent matrices:
+    for kk, q in enumerate([-1, 0, 1]):
+        for jj, (mLp, mSp, mIp) in enumerate(basis):
+            for ii, (mL, mS, mI) in enumerate(basis):
+                if mS==mSp and mIp==mI:
+                    mu_q[kk, ii, jj] += gL*muB*(-1)**(L-mL)*wig3j(L, 1, L, -mL, q, mLp)*np.sqrt(L*(L+1)*(2*L+1))
+                if mL==mLp and mIp==mI:
+                    mu_q[kk, ii, jj] += gS*muB*(-1)**(S-mS)*wig3j(S, 1, S, -mS, q, mSp)*np.sqrt(S*(S+1)*(2*S+1))
+                if mL==mLp and mSp==mS:
+                    mu_q[kk, ii, jj] -= gI*muB*(-1)**(I-mI)*wig3j(I, 1, I, -mI, q, mIp)*np.sqrt(I*(I+1)*(2*I+1))
+                  
+    # Need to define the OTHER mu_q matrices!
+    
+    # Next, fill in the field independent matrix
+    # terms, dmL dmS dmI
+    # (I)     0   0   0  (diagonal terms)
+    # (II)   +1  -1   0
+    #        -1  +1   0
+    # (III)   0  +1  -1
+    #         0  -1  +1
+    # (IV)   +1   0  -1
+    #        -1   0  +1
+    # (V)    +2  -1  -1
+    #        -2  +1  +1
+
+    # Initialize field-independent matrix:
+    H_0 = np.zeros((n_basis, n_basis))
+
+    # Populate!
+    for ii, (mL, mS, mI) in enumerate(basis):
+        #  (I)
+        if S>0:
+            H_0[ii, ii] += mS*mI*(L+S)*a_c/S 
+        if S>0 and L>0:
+            H_0[ii, ii] += (mL*mI*(L+S)*a_orb/L
+                            + mS*mI*(3*mL**2 - L*(L+1))*(L+S)*a_dip/(1*S*(2*L-1))
+                            + mL*mS*xi)
+            
+        # (II)
+        if mL+1<=L and mS-1>=-S and L>0:
+            t1 = np.sqrt((L-mL)*(L+mL+1)*(S+mS)*(S-mS+1))
+            drow = int(np.round(2*S*(2*I+1)))
+            H_0[ii+drow, ii] += t1*xi/2 + t1*3*(2*mL+1)*mI*(L+S)*a_dip/(4*L*S*(2*L-1))
+
+        if mS+1<=S and mL-1>=-L and L>0:
+            t1 = np.sqrt((S-mS)*(S+mS+1)*(L+mL)*(L-mL+1))
+            drow = int(np.round(-2*S*(2*I+1)))
+            H_0[ii+drow, ii] += t1*xi/2 + t1*3*(2*mL-1)*mI*(L+S)*a_dip/(4*L*S*(2*L-1))
+    
+        # (III)
+        if mS+1<=S and mI-1>=-I:
+            t1 = np.sqrt((S-mS)*(S+mS+1)*(I+mI)*(I-mI+1))
+            drow = int(np.round(2*I));
+            if np.abs(a_c)>0.:
+                H_0[ii+drow, ii] += t1*(L+S)*a_c/2/S
+            if L>0 and np.abs(a_dip)>0.:
+                H_0[ii+drow, ii] += - t1*(3*mL**2-L*(L+1))*(L+S)*a_dip/(4*L*S*(2*L-1))
+
+        if mI+1<=I and mS-1>=-S:
+            t1 = np.sqrt((I-mI)*(I+mI+1)*(S+mS)*(S-mS+1))
+            drow = int(np.round(-2*I))
+            if np.abs(a_c)>0.:
+                H_0[ii+drow, ii] += t1*(L+S)*a_c/2/S
+            if L>0 and np.abs(a_dip)>0.:
+                H_0[ii+drow, ii] += - t1*(3*mL**2-L*(L+1))*(L+S)*a_dip/(4*L*S*(2*L-1))
+
+        # (IV)
+        if mL+1<=1 and mI-1>=-I and L>0 and (np.abs(a_orb)>0. or np.abs(a_dip)>0.):
+            t1 = np.sqrt((L-mL)*(L+mL+1)*(I+mI)*(I-mI+1))
+            drow = int((2*I+1)*(2*S+1) - 1)
+            H_0[ii+drow, ii] += t1*(1+S)*a_orb/2/L + t1*3*(2*mL+1)*mS*(1+S)*a_dip/(4*L*S*(2*L-1))
+        
+        if mI+1<=I and mL-L>=-1 and L>0 and (np.abs(a_orb)>0. or np.abs(a_dip)>0.):
+            t1 = np.sqrt((I-mI)*(I+mI+1)*(L+mL)*(L-mL+1))
+            drow = int(1 - (2*I+1)*(2*S+1))
+            H_0[ii+drow, ii] += t1*(1+S)*a_orb/2/L + t1*3*(2*mL-1)*mS*(1+S)*a_dip/(4*L*S*(2*L-1))
+
+        # (V)
+        if mL+2<=L and mS-1>=-S and mI-1>=-I and np.abs(a_dip)>0. and L>0 and S>0:
+            t1 = (L-mL)*(L+mL+1)
+            t1 = t1*np.sqrt( (S+mS)*(S-mS+1)*(I+mI)*(I-mI+1) )
+            drow = int(2*(2*I+1)*(2*S+1) - (2*I+1) - 1)
+            H_0[ii+drow, ii] += t1*3*(1+S)*a_dip/(4*L*S*(2*L-1))
+        if mL-2>=-L and mS+1<=S and mI+1<=I and np.abs(a_dip)>0. and L>0 and S>0:
+            t1 = (L+mL)*(L-mL+1)
+            t1 = t1*np.sqrt( (S-mS)*(S+mS+1)*(I-mI)*(I+mI+1) )
+            drow = int(-2*(2*I+1)*(2*S+1) + (2*I+1) + 1)
+            H_0[ii+drow, ii] += t1*3*(1+S)*a_dip/(4*L*S*(2*L-1))
+    
+    if return_basis:
+        return H_0, mu_q, basis
+    else:
+        return H_0, mu_q
+
+
+def dqij_two_fine_stucture_manifolds_uncoupled(*args):
+    if len(args)==2:
+        basis_g = args[0]
+        basis_e = args[1]
+    else:
+        raise ValueError('You must supply two arguments.')
+        
+    d_q = np.zeros((3, len(basis_g), len(basis_e)))
+    for kk, q in enumerate(range(-1, 2)):
+        for ii, (mL, mS, mI) in enumerate(args[0]):
+            for jj, (mLp, mSp, mIp) in enumerate(args[1]):
+                d_q[kk, ii, jj] = (mI==mIp)*(mS==mSp)*(mL==mLp+q)
+                    
+    return d_q
+
+
 def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
                         muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
                         return_basis = False):
@@ -35,11 +204,18 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     H_0 = np.zeros((num_of_states, num_of_states))
     H_Bq = np.zeros((3,num_of_states, num_of_states))
 
-    # First, go through and populate the diagonal (magnetic field) elements:
-    for mJ in np.arange(-J, J+1, 1):
-        for mI in np.arange(-I, I+1, 1):
-            H_Bq[1, index(J, I, mJ, mI), index(J, I, mJ, mI)] += \
-                (-gJ*muB*mJ + gI*muB*mI)
+    # Start with the magnetic field dependent matrices:
+    for kk, q in enumerate([-1, 0, 1]):
+        for mJ in np.arange(-J, J+0.1, 1):
+            for mJp in np.arange(-J, J+0.1, 1):
+                for mI in np.arange(-I, I+0.1, 1):
+                    for mIp in np.arange(-I, I+0.1, 1):
+                        if mIp==mI:
+                            mu_q[kk, index(J, I, mJ, mI), index(J, I, mJp, mIp)] += \
+                            gJ*muB*(-1)**(J-mJ)*wig3j(J, 1, J, -mJ, q, mJp)*np.sqrt(J*(J+1)*(2*J+1))
+                        if mJ==mJp:
+                            mu_q[kk, index(J, I, mJ, mI), index(J, I, mJp, mIp)] -= \
+                            gI*muB*(-1)**(I-mI)*wig3j(I, 1, I, -mI, q, mIp)*np.sqrt(I*(I+1)*(2*I+1))
 
     # Next, do the J_zI_z diagonal elements of J\dotI operator:
     for mJ in np.arange(-J, J+1, 1):
