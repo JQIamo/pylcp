@@ -31,6 +31,137 @@ class RandomOdeResult(OptimizeResult):
     pass
 
 
+class parallelIntegrator(object):
+    """
+    parallelIntegrator: a class to integrate a function as it is being called
+    
+    Parameters:
+    ----------
+    func : callable
+        The function that is to be integrated
+    method : string, optional
+        Integration method to use:
+            * 'RK45' (default): Explicit Runge-Kutta method of order 5(4) [1]_.
+              The error is controlled assuming accuracy of the fourth-order
+              method, but steps are taken using the fifth-order accurate
+              formula (local extrapolation is done). A quartic interpolation
+              polynomial is used for the dense output [2]_. Can be applied in
+              the complex domain.
+            * 'RK23': Explicit Runge-Kutta method of order 3(2) [3]_. The error
+              is controlled assuming accuracy of the second-order method, but
+              steps are taken using the third-order accurate formula (local
+              extrapolation is done). A cubic Hermite polynomial is used for the
+              dense output. Can be applied in the complex domain.
+            * 'DOP853': Explicit Runge-Kutta method of order 8 [13]_.
+              Python implementation of the "DOP853" algorithm originally
+              written in Fortran [14]_. A 7-th order interpolation polynomial
+              accurate to 7-th order is used for the dense output.
+              Can be applied in the complex domain.
+            * 'Radau': Implicit Runge-Kutta method of the Radau IIA family of
+              order 5 [4]_. The error is controlled with a third-order accurate
+              embedded formula. A cubic polynomial which satisfies the
+              collocation conditions is used for the dense output.
+            * 'BDF': Implicit multi-step variable-order (1 to 5) method based
+              on a backward differentiation formula for the derivative
+              approximation [5]_. The implementation follows the one described
+              in [6]_. A quasi-constant step scheme is used and accuracy is
+              enhanced using the NDF modification. Can be applied in the
+              complex domain.
+            * 'LSODA': Adams/BDF method with automatic stiffness detection and
+              switching [7]_, [8]_. This is a wrapper of the Fortran solver
+              from ODEPACK.
+    tmax : float, optional
+        Maximum magnitude of the time.  By default, 1e9.
+    kwargs : 
+        Options passed to a chosen OdeSolver.
+        
+    Attributes
+    ----------
+    t0 : initial time of the integrator
+    tlast : last time evaluated
+    direction : direction of the integrator
+    tmax : maximium value of integrator
+    """
+    def __init__(self, func, method='RK45', tmax=1e9, **kwargs):
+        self.func = func
+        self.t0 = None
+        self.tlast = None
+        self.direction = +1
+        self.tmax = tmax
+        # Now we can actually create the integrator:
+        if method == 'RK45':
+            self.intobj = RK45
+        elif method == 'RK23':
+            self.intobj = RK23
+        elif method == 'DOP853':
+            self.intobj = DOP853
+        elif method == 'Radau':
+            self.intobj = Radau
+        elif method == 'BDF':
+            self.intobj = BDF
+        elif method == 'LSODA':
+            self.intobj = LSODA
+        else:
+            raise ValueError('Method %s not recognized'%self.method) 
+            
+        self.extra_kwargs = kwargs
+
+    def __call__(self, t):
+        """
+        __call: return value at time t:
+        
+        Parameters:
+        -----------
+        t : float
+            time at which to evaluate function
+        
+        Returns:
+        --------
+        y : float
+            value of the function at time t.
+        """
+        # Is this the first call, or did we return to the initial time?
+        if self.t0 is None or t==self.t0:
+            self.t0 = t
+            self.tlast = None
+            self.interpolants = []
+            self.ts = [t]
+            
+            return 0.
+        # Second call, we will now establish a direction and create the solver:
+        elif self.tlast == None: 
+            if t>self.t0:
+                self.direction = +1
+            elif t<self.t0:
+                self.direction = -1
+            
+            self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
+                                        self.direction*self.tmax, **self.extra_kwargs)
+        # Did we go to a value smaller than our initial direction?
+        elif (t<self.t0 and self.direction==+1) or (t>self.t0 and self.direction==-1):
+            # Reset the integrator.
+            self.t0=None
+            self.tlast=None
+            return self(t)
+        
+        # If we made it here, we did not reset yet:
+        self.tlast = t
+ 
+        if t == self.t0:
+            return 0.
+        else:
+            while self.integrator.t<t:
+                self.integrator.step()
+                sol = self.integrator.dense_output()
+                self.interpolants.append(sol)
+                self.ts.append(self.integrator.t)
+
+            # Rebuild the solution:
+            sol = OdeSolution(self.ts, self.interpolants)
+
+            return sol(t)
+
+
 def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
                      dense_output=False, events=None, vectorized=False,
                      args=None, **options):

@@ -1,6 +1,7 @@
 import numpy as np
 from inspect import signature
 from pylcp.common import cart2spherical, spherical2cart
+from .integration_tools import parallelIntegrator
 from scipy.spatial.transform import Rotation
 
 import numba
@@ -13,8 +14,8 @@ def dot2D(a, b):
     return c
 
 @numba.njit
-def electric_field(r, t, amp, pol, k, delta, phase):
-    return pol*amp*np.exp(-1j*(k[0]*r[0]+k[1]*r[1]+k[2]*r[2])+1j*delta*t + 1j*phase)
+def electric_field(r, t, amp, pol, k, phase):
+    return pol*amp*np.exp(-1j*(k[0]*r[0]+k[1]*r[1]+k[2]*r[2]) + 1j*phase)
 
 
 def return_constant_val(R, t, val):
@@ -347,8 +348,16 @@ class laserBeam(object):
         # Promote it to a lambda func:
         if not delta is None:
             self.delta, self.delta_sig = promote_to_lambda(delta, var_name='delta', type='t')
+        
+        if self.delta_sig == '(t)':
+            self.delta_phase = parallelIntegrator(self.delta)
+        elif self.delta_sig == '()':
+            self.delta_phase = lambda t: delta*t
+            
+        # Promote it to a lambda func:
+        if not phase is None:
+            self.phase, self.phase_sig = promote_to_lambda(phase, var_name='phase', type='t')
 
-        self.phase = phase
         self.eps = eps
 
     def __parse_constant_polarization(self, pol, pol_coord):
@@ -718,15 +727,16 @@ class laserBeam(object):
         kvec = self.kvec(R, t)
         beta = self.beta(R, t)
         pol = self.pol(R, t)
-        delta = self.delta(t)
-
+        delta_phase = self.delta_phase(t)
+        phase = self.phase(t) 
+        
         amp = np.sqrt(2*beta)
 
         if isinstance(t, float):
-            Eq = electric_field(R, t, amp, pol, kvec, delta, self.phase)
+            Eq = electric_field(R, t, amp, pol, kvec, delta_phase - phase)
         else:
             Eq = pol.reshape(3, t.size)*\
-            (amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta*t -1j*self.phase)).reshape(1, t.size)
+            (amp*np.exp(-1j*dot2D(kvec, R) + 1j*delta_phase - 1j*phase)).reshape(1, t.size)
 
         return Eq
 
@@ -790,14 +800,14 @@ class infinitePlaneWaveBeam(laserBeam):
 
     def electric_field_gradient(self, R, t):
         # With a plane wave, this is simple:
-        delta = self.delta(t)
+        delta_phase = self.delta_phase(t)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
             delEq = self.dEq_prefactor*\
-            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t - 1j*self.phase)
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase - 1j*self.phase)
         else:
             delEq = self.dEq_prefactor.reshape(3, 3, 1)*\
-            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta*t -1j*self.phase).reshape(1, 1, t.size)
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase -1j*self.phase).reshape(1, 1, t.size)
 
         return delEq
 
