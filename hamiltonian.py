@@ -6,6 +6,10 @@ class hamiltonian():
     """
     This class assembles the full Hamiltonian from the various pieces and does
     necessary manipulations on that Hamiltonian.
+
+    Parameters
+    ----------
+
     """
     class block():
         def __init__(self, label, M):
@@ -57,9 +61,6 @@ class hamiltonian():
 
 
     def __init__(self, *args, **kwargs):
-        """
-        Initializes the class and saves certain elements of the Hamiltonian.
-        """
         self.blocks = []
         self.state_labels = []
         self.ns = []
@@ -79,9 +80,20 @@ class hamiltonian():
                                       len(args))
 
     def print_structure(self):
+        """
+        Print structure of the Hamiltonian
+        """
         print(self.blocks)
 
     def set_mass(self, mass):
+        """
+        Sets the Hamiltonian's mass parameter
+
+        Parameters
+        ----------
+        mass : float
+            The mass of the atom or molecule of the Hamiltonian
+        """
         self.mass=mass
 
     def recompute_number_of_states(self):
@@ -133,6 +145,17 @@ class hamiltonian():
 
 
     def add_H_0_block(self, state_label, H_0):
+        """
+        Adds a new H_0 block to the hamiltonian
+
+        Parameters
+        ----------
+        state_label : str
+            Label for the manifold for which this new block applies
+        H_0 : array_like, with shape (N, N)
+            Square matrix that describes the field-independent part of this
+            manifold's Hamiltonian.  This manifold must have N states.
+        """
         if H_0.shape[0] != H_0.shape[1]:
             raise ValueError('H_0 must be square.')
 
@@ -158,6 +181,17 @@ class hamiltonian():
 
 
     def add_mu_q_block(self, state_label, mu_q, muB=1):
+        """
+        Adds a new $\mu_q$ block to the hamiltonian
+
+        Parameters
+        ----------
+        state_label : str
+            Label for the manifold for which this new block applies
+        mu_q : array_like, with shape (3, N, N)
+            Square matrix that describes the magnetic field dependent part of
+            this manifold's Hamiltonian.
+        """
         if mu_q.shape[0] != 3 or mu_q.shape[1] != mu_q.shape[2]:
             raise ValueError('mu_q must 3xnxn, where n is an integer.')
 
@@ -185,6 +219,25 @@ class hamiltonian():
 
 
     def add_d_q_block(self, label1, label2, d_q, k=1, gamma=1):
+        """
+        Adds a new :math:`d_q` block to the hamiltonian to connect two
+        manifolds together.
+
+        Parameters
+        ----------
+        label1 : str
+            Label for the first manifold to which this block applies
+        label2 : str
+            Label for the second manifold to which this block applies
+        d_q : array_like, with shape (3, N, M)
+            Matrix that describes the electric field dependent part of
+            this dipole matrix element.  The first manifold must
+        k : float, optional
+            The mangitude of the k-vector for this $d_q$ block.  Default: 1
+        gamma : float, optional
+            The mangitude of the decay rate associated with this $d_q$ block.
+            Default: 1
+        """
         ind_H_0 = self.search_elem_label(self.make_elem_label('H_0', label1))
         ind_mu_q = self.search_elem_label(self.make_elem_label('mu_q', label1))
 
@@ -248,8 +301,14 @@ class hamiltonian():
 
     def make_full_matrices(self):
         """
-        Returns the full nxn matrices (H_0, mu_q, d_q) that define the
-        Hamiltonian.
+        Returns the full matrices that define the Hamiltonian.
+
+        Assembles the full Hamiltonian matrices from the stored block
+        representation, and returns the appropriate
+
+        Returns
+        -------
+
         """
         # Initialize the field-independent component of the Hamiltonian.
         self.H_0 = np.zeros((self.n, self.n), dtype='complex128')
@@ -444,105 +503,6 @@ class hamiltonian():
         is useful for internal hamilotains that are not diagonal at zero field.
         """
         pass
-
-
-def forceFromBeamsSimple(R, V, laserBeams, magField, extra_beta = None,
-                       normalize=False, average_totbeta=False):
-    """
-    Returns the approximate force from beams assuming a simple F=0 -> F=1
-    transition and even simpler approximations regarding staturation.
-    """
-    # Do some simple error checking on the inputs
-    if not isinstance(R, (list, np.ndarray)):
-        raise TypeError("R must be a list or ndarray.")
-    if not isinstance(V, (list, np.ndarray)):
-        raise TypeError("V must be a list or ndarray.")
-
-    if isinstance(R, list):
-        R = np.array(R)
-    if isinstance(V, list):
-        V = np.array(V)
-
-    if R.shape[0] > 3:
-        raise ValueError("dimension 0 of R must be <=3")
-    if R.shape != V.shape:
-        raise ValueError("length of R must be equal to V")
-
-    # Finally, check the last three arguments:
-    if not isinstance(laserBeams, list):
-        raise TypeError("laserBeams must be a list.")
-    elif not isinstance(laserBeams[0], laserBeam):
-        raise TypeError("Each element of laserBeams must be a laserBeam class.")
-    if not callable(magField):
-        raise TypeError("magField must be a function")
-    if extra_beta is not None:
-        if not callable(extra_beta):
-            raise TypeError("extra_beta must be a function")
-
-    # Do we normalize the force to N infinitely powered laser beams of 1?
-    if normalize:
-        norm = float(len(laserBeams))
-    else:
-        norm = 1
-
-    # Number of dimensions:
-    dim = R.shape[0]
-
-    # First, go through the beams and calculate the total beta:
-    betatot = np.zeros(R.shape[1::])
-    for beam in laserBeams:
-        betatot += beam.return_beta(R)
-
-    if average_totbeta:
-        betatot = betatot/len(laserBeams)
-
-    # If extraBeta is present, call it:
-    if extra_beta is not None:
-        betatot += extra_beta(R)
-
-    # Calculate the magnetic field:
-    B = magField(R)
-
-    # Calculate the Bhat direction:
-    # Calculate its magnitude:
-    Bmag = np.linalg.norm(B, axis=0)
-
-    # Calculate the Bhat direction:
-    Bhat = np.zeros(B.shape)
-    Bhat[-1] = 1.0 # Make the default magnetic field direction z
-    for ii in range(Bhat.shape[0]):
-        Bhat[ii][Bmag!=0] = B[ii][Bmag!=0]/Bmag[Bmag!=0]
-
-    # Preallocate memory for F:
-    F = np.zeros(R.shape)
-
-    # Run through all the beams:
-    for beam in laserBeams:
-        # If kvec is callable, evaluate kvec:
-        if callable(beam.kvec):
-            kvec = beam.kvec(R)
-            # Just like magField(R), beam.kvec(R) is expecting to return a
-            # three element vector the same size as R.  It is also expected
-            # to be normalized appropriately.
-        else:
-            kvec = beam.kvec
-
-        # Project the polarization on the quantization axis
-        proj = np.abs(beam.project_pol(Bhat))**2
-
-        # Compute the intensity of the beam:
-        beta = beam.return_beta(R)
-
-        # Compute the jth component of the force:
-        for jj in range(dim):
-            # Compute the component from the Delta m = +1,0,-1 component:
-            for ii in range(-1, 2, 1):
-                F[jj] += norm*proj[ii+1]*kvec[jj]*beta/2\
-                         /(1 + betatot + 4*(beam.delta - kvec[jj]*V[jj]\
-                           - ii*Bmag)**2)
-
-    # Return the force array:
-    return F
 
 
 # %%

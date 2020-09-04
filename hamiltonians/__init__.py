@@ -1,24 +1,13 @@
-"""
-author: SPE
-
-Some useful hamiltonians for the laser cooling package.
-"""
 import numpy as np
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
 import scipy.constants as cts
 from . import XFmolecules
 
 def wig3j(j1, j2, j3, m1, m2, m3):
-    """
-    This function redefines the wig3jj in terms of things that I like:
-    """
     return float(wigner_3j(j1, j2, j3, m1, m2, m3))
 
 
 def wig6j(j1, j2, j3, m1, m2, m3):
-    """
-    This function redefines the wig6jj in terms of things that I like:
-    """
     return float(wigner_6j(j1, j2, j3, m1, m2, m3))
 
 
@@ -30,7 +19,7 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
                              muB, return_basis=False):
     """
     Returns the full fine structure manifold in the uncoupled basis.
-    
+
     Parameters
     ----------
     L : int
@@ -57,20 +46,20 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
         Bohr magneton
     return_basis : bool, optional
         Return the basis vectors as well as gthe
-        
+
     Returns
     -------
     H_0 : array (NxN)
         Field free Hamiltonian, where N is the number of states
     mu_q : array (3xNxN)
         Zeeman splitting array
-        
+
     Notes
     -----
-    See J.D.Lyons and T.P.Das, Phys.Rev.A,2,2250 (1970) and 
+    See J.D.Lyons and T.P.Das, Phys.Rev.A,2,2250 (1970) and
     H.Orth et al,Z.Physik A,273,221 (1975) for details of Hamiltonian
     and splitting constants.
-    
+
     This function is adapted from the one found in Tollet, "Permanent magnetic
     trap for Li atoms", thesis, Rice University, 1994.
     """
@@ -78,12 +67,12 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
     basis = []
     for mL in np.arange(-L, L+1):
         for mS in np.arange(-S, S+1):
-            for mI in np.arange(-I, I+1): 
+            for mI in np.arange(-I, I+1):
                 basis.append((mL, mS, mI))
-       
+
     n_basis = len(basis)
     mu_q = np.zeros((3, n_basis, n_basis))
-        
+
     # Start with the magnetic field dependent matrices:
     for kk, q in enumerate([-1, 0, 1]):
         for jj, (mLp, mSp, mIp) in enumerate(basis):
@@ -94,9 +83,9 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
                     mu_q[kk, ii, jj] += gS*muB*(-1)**(S-mS)*wig3j(S, 1, S, -mS, q, mSp)*np.sqrt(S*(S+1)*(2*S+1))
                 if mL==mLp and mSp==mS:
                     mu_q[kk, ii, jj] -= gI*muB*(-1)**(I-mI)*wig3j(I, 1, I, -mI, q, mIp)*np.sqrt(I*(I+1)*(2*I+1))
-                  
+
     # Need to define the OTHER mu_q matrices!
-    
+
     # Next, fill in the field independent matrix
     # terms, dmL dmS dmI
     # (I)     0   0   0  (diagonal terms)
@@ -116,12 +105,12 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
     for ii, (mL, mS, mI) in enumerate(basis):
         #  (I)
         if S>0:
-            H_0[ii, ii] += mS*mI*(L+S)*a_c/S 
+            H_0[ii, ii] += mS*mI*(L+S)*a_c/S
         if S>0 and L>0:
             H_0[ii, ii] += (mL*mI*(L+S)*a_orb/L
                             + mS*mI*(3*mL**2 - L*(L+1))*(L+S)*a_dip/(1*S*(2*L-1))
                             + mL*mS*xi)
-            
+
         # (II)
         if mL+1<=L and mS-1>=-S and L>0:
             t1 = np.sqrt((L-mL)*(L+mL+1)*(S+mS)*(S-mS+1))
@@ -132,7 +121,7 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
             t1 = np.sqrt((S-mS)*(S+mS+1)*(L+mL)*(L-mL+1))
             drow = int(np.round(-2*S*(2*I+1)))
             H_0[ii+drow, ii] += t1*xi/2 + t1*3*(2*mL-1)*mI*(L+S)*a_dip/(4*L*S*(2*L-1))
-    
+
         # (III)
         if mS+1<=S and mI-1>=-I:
             t1 = np.sqrt((S-mS)*(S+mS+1)*(I+mI)*(I-mI+1))
@@ -155,7 +144,7 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
             t1 = np.sqrt((L-mL)*(L+mL+1)*(I+mI)*(I-mI+1))
             drow = int((2*I+1)*(2*S+1) - 1)
             H_0[ii+drow, ii] += t1*(1+S)*a_orb/2/L + t1*3*(2*mL+1)*mS*(1+S)*a_dip/(4*L*S*(2*L-1))
-        
+
         if mI+1<=I and mL-L>=-1 and L>0 and (np.abs(a_orb)>0. or np.abs(a_dip)>0.):
             t1 = np.sqrt((I-mI)*(I+mI+1)*(L+mL)*(L-mL+1))
             drow = int(1 - (2*I+1)*(2*S+1))
@@ -172,26 +161,38 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
             t1 = t1*np.sqrt( (S-mS)*(S+mS+1)*(I-mI)*(I+mI+1) )
             drow = int(-2*(2*I+1)*(2*S+1) + (2*I+1) + 1)
             H_0[ii+drow, ii] += t1*3*(1+S)*a_dip/(4*L*S*(2*L-1))
-    
+
     if return_basis:
         return H_0, mu_q, basis
     else:
         return H_0, mu_q
 
 
-def dqij_two_fine_stucture_manifolds_uncoupled(*args):
-    if len(args)==2:
-        basis_g = args[0]
-        basis_e = args[1]
-    else:
-        raise ValueError('You must supply two arguments.')
-        
+def dqij_two_fine_stucture_manifolds_uncoupled(basis_g, basis_e):
+    """
+    Return the coupling between two fine structure manifolds
+
+    Parameters
+    ----------
+    basis_g : list or array_like
+        A list of the basis vectors for the ground state.  In the uncoupled
+        basis, they are of the form |mL, mS, mI>
+    basis_g : list or array_like
+        A list of the basis vectors for the ground state.  In the uncoupled
+        basis, they are of the form |mL, mS, mI>
+
+    Returns
+    -------
+    d_q : array with shape (3, N, M)
+        The dipole coupling array.  N is the number of ground states and M
+        is the number of excited states.
+    """
     d_q = np.zeros((3, len(basis_g), len(basis_e)))
     for kk, q in enumerate(range(-1, 2)):
         for ii, (mL, mS, mI) in enumerate(args[0]):
             for jj, (mLp, mSp, mIp) in enumerate(args[1]):
                 d_q[kk, ii, jj] = (mI==mIp)*(mS==mSp)*(mL==mLp+q)
-                    
+
     return d_q
 
 
@@ -314,6 +315,10 @@ def hyperfine_coupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
                       return_basis=False):
     """
     Construct the hyperfine Hamiltonian in the coupled basis.
+
+    Parameters
+    ----------
+
     """
     # Determine the full number of F's:
     Fmin = np.abs(I-J)
