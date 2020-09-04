@@ -13,8 +13,8 @@ from .rateeq import rateeq
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, governingeq,
-                     base_force_profile)
+                     cart2spherical, spherical2cart, base_force_profile)
+from .governingeq import governingeq
 
 """
 The following is code that will be reintroduced after magnetic_forces branch is
@@ -75,55 +75,65 @@ class force_profile(base_force_profile):
 
 class obe(governingeq):
     """
-    The class optical bloch equations prduces a set of optical Bloch equations
-    for a given position and velocity and provides methods for
-    solving them appropriately.
+    The optical Bloch equations
+
+    This class constructs the optical Bloch equations from the given laser
+    beams, magnetic field, and hamiltonian.
+
+    Parameters
+    ----------
+    laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
+        The laserBeams that will be used in constructing the optical Bloch
+        equations.  which transitions in the block diagonal hamiltonian.
+    magField : pylcp.magField or callable
+        The function or object that defines the magnetic field.
+    hamiltonian : pylcp.hamiltonian
+        The internal hamiltonian of the particle.
+    a : array_like, shape (3,), optional
+        A default acceleraiton to apply to the particle's motion, usually
+        gravity. Default: [0., 0., 0.]
+    transform_into_re_im : boolean
+        Optional flag to transform the optical Bloch equations into real and
+        imaginary components.  This helps to decrease computaiton time as it
+        uses the symmetry :math:`\\rho_{ji}=\\rho_{ij}^*` to cut the number
+        of equations nearly in half.  Default: True
+    use_sparse_matrices : boolean or None
+        Optional flag to use sparse matrices.  If none, it will use sparse
+        matrices only if the number of internal states > 10, which would result
+        in the evolution matrix for the density operators being a 100x100
+        matrix.  At that size, there may be some speed up with sparse matrices.
+        Default: None
+    include_mag_forces : boolean
+        Optional flag to inculde magnetic forces in the force calculation.
+        Default: True
+    r0 : array_like, shape (3,), optional
+        Initial position.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity.  Default: [0., 0., 0.]
     """
-    def __init__(self, *args, **kwargs):
-        """
-        construct_optical_bloch_eqns: this function takes in a hamiltonian, a
-        set of laserBeams, and a magField function and an internal hamiltonian
-        and sets up the optical bloch equations.  Arguments:
-            r: position at which to evaluate the magnetic field.
-            v: 3-vector velocity of the atom or molecule.
-            laserBeams: a dictionary of laserBeams that say which fields drive
-                which transitions in the block diagonal hamiltonian.
-            magField: a function that defines the magnetic field.
-            hamiltonian: the internal hamiltonian of the particle as defined by
-                the hamiltonian class.
-        """
+    def __init__(self, laserBeams, magField, hamitlonian,
+                 a=np.array([0., 0., 0.]), transform_into_re_im=True,
+                 use_sparse_matrices=None, include_mag_forces=True,
+                 r0=np.array([0., 0., 0.]), v0=np.array([0., 0., 0.])):
+
         super().__init__(**kwargs)
 
-        if len(args) < 3:
-            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
-        elif len(args) == 3:
-            self.constant_accel = np.array([0., 0., 0.])
-        elif len(args) == 4:
-            if not isinstance(args[3], np.ndarray):
-                raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
-                raise ValueError('Constant acceleration must have length 3.')
-            else:
-                self.constant_accel = args[3]
-        else:
-            raise ValueError('No more than four positional arguments accepted.')
-
         # Add the Hamiltonian:
-        self.hamiltonian = copy.copy(args[2])
+        self.hamiltonian = copy.copy(hamiltonian)
         self.hamiltonian.make_full_matrices()
 
         # Add lasers:
         self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(args[0], list):
+        if isinstance(laserBeams, list):
             self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
-        elif isinstance(args[0], laserBeams):
+        elif isinstance(laserBeams, laserBeams):
             self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
-        elif isinstance(args[0], dict):
-            for key in args[0].keys():
-                if not isinstance(args[0][key], laserBeams):
+        elif isinstance(laserBeams, dict):
+            for key in laserBeams.keys():
+                if not isinstance(laserBeams[key], laserBeams):
                     raise TypeError('Key %s in dictionary lasersBeams ' % key +
                                      'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
+            self.laserBeams = copy.copy(laserBeams) # Now, assume that everything is the same.
         else:
             raise TypeError('laserBeams is not a valid type.')
 
@@ -131,16 +141,24 @@ class obe(governingeq):
         self.__check_consistency_in_lasers_and_d_q()
 
         # Add in magnetic field:
-        if callable(args[1]) or isinstance(args[1], np.ndarray):
-            self.magField = magField(args[1])
+        if callable(magField) or isinstance(magField, np.ndarray):
+            self.magField = magField(magField)
         elif isinstance(args[1], magField):
-            self.magField = copy.copy(args[1])
+            self.magField = copy.copy(magField)
         else:
-            raise TypeError('The magnetic field must be either a lambda ' +
+            raise TypeError('The magnetic field must be either a ' +
                             'function or a magField object.')
 
-        self.transform_into_re_im = kwargs.pop('transform_into_re_im', False)
-        use_sparse_matrices = kwargs.pop('use_sparse_matrices', None)
+        # Add in constant acceleration:
+        if not isinstance(args[3], np.ndarray):
+            raise TypeError('Constant acceleration must be an numpy array.')
+        elif args[3].size != 3:
+            raise ValueError('Constant acceleration must have length 3.')
+        else:
+            self.constant_accel = args[3]
+
+        self.transform_into_re_im = transform_into_re_im
+
         if use_sparse_matrices is None:
             if self.hamiltonian.n>10: # Generally offers a performance increase
                 self.use_sparse_matrices = True
@@ -148,7 +166,6 @@ class obe(governingeq):
                 self.use_sparse_matrices = False
         else:
             self.use_sparse_matrices = use_sparse_matrices
-        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
@@ -412,6 +429,16 @@ class obe(governingeq):
 
 
     def set_initial_rho(self, rho0):
+        """
+        Sets the initial :math:`\\rho` matrix
+
+        Parameters:
+        -----------
+        rho0 : array_like
+            The initial :math:`\\rho`.  It must have :math:`n^2` elements, where :math:`n`
+            is the total number of states in the system.  If a flat array, it
+            will be reshaped.
+        """
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
 
@@ -430,6 +457,10 @@ class obe(governingeq):
             self.rho0 = rho0
 
     def set_initial_rho_equally(self):
+        """
+        Sets the initial :math:`\\rho` matrix such that all states have the same
+        population.
+        """
         if self.transform_into_re_im:
             self.rho0 = np.zeros((self.hamiltonian.n**2,))
         else:
@@ -439,6 +470,12 @@ class obe(governingeq):
             self.rho0[self.__density_index(jj, jj)] = 1/self.hamiltonian.ns[0]
 
     def set_initial_rho_from_populations(self, Npop):
+        """
+        Sets the diagonal elements of the initial :math:`\\rho` matrix
+
+        Parameters
+        ----------
+        """
         if self.transform_into_re_im:
             self.rho0 = np.zeros((self.hamiltonian.n**2,))
         else:
@@ -602,7 +639,7 @@ class obe(governingeq):
 
         # Remake the solution:
         self.reshape_sol()
-        
+
         return self.sol
 
 
@@ -702,7 +739,7 @@ class obe(governingeq):
                 f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
                 self.sol.f[key] = f(self.sol.t)
                 self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
-        
+
         return self.sol
 
 

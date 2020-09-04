@@ -10,8 +10,8 @@ from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, governingeq,
-                     base_force_profile)
+                     cart2spherical, spherical2cart, base_force_profile)
+from .governingeq import governingeq
 from .integration_tools import solve_ivp_random
 from scipy.interpolate import interp1d
 
@@ -41,10 +41,34 @@ class force_profile(base_force_profile):
 
 class rateeq(governingeq):
     """
-    The class rateeq prduces a set of rate equations for a given
-    position and velocity and provides methods for solving them appropriately.
+    The rate equations
+
+    This class constructs the rate equations from the given laser
+    beams, magnetic field, and hamiltonian.
+
+    Parameters
+    ----------
+    laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
+        The laserBeams that will be used in constructing the optical Bloch
+        equations.  which transitions in the block diagonal hamiltonian.
+    magField : pylcp.magField or callable
+        The function or object that defines the magnetic field.
+    hamiltonian : pylcp.hamiltonian
+        The internal hamiltonian of the particle.
+    a : array_like, shape (3,), optional
+        A default acceleraiton to apply to the particle's motion, usually
+        gravity. Default: [0., 0., 0.]
+    include_mag_forces : boolean
+        Optional flag to inculde magnetic forces in the force calculation.
+        Default: True
+    r0 : array_like, shape (3,), optional
+        Initial position.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity.  Default: [0., 0., 0.]
     """
-    def __init__(self, *args, **kwargs):
+    def __init__(self, laserBeams, magField, hamitlonian,
+                 a=np.array([0., 0., 0.]), include_mag_forces=True,
+                 r0=np.array([0., 0., 0.]), v0=np.array([0., 0., 0.])):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.

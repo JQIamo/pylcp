@@ -1,4 +1,4 @@
-Welcome to pylcp!
+pylcp
 =================================
 
 `pylcp` is a python package meant to help with the calculation of a variety of
@@ -9,19 +9,21 @@ a possible magnetic field.
 
 Installation
 ------------
-In the future, this should be as simple as `pip install pylcp`
-
-But currently, there is no setup.py.  In order to function, make sure to add the
-directory containing pylcp into your path.  For example, if the path is
-~/git/packages/pylcp, add a file to your site-packages directory in python
-that contains ~/git/packages.  Then python will find pylcp.
-
-Notes from DSB for windows:
-The site-packages directory for a single user anaconda install should be
-"C:\Users\<username>\AppData\Local\continuum\anaconda3\Lib\site-packages".
-In that directory, add a file named, e.g., "custom_packages.pth", which
-contains the absolute path to your github packages directory (~/git/packages
-from above).
+[ONCE released on pip].  One can install on the command line::
+```
+  pip install pylcp
+```
+One can also manually check out the package from GitHub, navigate to the
+directory, and use::
+```
+  python setup.py install
+```
+If one wishes to participate in development, one should use
+```
+  python setup.py develop
+```
+which does the standard thing and puts an entry for pyclp in your easy_path.pth
+in your python installation.
 
 
 Basic Usage

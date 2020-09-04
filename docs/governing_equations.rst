@@ -10,7 +10,7 @@ Overview
 
 .. autosummary::
 
-    common.governingeq
+    governingeq.governingeq
     heuristiceq
     rateeq
     obe
@@ -18,7 +18,7 @@ Overview
 Details
 -------
 
-.. autoclass:: pylcp.common.governingeq
+.. autoclass:: pylcp.governingeq.governingeq
   :members:
 
 .. autoclass:: pylcp.heuristiceq
