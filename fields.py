@@ -206,7 +206,7 @@ class iPMagneticField(magField):
         self.B0 = B0
         self.B1 = B1
         self.B2 = B2
-        
+
     #Analytical form, not numerical for this and gradField
     def gradFieldMag(self, R=np.array([0., 0., 0.]), t=0):
         a = self.B0
@@ -231,14 +231,14 @@ class iPMagneticField(magField):
         xcom = np.array([B1-B2*z/2, 0, -B2*x/2])
         ycom = np.array([0, -B1-B2*z/2, B2*y/2])
         zcom = np.array([-B2*x/2, -B2*y/2, B2*z])
-        
+
         return np.array([
             np.array([B1-B2*z/2, 0, -B2*x/2]),
             np.array([0, -B1-B2*z/2, B2*y/2]),
             np.array([-B2*x/2, -B2*y/2, B2*z])
             ])
 
-    
+
 class constantMagneticField(magField):
     """
     Spatially constant magnetic field class
@@ -280,7 +280,7 @@ class quadrupoleMagneticField(magField):
         return self.constant_grad_field
 
 
-    
+
 # First, define the laser beam class:
 class laserBeam(object):
     def __init__(self, kvec=None, beta=None, pol=None, delta=None,
@@ -348,12 +348,12 @@ class laserBeam(object):
         # Promote it to a lambda func:
         if not delta is None:
             self.delta, self.delta_sig = promote_to_lambda(delta, var_name='delta', type='t')
-        
+
         if self.delta_sig == '(t)':
             self.delta_phase = parallelIntegrator(self.delta)
         elif self.delta_sig == '()':
             self.delta_phase = lambda t: delta*t
-            
+
         # Promote it to a lambda func:
         if not phase is None:
             self.phase, self.phase_sig = promote_to_lambda(phase, var_name='phase', type='t')
@@ -728,8 +728,8 @@ class laserBeam(object):
         beta = self.beta(R, t)
         pol = self.pol(R, t)
         delta_phase = self.delta_phase(t)
-        phase = self.phase(t) 
-        
+        phase = self.phase(t)
+
         amp = np.sqrt(2*beta)
 
         if isinstance(t, float):
@@ -801,13 +801,14 @@ class infinitePlaneWaveBeam(laserBeam):
     def electric_field_gradient(self, R, t):
         # With a plane wave, this is simple:
         delta_phase = self.delta_phase(t)
+        phase = self.phase(t)
 
         if isinstance(t, float) or (isinstance(t, np.ndarray) and t.size==1):
             delEq = self.dEq_prefactor*\
-            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase - 1j*self.phase)
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase - 1j*phase)
         else:
             delEq = self.dEq_prefactor.reshape(3, 3, 1)*\
-            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase -1j*self.phase).reshape(1, 1, t.size)
+            np.exp(-1j*np.dot(self.con_kvec, R) + 1j*delta_phase -1j*phase).reshape(1, 1, t.size)
 
         return delEq
 
@@ -837,7 +838,7 @@ class gaussianBeam(laserBeam):
         # Angles of rotation:
         th = np.arccos(self.con_khat[2])
         phi = np.arctan2(self.con_khat[1], self.con_khat[0])
-        
+
         # Use scipy to define the rotation matrix
         self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
 
@@ -1083,14 +1084,14 @@ class conventional3DMOTBeams(laserBeams):
         kmag = kwargs.pop('k', 1.)
         rotation_angles = kwargs.pop('rotation_angles', [0., 0., 0.])
         rotation_spec = kwargs.pop('rotation_spec', 'ZYZ')
-        
+
         rot_mat = Rotation.from_euler(rotation_spec, rotation_angles).as_matrix()
-        
+
         kvecs = [np.array([ 1.,  0.,  0.]), np.array([-1.,  0.,  0.]),
                  np.array([ 0.,  1.,  0.]), np.array([ 0., -1.,  0.]),
                  np.array([ 0.,  0.,  1.]), np.array([ 0.,  0., -1.])]
         pols = [-pol, -pol, -pol, -pol, +pol, +pol]
-        
+
         for kvec, pol in zip(kvecs, pols):
             self.add_laser(beam_type(rot_mat @ (kmag*kvec), pol, *args, **kwargs))
 
