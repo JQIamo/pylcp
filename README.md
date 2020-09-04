@@ -1,4 +1,4 @@
-Welcome to pylcp's documentation!
+Welcome to pylcp!
 =================================
 
 `pylcp` is a python package meant to help with the calculation of a variety of
@@ -34,8 +34,8 @@ The first step is define the problem.  The component of the problem is the
 Hamiltonian.  The full Hamiltonian is represented as a series of blocks, and
 so we first define all the blocks individually.  For this example, we assume
 a ground state (labeled `g`) and an excited state (labeled `e`) with some
-detuning `delta`::
-
+detuning `delta`:
+```
   Hg = np.array([[0.]])
   He = np.array([[-delta]])
   mu_q = np.zeros((3, 1, 1))
@@ -43,37 +43,45 @@ detuning `delta`::
   d_q[1, 0, 0] = 1.
 
   hamiltonian = pylcp.hamiltonian(Hg, He, mu_q, mu_q, d_q, mass=mass)
-
+```
 Here we have defined the magnetic field independent part of the Hamiltonian `Hg`
 and `He`, the magnetic field dependent part `mu_q`, and the electric field `d_q`
 dependent part that drivers transitions between `g` and `e`.
 
 The next components is to define a collection of laser beams.  For example,
-two create two counterpropagating laser beams ::
+two create two counterpropagating laser beams
 
+```
   laserBeams = pylcp.laserBeams([
           {'kvec':np.array([1., 0., 0.]), 'pol':np.array([0., 1., 0.]),
            'pol_coord':'spherical', 'delta':delta, 'beta':beta},
           {'kvec':np.array([-1., 0., 0.]), 'pol':np.array([0., 1., 0.]),
            'pol_coord':'spherical', 'delta':delta, 'beta':beta}
           ], beam_type=pylcp.infinitePlaneWaveBeam)
+```
 
 Here, we make the laser beam collectiov by passing a list of dictionaries, each
 dictionary containing the keyword arguments to make individual
 `pylcp.infinitePlaneWaveBeam` beams.
 
 The last component that one specifies the magnetic field.  For this example, we
-will create a quadrupole magnetic field ::
+will create a quadrupole magnetic field:
+```
   magField = pylcp.quadrupoleMagneticField(alpha)
+```
 
 Once all the components are created, we can combine them together into a
-govening equation.  In this case, it is an optical Bloch equation ::
+govening equation.  In this case, it is an optical Bloch equation:
+```
   obe = pylcp.obe(laserBeams, magField, hamiltonian)
+```
 
 And once you have your governing equation, you simply calculate the thing of
 interest.  For example, if you wanted to calculate the force at locations `R`
-and velocities `V`, you could use the `generate_force_profile` method ::
+and velocities `V`, you could use the `generate_force_profile` method:
+```
   obe.generate_force_profile(R, V)
+```
 
 There are plenty of examples contained in the `examples/` directory as Juypter
 notebooks.
