@@ -120,11 +120,13 @@ class parallelIntegrator(object):
         y : float
             value of the function at time t.
         """
-        # Is this the first call?
+        # Is this the first call, or did we return to the initial time?
         if self.t0 is None or t==self.t0:
             self.t0 = t
             self.tlast = None
-
+            self.interpolants = []
+            self.ts = [t]
+            
             return 0.
         # Second call, we will now establish a direction and create the solver:
         elif self.tlast == None: 
@@ -135,9 +137,9 @@ class parallelIntegrator(object):
             
             self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
                                         self.direction*self.tmax, **self.extra_kwargs)
-        # Did we go to a value outside of our initial direction?
+        # Did we go to a value smaller than our initial direction?
         elif (t<self.t0 and self.direction==+1) or (t>self.t0 and self.direction==-1):
-            # Going in an opposite direction, reset the integrator.
+            # Reset the integrator.
             self.t0=None
             self.tlast=None
             return self(t)
@@ -150,15 +152,14 @@ class parallelIntegrator(object):
         else:
             while self.integrator.t<t:
                 self.integrator.step()
-        
-        # Check to make sure we are still in the region of interest:
-        sol = self.integrator.dense_output()
-        if t>=sol.t_min and t<=sol.t_max:
-            return sol(t)[0]
-        else:
-            self.t0=None
-            self.tlast=None
-            return self(t)
+                sol = self.integrator.dense_output()
+                self.interpolants.append(sol)
+                self.ts.append(self.integrator.t)
+
+            # Rebuild the solution:
+            sol = OdeSolution(self.ts, self.interpolants)
+
+            return sol(t)
 
 
 def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
