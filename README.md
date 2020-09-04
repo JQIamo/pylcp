@@ -1,5 +1,5 @@
-Welcome to pylcp!
-=================================
+pylcp
+=====
 
 `pylcp` is a python package meant to help with the calculation of a variety of
 interesting quantities in laser cooling physics.  At its heart, it allows for
