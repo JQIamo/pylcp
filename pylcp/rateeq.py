@@ -68,57 +68,18 @@ class rateeq(governingeq):
     """
     def __init__(self, laserBeams, magField, hamitlonian,
                  a=np.array([0., 0., 0.]), include_mag_forces=True,
-                 r0=np.array([0., 0., 0.]), v0=np.array([0., 0., 0.])):
+                 svd_eps=1e-10, r0=np.array([0., 0., 0.]),
+                 v0=np.array([0., 0., 0.])):
         """
         First step is to save the imported laserBeams, magField, and
         hamiltonian.
         """
-        super().__init__(**kwargs)
+        super().__init__(laserBeams, magField, hamitlonian,
+                     a=np.array([0., 0., 0.]), r0=np.array([0., 0., 0.]),
+                     v0=np.array([0., 0., 0.]))
 
-        if len(args) < 3:
-            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
-        elif len(args) == 3:
-            self.constant_accel = np.array([0., 0., 0.])
-        elif len(args) == 4:
-            if not isinstance(args[3], np.ndarray):
-                raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
-                raise ValueError('Constant acceleration must have length 3.')
-            else:
-                self.constant_accel = args[3]
-        else:
-            raise ValueError('No more than four positional arguments accepted.')
-
-        # Add the Hamiltonian:
-        self.hamiltonian = copy.copy(args[2])
-        self.hamiltonian.make_full_matrices()
-
-        # Add lasers:
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(args[0], list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
-        elif isinstance(args[0], laserBeams):
-            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
-        elif isinstance(args[0], dict):
-            for key in args[0].keys():
-                if not isinstance(args[0][key], laserBeams):
-                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
-                                     'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
-        else:
-            raise TypeError('laserBeams is not a valid type.')
-
-        # Add in magnetic field:
-        if callable(args[1]) or isinstance(args[1], np.ndarray):
-            self.magField = magField(args[1])
-        elif isinstance(args[1], magField):
-            self.magField = copy.copy(args[1])
-        else:
-            raise TypeError('The magnetic field must be either a lambda ' +
-                            'function or a magField object.')
-
-        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
-        self.svd_eps = kwargs.pop('svd_eps', 1e-10)
+        self.include_mag_forces = include_mag_forces
+        self.svd_eps = svd_eps
 
         # Check function signatures for any time dependence:
         self.tdepend = {}

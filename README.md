@@ -22,8 +22,8 @@ If one wishes to participate in development, one should use
 ```
   python setup.py develop
 ```
-which does the standard thing and puts an entry for pyclp in your easy_path.pth
-in your python installation.
+which does the standard thing and puts an entry for `pylcp` in your
+`easy_path.pth` in your python installation.
 
 
 Basic Usage

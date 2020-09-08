@@ -7,6 +7,7 @@ from scipy.interpolate import interp1d
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
                      cart2spherical, spherical2cart)
+from .common import base_force_profile as force_profile
 from .governingeq import governingeq
 
 class heuristiceq(governingeq):
@@ -166,9 +167,25 @@ class heuristiceq(governingeq):
         self.sol.v = self.sol.y[:3]
 
 
-    def find_equilibrium_force(self, **kwargs):
-        return_details = kwargs.pop('return_details', False)
+    def find_equilibrium_force(self, return_details=False):
+        """
+        Finds the equilibrium force at the initial position
 
+        Parameters
+        ----------
+        return_details : boolean, optional
+            If True, returns the forces from each laser and the scattering rate
+            matrix.
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : array_like
+            If return_details is True, the forces due to each laser.
+        R : array_like
+            The scattering rate matrix.
+        """
         F, F_laser = self.force(self.r0, self.v0, t=0.)
 
         if return_details:
@@ -176,17 +193,33 @@ class heuristiceq(governingeq):
         else:
             return F
 
-    def generate_force_profile(self, R, V,  **kwargs):
-        """
-        Method that maps out the equilbirium forces:
-        """
-        name = kwargs.pop('name', None)
-        progress_bar = kwargs.pop('progress_bar', False)
-        deltat_r = kwargs.pop('deltat_r', None)
-        deltat_v = kwargs.pop('deltat_v', None)
-        deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
-        initial_rho = kwargs.pop('initial_rho', 'rateeq')
 
+    def generate_force_profile(self, R, V, name=None, progress_bar=False):
+        """
+        Map out the equilibrium force vs. position and velocity
+
+        Parameters
+        ----------
+        R : array_like, shape(3, ...)
+            Position vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            repsectively.
+        V : array_like, shape(3, ...)
+            Velocity vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            repsectively.
+        name : str, optional
+            Name for the profile.  Stored in profile dictionary in this object.
+            If None, uses the next integer, cast as a string, (i.e., '0') as
+            the name.
+        progress_bar : boolean, optional
+            Displays a progress bar as the proceeds.  Default: False
+
+        Returns
+        -------
+        profile : pylcp.common.base_force_profile
+            Resulting force profile.
+        """
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
@@ -212,3 +245,5 @@ class heuristiceq(governingeq):
 
             if progress_bar:
                 progress.update((it.iterindex+1)/it.itersize)
+
+        return self.profile[name]

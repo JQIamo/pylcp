@@ -42,7 +42,7 @@ class governingeq(object):
         if isinstance(laserBeams, list):
             self.laserBeams['g->e'] = copy.copy(laserBeamsObject(laserBeams)) # Assume label is g->e
         elif isinstance(laserBeams, laserBeamsObject):
-            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
+            self.laserBeams['g->e'] = copy.copy(laserBeams) # Again, assume label is g->e
         elif isinstance(laserBeams, dict):
             for key in laserBeams.keys():
                 if not key is 'g->e':
@@ -57,14 +57,22 @@ class governingeq(object):
 
         # Add in magnetic field:
         if callable(magField) or isinstance(magField, np.ndarray):
-            self.magField = magField(magField)
+            self.magField = magFieldObject(magField)
         elif isinstance(magField, magFieldObject):
             self.magField = copy.copy(magField)
         else:
             raise TypeError('The magnetic field must be either a lambda ' +
                             'function or a magField object.')
 
-        # Do argument checking specific
+        # Add the Hamiltonian:
+        if hamiltonian is not None:
+            self.hamiltonian = copy.copy(hamiltonian)
+            self.hamiltonian.make_full_matrices()
+
+            # Next, check to see if there is consistency in k:
+            self.__check_consistency_in_lasers_and_d_q()
+
+        # Check the acceleration:
         if not isinstance(a, np.ndarray):
             raise TypeError('Constant acceleration must be an numpy array.')
         elif a.size != 3:
@@ -80,6 +88,16 @@ class governingeq(object):
 
         # Set an attribute for the equillibrium position:
         self.r_eq = None
+
+
+    def __check_consistency_in_lasers_and_d_q(self):
+        # Check that laser beam keys and Hamiltonian keys match.
+        for laser_key in self.laserBeams.keys():
+            if not laser_key in self.hamiltonian.laser_keys.keys():
+                raise ValueError('laserBeams dictionary keys %s ' % laser_key +
+                                 'does not have a corresponding key the '+
+                                 'Hamiltonian d_q.')
+
 
     def set_initial_position_and_velocity(self, r0, v0):
         """
@@ -122,10 +140,54 @@ class governingeq(object):
     def evolve_motion(self):
         pass
 
+    def find_equilibrium_force(self):
+        """
+        Find the equilibrium force at the initial conditions
+
+        Returns
+        -------
+        force : array_like
+            Equilibrium force experienced by the atom
+        """
+        pass
+
     def force(self):
+        """
+        Find the instantaneous force
+
+        Returns
+        -------
+        force : array_like
+            Force experienced by the atom
+        """
         pass
 
     def generate_force_profile(self):
+        """
+        Map out the equilibrium force vs. position and velocity
+
+        Parameters
+        ----------
+        R : array_like, shape(3, ...)
+            Position vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            repsectively.
+        V : array_like, shape(3, ...)
+            Velocity vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            repsectively.
+        name : str, optional
+            Name for the profile.  Stored in profile dictionary in this object.
+            If None, uses the next integer, cast as a string, (i.e., '0') as
+            the name.
+        progress_bar : boolean, optional
+            Displays a progress bar as the proceeds.  Default: False
+
+        Returns
+        -------
+        profile : pylcp.common.base_force_profile
+            Resulting force profile.
+        """
         pass
 
     def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,

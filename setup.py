@@ -13,15 +13,15 @@ setup(
     package_data={
         # If any package contains *.txt or *.rst files, include them:
         "": ["*.txt", "*.rst"],
-        # And include any *.msg files found in the "hello" package, too:
-        "hello": ["*.msg"],
+        # Include example ipynb files:
+        "examples":["*.ipynb"]
     },
 
     # metadata to display on PyPI
     author="Stephen Eckel",
     author_email="stephen.eckel@nist.gov",
     description="A package for calculating laser cooling physics",
-    keywords="atomic physics, ",
+    keywords="atomic physics, laser cooling, numerical integration",
     url="http://github.com/JQIamo/pylcp/",   # project home page, if any
     project_urls={
         "Bug Tracker": "https://bugs.example.com/HelloWorld/",
