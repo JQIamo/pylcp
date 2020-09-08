@@ -74,6 +74,29 @@ def spherical_dot(A, B):
     #return np.tensordot(A, np.conjugate(B), axes=(0,0))
 
 class base_force_profile():
+    """
+    Base force profile
+
+    The force profile object stores all of the calculated quantities created by
+    the governingeq.generate_force_profile() method.  It has the following
+    attributes:
+
+    R : array_like, shape (3, ...)
+        Positions at which the force profile was calculated.
+    V : array_like, shape (3, ...)
+        Velocities at which the force profile was calculated.
+    F : array_like, shape (3, ...)
+        Total equilibrium force at position R and velocity V.
+    f_mag : array_like, shape (3, ...)
+        Magnetic force at position R and velocity V.
+    f : dictionary of array_like
+        The forces due to each laser, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    Neq : array_like
+        Equilibrium population found.
+    """
     def __init__(self, R, V, laserBeams, hamiltonian):
         if not isinstance(R, np.ndarray):
             R = np.array(R)
@@ -85,8 +108,6 @@ class base_force_profile():
 
         self.R = copy.copy(R)
         self.V = copy.copy(V)
-
-        self.iterations = np.zeros(R[0].shape, dtype='int64')
 
         if hamiltonian is None:
             self.Neq = None
