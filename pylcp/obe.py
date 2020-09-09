@@ -13,23 +13,9 @@ from .rateeq import rateeq
 from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, governingeq,
-                     base_force_profile)
+                     cart2spherical, spherical2cart, base_force_profile)
+from .governingeq import governingeq
 
-"""
-The following is code that will be reintroduced after magnetic_forces branch is
-pulled into master:
-
-for key in self.laserBeams:
-    k_ham = self.hamiltonian.blocks[self.hamiltonian.laser_keys[key]].parameters['k']
-    for kvec in self.laserBeams[key].kvec():
-        if not np.abs(np.linalg.norm(kvec)-k_ham)<1e-15:
-            raise ValueError('Laser beam driving transition %s '%key +
-                             'with wavevector k=%s '%str(kvec) +
-                             'has different magnitude from that '+
-                             'specified in the Hamiltonian, %s.'%str(k_ham))
-
-"""
 @numba.vectorize([numba.float64(numba.complex128),numba.float32(numba.complex64)])
 def abs2(x):
     return x.real**2 + x.imag**2
@@ -55,6 +41,36 @@ def cartesian_vector_tensor_dot(a, B):
 
 
 class force_profile(base_force_profile):
+    """
+    Optical Bloch equation force profile
+
+    The force profile object stores all of the calculated quantities created by
+    the rateeq.generate_force_profile() method.  It has the following
+    attributes:
+
+    Attributes
+    ----------
+    R  : array_like, shape (3, ...)
+        Positions at which the force profile was calculated.
+    V : array_like, shape (3, ...)
+        Velocities at which the force profile was calculated.
+    F : array_like, shape (3, ...)
+        Total equilibrium force at position R and velocity V.
+    f_mag : array_like, shape (3, ...)
+        Magnetic force at position R and velocity V.
+    f : dictionary of array_like
+        The forces due to each laser, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    f_q : dictionary of array_like
+        The force due to each laser and its :math:`q` component, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    Neq : array_like
+        Equilibrium population found.
+    """
     def __init__(self, R, V, laserBeams, hamiltonian):
         super().__init__(R, V, laserBeams, hamiltonian)
 
@@ -75,72 +91,69 @@ class force_profile(base_force_profile):
 
 class obe(governingeq):
     """
-    The class optical bloch equations prduces a set of optical Bloch equations
-    for a given position and velocity and provides methods for
-    solving them appropriately.
+    The optical Bloch equations
+
+    This class constructs the optical Bloch equations from the given laser
+    beams, magnetic field, and hamiltonian.
+
+    Parameters
+    ----------
+    laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
+        The laserBeams that will be used in constructing the optical Bloch
+        equations.  which transitions in the block diagonal hamiltonian.  It can
+        be any of the following:
+
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
+
+    magField : pylcp.magField or callable
+        The function or object that defines the magnetic field.
+    hamiltonian : pylcp.hamiltonian
+        The internal hamiltonian of the particle.
+    a : array_like, shape (3,), optional
+        A default acceleraiton to apply to the particle's motion, usually
+        gravity. Default: [0., 0., 0.]
+    transform_into_re_im : boolean
+        Optional flag to transform the optical Bloch equations into real and
+        imaginary components.  This helps to decrease computaiton time as it
+        uses the symmetry :math:`\\rho_{ji}=\\rho_{ij}^*` to cut the number
+        of equations nearly in half.  Default: True
+    use_sparse_matrices : boolean or None
+        Optional flag to use sparse matrices.  If none, it will use sparse
+        matrices only if the number of internal states > 10, which would result
+        in the evolution matrix for the density operators being a 100x100
+        matrix.  At that size, there may be some speed up with sparse matrices.
+        Default: None
+    include_mag_forces : boolean
+        Optional flag to inculde magnetic forces in the force calculation.
+        Default: True
+    r0 : array_like, shape (3,), optional
+        Initial position.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity.  Default: [0., 0., 0.]
+
+    Methods
+    -------
     """
-    def __init__(self, *args, **kwargs):
-        """
-        construct_optical_bloch_eqns: this function takes in a hamiltonian, a
-        set of laserBeams, and a magField function and an internal hamiltonian
-        and sets up the optical bloch equations.  Arguments:
-            r: position at which to evaluate the magnetic field.
-            v: 3-vector velocity of the atom or molecule.
-            laserBeams: a dictionary of laserBeams that say which fields drive
-                which transitions in the block diagonal hamiltonian.
-            magField: a function that defines the magnetic field.
-            hamiltonian: the internal hamiltonian of the particle as defined by
-                the hamiltonian class.
-        """
-        super().__init__(**kwargs)
+    def __init__(self, laserBeams, magField, hamitlonian,
+                 a=np.array([0., 0., 0.]), transform_into_re_im=True,
+                 use_sparse_matrices=None, include_mag_forces=True,
+                 r0=np.array([0., 0., 0.]), v0=np.array([0., 0., 0.])):
 
-        if len(args) < 3:
-            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
-        elif len(args) == 3:
-            self.constant_accel = np.array([0., 0., 0.])
-        elif len(args) == 4:
-            if not isinstance(args[3], np.ndarray):
-                raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
-                raise ValueError('Constant acceleration must have length 3.')
-            else:
-                self.constant_accel = args[3]
-        else:
-            raise ValueError('No more than four positional arguments accepted.')
+        super().__init__(laserBeams, magField, hamitlonian, a=a,
+                         r0=r0, v0=v0)
 
-        # Add the Hamiltonian:
-        self.hamiltonian = copy.copy(args[2])
-        self.hamiltonian.make_full_matrices()
+        # Save the optional arguments:
+        self.transform_into_re_im = transform_into_re_im
+        self.include_mag_forces = include_mag_forces
 
-        # Add lasers:
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(args[0], list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
-        elif isinstance(args[0], laserBeams):
-            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
-        elif isinstance(args[0], dict):
-            for key in args[0].keys():
-                if not isinstance(args[0][key], laserBeams):
-                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
-                                     'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
-        else:
-            raise TypeError('laserBeams is not a valid type.')
-
-        # Next, check to see if there is consistency in k:
-        self.__check_consistency_in_lasers_and_d_q()
-
-        # Add in magnetic field:
-        if callable(args[1]) or isinstance(args[1], np.ndarray):
-            self.magField = magField(args[1])
-        elif isinstance(args[1], magField):
-            self.magField = copy.copy(args[1])
-        else:
-            raise TypeError('The magnetic field must be either a lambda ' +
-                            'function or a magField object.')
-
-        self.transform_into_re_im = kwargs.pop('transform_into_re_im', False)
-        use_sparse_matrices = kwargs.pop('use_sparse_matrices', None)
+        # Should we use sparse matrices?
         if use_sparse_matrices is None:
             if self.hamiltonian.n>10: # Generally offers a performance increase
                 self.use_sparse_matrices = True
@@ -148,7 +161,6 @@ class obe(governingeq):
                 self.use_sparse_matrices = False
         else:
             self.use_sparse_matrices = use_sparse_matrices
-        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
@@ -173,13 +185,7 @@ class obe(governingeq):
         if self.use_sparse_matrices:
             self.__convert_to_sparse()
 
-    def __check_consistency_in_lasers_and_d_q(self):
-        # Check that laser beam keys and Hamiltonian keys match.
-        for laser_key in self.laserBeams.keys():
-            if not laser_key in self.hamiltonian.laser_keys.keys():
-                raise ValueError('laserBeams dictionary keys %s ' % laser_key +
-                                 'does not have a corresponding key the '+
-                                 'Hamiltonian d_q.')
+
 
 
     def __density_index(self, ii, jj):
@@ -411,7 +417,55 @@ class obe(governingeq):
                 self.ev_mat[key] = convert_based_on_shape(self.ev_mat[key])
 
 
+    def __reshape_rho(self, rho):
+        if self.transform_into_re_im:
+            rho = rho.astype('complex128')
+
+            if len(rho.shape) == 1:
+                rho = self.U @ rho
+            else:
+                for jj in range(rho.shape[1]):
+                    rho[:, jj] = self.U @ rho[:, jj]
+
+        rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) +
+                          rho.shape[1:])
+
+        """# If not:
+        if self.transform_into_re_im:
+            new_rho = np.zeros(rho.shape, dtype='complex128')
+            for jj in range(new_rho.shape[2]):
+                new_rho[:, :, jj] = (np.diag(np.diagonal(rho[:, :, jj])) +
+                                     np.triu(rho[:, :, jj], k=1) +
+                                     np.triu(rho[:, :, jj], k=1).T +
+                                     1j*np.tril(rho[:, :, jj], k=-1) -
+                                     1j*np.tril(rho[:, :, jj], k=-1).T)
+            rho = new_rho"""
+
+        return rho
+
+
+    def __reshape_sol(self):
+        """
+        Reshape the solution to have all the proper parts.
+        """
+        self.sol.rho = self.__reshape_rho(self.sol.y[:-6])
+        self.sol.r = np.real(self.sol.y[-3:])
+        self.sol.v = np.real(self.sol.y[-6:-3])
+
+        del self.sol.y
+
+
     def set_initial_rho(self, rho0):
+        """
+        Sets the initial :math:`\\rho` matrix
+
+        Parameters
+        ----------
+        rho0 : array_like
+            The initial :math:`\\rho`.  It must have :math:`n^2` elements, where :math:`n`
+            is the total number of states in the system.  If a flat array, it
+            will be reshaped.
+        """
         if np.any(np.isnan(rho0)) or np.any(np.isinf(rho0)):
             raise ValueError('rho0 has NaNs or Infs!')
 
@@ -430,6 +484,10 @@ class obe(governingeq):
             self.rho0 = rho0
 
     def set_initial_rho_equally(self):
+        """
+        Sets the initial :math:`\\rho` matrix such that all states have the same
+        population.
+        """
         if self.transform_into_re_im:
             self.rho0 = np.zeros((self.hamiltonian.n**2,))
         else:
@@ -439,6 +497,15 @@ class obe(governingeq):
             self.rho0[self.__density_index(jj, jj)] = 1/self.hamiltonian.ns[0]
 
     def set_initial_rho_from_populations(self, Npop):
+        """
+        Sets the diagonal elements of the initial :math:`\\rho` matrix
+
+        Parameters
+        ----------
+        Npop : array_like
+            Array of the initial populations of the states in the system.  The
+            length must be :math:`n`, where :math:`n` is the number of states.
+        """
         if self.transform_into_re_im:
             self.rho0 = np.zeros((self.hamiltonian.n**2,))
         else:
@@ -455,6 +522,10 @@ class obe(governingeq):
             self.rho0[self.__density_index(jj, jj)] = Npop[jj]
 
     def set_initial_rho_from_rateeq(self):
+        """
+        Sets the diagonal elements of the initial :math:`\\rho` matrix using
+        the equilibrium populations as determined by pylcp.rateeq
+        """
         if not hasattr(self, 'rateeq'):
             self.rateeq = rateeq(self.laserBeams, self.magField, self.hamiltonian)
         Neq = self.rateeq.equilibrium_populations(self.r0, self.v0, t=0)
@@ -463,12 +534,24 @@ class obe(governingeq):
 
     def full_OBE_ev_scratch(self, r, t):
         """
+        Calculate the evolution for the density matrix
+
         This function calculates the OBE evolution matrix at position t and r
         from scratch, first computing the full Hamiltonian, then the
         OBE evolution matrix computed via commutators, then adding in the decay
-        matrix evolution.
+        matrix evolution.  If `Bq` is `None`, it will compute `Bq`.
 
-        If Bq is None, it will compute Bq
+        Parameters
+        ----------
+        r : array_like, shape (3,)
+            Position at which to calculate evolution matrix
+        t : float
+            Time at which to calculate evolution matrix
+
+        Returns
+        -------
+        ev_mat : array_like
+            Evolution matrix for the densities
         """
         Eq = {}
         for key in self.laserBeams.keys():
@@ -488,12 +571,25 @@ class obe(governingeq):
 
     def full_OBE_ev(self, r, t):
         """
+        Calculate the evolution for the density matrix
+
         This function calculates the OBE evolution matrix by assembling
         pre-stored versions of the component matries.  This should be
         significantly faster than full_OBE_ev_scratch, but it may suffer bugs
-        in the evolution that full_OBE_ev_scratch will not.
+        in the evolution that full_OBE_ev_scratch will not. If Bq is None,
+        it will compute Bq based on r, t
 
-        If Bq is None, it will compute Bq based on r, t
+        Parameters
+        ----------
+        r : array_like, shape (3,)
+            Position at which to calculate evolution matrix
+        t : float
+            Time at which to calculate evolution matrix
+
+        Returns
+        -------
+        ev_mat : array_like
+            Evolution matrix for the densities
         """
         ev_mat = self.ev_mat['decay'] + self.ev_mat['H0']
 
@@ -526,7 +622,7 @@ class obe(governingeq):
         return ev_mat
 
 
-    def drhodt(self, r, t, rho):
+    def __drhodt(self, r, t, rho):
         """
         It is MUCH more efficient to do matrix vector products and add the
         results together rather than to add the matrices together (as above)
@@ -568,19 +664,41 @@ class obe(governingeq):
         return drhodt
 
 
-    def evolve_density(self, t_span, **kwargs):
+    def evolve_density(self, t_span, progress_bar=False, **kwargs):
         """
-        This function evolves the optical bloch equations for some period of
-        time.  Any initial velocity is kept constant while the atoms potentially
-        moves through the light field.  This function is therefore useful in
-        determining average forces.  It is analogous to evolve populations in
-        the rateeq class.
+        Evolve the density operators :math:`\\rho_{ij}` in time.
 
-        Any additional keyword arguments get passed to solve_ivp, which is
-        what actually does the integration.
+        This function integrates the optical Bloch equations to determine how
+        the populations evolve in time.  Any initial velocity is kept constant
+        while the atom potentially moves through the light field.  This function
+        is therefore useful in determining average forces.  Any constant
+        acceleration set when the OBEs were generated is ignored. It is
+        analogous to rateeq.evolve_populations().
+
+        Parameters
+        ----------
+        t_span : list or array_like
+            A two element list or array that specify the initial and final time
+            of integration.
+        progress_bar : boolean
+            Show a progress bar as the calculation proceeds.  Default:False
+        **kwargs :
+            Additional keyword arguments get passed to solve_ivp, which is
+            what actually does the integration.
+
+        Returns
+        -------
+        sol : OdeSolution
+            Bunch object that contains the following fields:
+
+                * t: integration times found by solve_ivp
+                * rho: density matrix
+                * v: atomic velocity (constant)
+                * r: atomic position
+
+            It contains other important elements, which can be discerned from
+            scipy's solve_ivp documentation.
         """
-        progress_bar = kwargs.pop('progress_bar', False)
-
         a = np.zeros((3,))
 
         if progress_bar:
@@ -590,7 +708,7 @@ class obe(governingeq):
             if progress_bar and t<=t_span[1]:
                 progress.update(t/t_span[1])
 
-            return np.concatenate((self.drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
+            return np.concatenate((self.__drhodt(y[-3:], t, y[:-6]), a, y[-6:-3]))
 
         self.sol = solve_ivp(dydt, t_span,
                              np.concatenate((self.rho0, self.v0, self.r0)),
@@ -601,21 +719,60 @@ class obe(governingeq):
             progress.update(1.)
 
         # Remake the solution:
-        self.reshape_sol()
-        
+        self.__reshape_sol()
+
         return self.sol
 
 
-    def evolve_motion(self, t_span, **kwargs):
+    def evolve_motion(self, t_span, freeze_axis=[False, False, False],
+                      random_recoil=False, max_scatter_probability=0.1,
+                      progress_bar=False, record_force=False, **kwargs):
         """
-        This function evolves the optical bloch equations for some period of
-        time, with all their potential glory!
+        Evolve :math:`\\rho_{ij}` and the motion of the atom in time.
+
+        This function evolves the optical Bloch equations, moving the atom
+        along given the instantaneous force, for some period of time.
+
+        Parameters
+        ----------
+        t_span : list or array_like
+            A two element list or array that specify the initial and final time
+            of integration.
+        freeze_axis : list of boolean
+            Freeze atomic motion along the specified axis.
+            Default: [False, False, False]
+        random_recoil : boolean
+            Allow the atom to randomly recoil from scattering events.
+            Default: False
+        max_scatter_probability : float
+            When undergoing random recoils, this sets the maximum time step such
+            that the maximum scattering probability is less than or equal to
+            this number during the next time step.  Default: 0.1
+        progress_bar : boolean
+            If true, show a progress bar as the calculation proceeds.
+            Default: False
+        record_force : boolean
+            If true, record the instantaneous force and store in the solution.
+            Default: False
+        **kwargs :
+            Additional keyword arguments get passed to solve_ivp_random, which
+            is what actually does the integration.
+
+        Returns
+        -------
+        sol : OdeSolution
+            Bunch object that contains the following fields:
+
+                * t: integration times found by solve_ivp
+                * rho: density matrix
+                * v: atomic velocity
+                * r: atomic position
+
+            It contains other important elements, which can be discerned from
+            scipy's solve_ivp documentation.
         """
-        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
-        random_recoil_flag = kwargs.pop('random_recoil', False)
-        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
-        progress_bar = kwargs.pop('progress_bar', False)
-        record_force = kwargs.pop('record_force', False)
+        free_axes = np.bitwise_not(freeze_axis)
+        random_recoil_flag = random_recoil
 
         if progress_bar:
             progress = progressBar()
@@ -639,7 +796,7 @@ class obe(governingeq):
                 F = self.force(y[-3:], t, y[:-6], return_details=False)
 
             return np.concatenate((
-                self.drhodt(y[-3:], t, y[:-6]),
+                self.__drhodt(y[-3:], t, y[:-6]),
                 F*free_axes/self.hamiltonian.mass + self.constant_accel,
                 y[-6:-3]
                 ))
@@ -687,7 +844,7 @@ class obe(governingeq):
             progress.update(1.)
 
         # Remake the solution:
-        self.reshape_sol()
+        self.__reshape_sol()
 
         # Interpolate the force:
         if record_force:
@@ -702,7 +859,7 @@ class obe(governingeq):
                 f = interp1d(ts[:-1], np.array([f[1][key] for f in Fs[:-1]]).T)
                 self.sol.f[key] = f(self.sol.t)
                 self.sol.f[key] = np.swapaxes(self.sol.f[key], 0, 1)
-        
+
         return self.sol
 
 
@@ -729,9 +886,9 @@ class obe(governingeq):
             If not specified, will get rho from the current solution stored in
             memory.
 
-        Outputs
+        Returns
         -------
-        observable: float or array
+        observable : float or array
             observable has shape (O[:-2])+(rho[2:])
         """
         if rho is None:
@@ -756,8 +913,35 @@ class obe(governingeq):
 
 
     def force(self, r, t, rho, return_details=False):
+        """
+        Calculates the instantaneous force
+
+        Parameters
+        ----------
+        r : array_like
+            Position at which to calculate the force
+        t : float
+            Time at which to calculate the force
+        rho : array_like
+            Density matrix with which to calculate the force
+        return_details : boolean, optional
+            If true, returns the forces from each laser and the scattering rate
+            matrix.
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : array_like
+            If return_details is True, the forces due to each laser.
+        F_laser_q : array_like
+            If return_details is True, the forces due to each laser and it's
+            q component of the polarization.
+        F_mag : array_like
+            If return_details is True, the forces due to the magnetic field.
+        """
         if rho.shape[0] != self.hamiltonian.n:
-            rho = self.reshape_rho(rho)
+            rho = self.__reshape_rho(rho)
 
         f = np.zeros((3,) + rho.shape[2:])
         if return_details:
@@ -827,14 +1011,59 @@ class obe(governingeq):
             return f
 
 
-    def find_equilibrium_force(self, **kwargs):
-        deltat = kwargs.pop('deltat', 500)
-        itermax = kwargs.pop('itermax', 100)
-        Npts = kwargs.pop('Npts', 5001)
-        rel = kwargs.pop('rel', 1e-5)
-        abs = kwargs.pop('abs', 1e-9)
-        debug = kwargs.pop('debug', False)
-        return_details = kwargs.pop('return_details', False)
+    def find_equilibrium_force(self, deltat=500, itermax=100, Npts=5001,
+                               rel=1e-5, abs=1e-9, debug=False,
+                               return_details=False, **kwargs):
+        """
+        Finds the equilibrium force at the initial position
+
+        This method works by solving the OBEs in a chunk of time
+        :math:`\\Delta T`, calculating the force during that chunck, continuing
+        the integration for another chunck, calculating the force during that
+        subsequent chunck, and comparing the average of the forces of the two
+        chunks to see if they have converged.
+
+        Parameters
+        ----------
+        deltat : float
+            Chunk time :math:`\\Delta T`.  Default: 500
+        itermax : int, optional
+            Maximum number of iterations.  Default: 100
+        Npts : int, optional
+            Number of points to divide the chunk into.  Default: 5001
+        rel : float, optional
+            Relative convergence parameter.  Default: 1e-5
+        abs : float, optional
+            Absolute convergence parameter.  Default: 1e-9
+        debug : boolean, optional
+            If true, pring out debug information as it goes.
+        return_details : boolean, optional
+            If true, returns the forces from each laser and the scattering rate
+            matrix.
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : dictionary of array_like
+            If return_details is True, the forces due to each laser, indexed
+            by the manifold the laser addresses.  The dictionary is keyed by
+            the transition driven, and individual lasers are in the same order
+            as in the pylcp.laserBeams object used to create the governing
+            equation.
+        F_laser : dictionary of array_like
+            If return_details is True, the forces due to each laser and its q
+            component, indexed by the manifold the laser addresses.  The
+            dictionary is keyed by the transition driven, and individual lasers
+            are in the same order as in the pylcp.laserBeams object used to
+            create the governing equation.
+        F_mag : array_like
+            If return_details is True, the forces due to the magnetic field.
+        Neq : array_like
+            If return_details is True, the equilibrium populations.
+        ii : int
+            Number of iterations needed to converge.
+        """
 
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
@@ -890,9 +1119,35 @@ class obe(governingeq):
             return f_avg
 
 
-    def generate_force_profile(self, R, V,  **kwargs):
+    def generate_force_profile(self, R, V, name=None, progress_bar=False,
+                               initial_rho ='rateeq', **kwargs):
         """
-        Method that maps out the equilbirium forces:
+        Map out the equilibrium force vs. position and velocity
+
+        Parameters
+        ----------
+        R : array_like, shape(3, ...)
+            Position vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            repsectively.
+        V : array_like, shape(3, ...)
+            Velocity vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            repsectively.
+        name : str, optional
+            Name for the profile.  Stored in profile dictionary in this object.
+            If None, uses the next integer, cast as a string, (i.e., '0') as
+            the name.
+        progress_bar : boolean, optional
+            Displays a progress bar as the proceeds.  Default: False
+        initial_rho : 'rateeq' or 'equally'
+            Determines how to set the initial rho at each point in the position
+            and velocity map.
+
+        Returns
+        -------
+        profile : pylcp.obe.force_profile
+            Resulting force profile.
         """
         def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
             deltat = None
@@ -912,8 +1167,6 @@ class obe(governingeq):
 
             return deltat
 
-        name = kwargs.pop('name', None)
-        progress_bar = kwargs.pop('progress_bar', False)
         deltat_r = kwargs.pop('deltat_r', None)
         deltat_v = kwargs.pop('deltat_v', None)
         deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
@@ -921,7 +1174,6 @@ class obe(governingeq):
             'deltat_func',
             lambda r, v: default_deltat(r, v, deltat_v, deltat_r, deltat_tmax)
         )
-        initial_rho = kwargs.pop('initial_rho', 'rateeq')
 
         if not name:
             name = '{0:d}'.format(len(self.profile))
@@ -964,39 +1216,4 @@ class obe(governingeq):
             if progress_bar:
                 progress.update((it.iterindex+1)/it.itersize)
 
-    def reshape_rho(self, rho):
-        if self.transform_into_re_im:
-            rho = rho.astype('complex128')
-
-            if len(rho.shape) == 1:
-                rho = self.U @ rho
-            else:
-                for jj in range(rho.shape[1]):
-                    rho[:, jj] = self.U @ rho[:, jj]
-
-        rho = rho.reshape((self.hamiltonian.n, self.hamiltonian.n) +
-                          rho.shape[1:])
-
-        """# If not:
-        if self.transform_into_re_im:
-            new_rho = np.zeros(rho.shape, dtype='complex128')
-            for jj in range(new_rho.shape[2]):
-                new_rho[:, :, jj] = (np.diag(np.diagonal(rho[:, :, jj])) +
-                                     np.triu(rho[:, :, jj], k=1) +
-                                     np.triu(rho[:, :, jj], k=1).T +
-                                     1j*np.tril(rho[:, :, jj], k=-1) -
-                                     1j*np.tril(rho[:, :, jj], k=-1).T)
-            rho = new_rho"""
-
-        return rho
-
-
-    def reshape_sol(self):
-        """
-        Reshape the solution to have all the proper parts.
-        """
-        self.sol.rho = self.reshape_rho(self.sol.y[:-6])
-        self.sol.r = np.real(self.sol.y[-3:])
-        self.sol.v = np.real(self.sol.y[-6:-3])
-
-        del self.sol.y
+        return self.profile[name]

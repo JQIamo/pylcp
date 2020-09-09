@@ -74,6 +74,31 @@ def spherical_dot(A, B):
     #return np.tensordot(A, np.conjugate(B), axes=(0,0))
 
 class base_force_profile():
+    """
+    Base force profile
+
+    The force profile object stores all of the calculated quantities created by
+    the governingeq.generate_force_profile() method.  It has the following
+    attributes:
+
+    Attributes
+    ----------
+    R : array_like, shape (3, ...)
+        Positions at which the force profile was calculated.
+    V : array_like, shape (3, ...)
+        Velocities at which the force profile was calculated.
+    F : array_like, shape (3, ...)
+        Total equilibrium force at position R and velocity V.
+    f_mag : array_like, shape (3, ...)
+        Magnetic force at position R and velocity V.
+    f : dictionary of array_like
+        The forces due to each laser, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    Neq : array_like
+        Equilibrium population found.
+    """
     def __init__(self, R, V, laserBeams, hamiltonian):
         if not isinstance(R, np.ndarray):
             R = np.array(R)
@@ -85,8 +110,6 @@ class base_force_profile():
 
         self.R = copy.copy(R)
         self.V = copy.copy(V)
-
-        self.iterations = np.zeros(R[0].shape, dtype='int64')
 
         if hamiltonian is None:
             self.Neq = None
@@ -206,194 +229,7 @@ def bisectFindChangeValue(fun, initial_guess, args=(), kwargs={},
     return (x, i)
 
 
-class governingeq(object):
-    """
-    Base class for a governing equation for atomic motion in a trap.
 
-    Parameters
-    ----------
-    laserBeams: array_like of laserBeam, dictionary of lists of laser_beams,
-    magField:
-
-
-    """
-    def __init__(self, *args, **kwargs):
-        r0 = kwargs.pop('r', np.array([0., 0., 0.]))
-        v0 = kwargs.pop('v', np.array([0., 0., 0.]))
-        self.set_initial_position_and_velocity(r0, v0)
-
-        # Set up a dictionary to store any resulting force profiles.
-        self.profile = {}
-
-        # Set the initial sol to zero:
-        self.sol = None
-
-        # Set an attribute for the equillibrium position:
-        self.r_eq = None
-
-    def set_initial_position_and_velocity(self, r0, v0):
-        self.set_initial_position(r0)
-        self.set_initial_velocity(v0)
-
-    def set_initial_position(self, r0):
-        self.r0 = r0
-        self.sol = None
-
-    def set_initial_velocity(self, v0):
-        self.v0 = v0
-        self.sol = None
-
-    def evolve_motion(self):
-        pass
-
-    def force(self):
-        pass
-
-    def generate_force_profile(self):
-        pass
-
-    def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,
-                                  Npts=51, initial_search=True):
-        if self.r_eq is None:
-            self.r_eq = np.zeros((3,))
-
-        # Next, find the equilibrium point in z, and evaluate derivatives there:
-        r_eqi = np.zeros((3,))
-        z = np.linspace(lower_lim, upper_lim, Npts)
-
-        if initial_search:
-            for axis in axes:
-                v = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r[axis] = z
-
-                default_axis=np.zeros((3,))
-                default_axis[axis] = 1.
-                self.generate_force_profile(r, v, name='root_search',
-                                            default_axis=default_axis)
-
-                z_possible = z[np.where(np.diff(np.sign(
-                    self.profile['root_search'].F[axis]))<0)[0]]
-
-                if z_possible.size>0:
-                    if z_possible.size>1:
-                        ind = np.argmin(z_possible**2)
-                    else:
-                        ind = 0
-                    r_eqi[axis] = z_possible[ind]
-                else:
-                    r_eqi[axis] = np.nan
-
-                del self.profile['root_search']
-
-        #print('Initial guess: %s' % r_eqi[axes])
-        if len(axes)>1:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
-
-                return np.sum(F**2)
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                # Find the center of the trap:
-                result = minimize(simple_wrapper, r_eqi[axes], method='SLSQP')
-                if result.success:
-                    self.r_eq[axes] = result.x
-                else:
-                    self.r_eq[axes] = np.nan
-            else:
-                self.r_eq = np.nan
-        else:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
-
-                return F[axes]
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                self.r_eq[axes] = fsolve(simple_wrapper, r_eqi[axes])[0]
-            else:
-                self.r_eq[axes] = np.nan
-
-        return self.r_eq
-
-    def trapping_frequencies(self, axes=[0, 2], r=None, eps=0.01):
-        self.omega = np.zeros(3,)
-
-        if isinstance(eps, float):
-            eps = np.array([eps]*3)
-
-        if r is None and self.r_eq is None:
-            r = np.array([0., 0., 0.])
-        elif r is None:
-            r = self.r_eq
-
-        if hasattr(self, 'mass'):
-            mass = self.mass
-        else:
-            mass = self.hamiltonian.mass
-
-        for axis in axes:
-            if not np.isnan(r[axis]):
-                rpmdri = np.tile(r, (2,1)).T
-                rpmdri[axis, 1] += eps[axis]
-                rpmdri[axis, 0] -= eps[axis]
-
-                F = np.zeros((2,))
-                for jj in range(2):
-                    self.set_initial_position_and_velocity(rpmdri[:, jj],
-                                                           np.zeros((3,)))
-                    f = self.find_equilibrium_force()
-
-                    F[jj] = f[axis]
-
-                if np.diff(F)<0:
-                    self.omega[axis] = np.sqrt(-np.diff(F)/(2*eps[axis]*mass))
-                else:
-                    self.omega[axis] = 0
-            else:
-                self.omega[axis] = 0
-
-        return self.omega[axes]
-
-    def damping_coeff(self, axes=[0, 2], r=None, eps=0.01):
-        self.beta = np.zeros(3,)
-
-        if isinstance(eps, float):
-            eps = np.array([eps]*3)
-
-        if r is None and self.r_eq is None:
-            r = np.array([0., 0., 0.])
-        elif r is None:
-            r = self.r_eq
-
-        for axis in axes:
-            if not np.isnan(r[axis]):
-                vpmdvi = np.zeros((3,2))
-                vpmdvi[axis, 1] += eps[axis]
-                vpmdvi[axis, 0] -= eps[axis]
-
-                F = np.zeros((2,))
-                for jj in range(2):
-                    self.set_initial_position_and_velocity(r, vpmdvi[:, jj])
-                    f = self.find_equilibrium_force()
-
-                    F[jj] = f[axis]
-
-                if np.diff(F)<0:
-                    self.beta[axis] = -np.diff(F)/(2*eps[axis])
-                else:
-                    self.beta[axis] = 0
-            else:
-                self.beta[axis] = 0
-
-        return self.beta[axes]
 
 
 if __name__ == '__main__':

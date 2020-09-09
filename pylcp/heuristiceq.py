@@ -4,62 +4,64 @@ import time
 import numba
 from scipy.integrate import solve_ivp
 from scipy.interpolate import interp1d
-from .fields import laserBeams, magField
 from .integration_tools import solve_ivp_random
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, governingeq)
+                     cart2spherical, spherical2cart)
 from .common import base_force_profile as force_profile
+from .governingeq import governingeq
 
 class heuristiceq(governingeq):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    """
+    Heuristic force equation
 
-        # Do argument checking specific
-        if len(args) < 2:
-            raise ValueError('You must specify laserBeams and magField')
-        elif len(args) == 2:
-            self.constant_accel = np.array([0., 0., 0.])
-        elif len(args) == 3:
-            if not isinstance(args[2], np.ndarray):
-                raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[2].size != 3:
-                raise ValueError('Constant acceleration must have length 3.')
-            else:
-                self.constant_accel = args[2]
-        else:
-            raise ValueError('No more than four positional arguments accepted.')
+    The heuristic equation governs the atom or molecule as if it has a single
+    transition between an :math:`F=0` ground state to an :math:`F'=1` excited
+    state.
 
-        # Add lasers:
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(args[0], list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
-        elif isinstance(args[0], laserBeams):
-            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
-        elif isinstance(args[0], dict):
-            for key in args[0].keys():
-                if not key is 'g->e':
-                    raise KeyError('laserBeam dictionary should only contain ' +
-                                   'a single key of \'g->e\' for the heutisticeq.')
-                if not isinstance(args[0][key], laserBeams):
-                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
-                                     'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
-        else:
-            raise TypeError('laserBeams is not a valid type.')
+    Parameters
+    ----------
+    laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
+        The laserBeams that will be used in constructing the optical Bloch
+        equations.  which transitions in the block diagonal hamiltonian.  It can
+        be any of the following:
 
-        # Add in magnetic field:
-        if callable(args[1]) or isinstance(args[1], np.ndarray):
-            self.magField = magField(args[1])
-        elif isinstance(args[1], magField):
-            self.magField = copy.copy(args[1])
-        else:
-            raise TypeError('The magnetic field must be either a lambda ' +
-                            'function or a magField object.')
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.  Here, it must be `g->e`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
+
+    magField : pylcp.magField or callable
+        The function or object that defines the magnetic field.
+    hamiltonian : pylcp.hamiltonian
+        The internal hamiltonian of the particle.
+    a : array_like, shape (3,), optional
+        A default acceleraiton to apply to the particle's motion, usually
+        gravity. Default: [0., 0., 0.]
+    r0 : array_like, shape (3,), optional
+        Initial position of the atom or molecule.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity of the atom or molecule.  Default: [0., 0., 0.]
+    mass : float, optional
+        Mass of the atom or molecule. Default: 100
+    gamma : float, optional
+        Decay rate of the single transition in the atom or molecule. Default: 1
+    k : float, optional
+        Magnitude of the k vector for the single transition in the atom or
+        molecule. Default: 1
+    """
+    def __init__(self, laserBeams, magField, a=np.array([0., 0., 0.]),
+                 mass=100, gamma=1, k=1, r0=np.array([0., 0., 0.]),
+                 v0=np.array([0., 0., 0.])):
+        super().__init__(laserBeams, magField, a=a, r0=r0, v0=v0)
 
         # Finally, handle optional arguments:
-        self.mass = kwargs.pop('mass', 100)
-        self.gamma = kwargs.pop('gamma', 1)
-        self.k = kwargs.pop('k', 1)
+        self.mass = mass
+        self.gamma = gamma
+        self.k = k
 
         # Set up a dictionary to store any resulting force profiles.
         self.profile = {}
@@ -188,9 +190,25 @@ class heuristiceq(governingeq):
         self.sol.v = self.sol.y[:3]
 
 
-    def find_equilibrium_force(self, **kwargs):
-        return_details = kwargs.pop('return_details', False)
+    def find_equilibrium_force(self, return_details=False):
+        """
+        Finds the equilibrium force at the initial position
 
+        Parameters
+        ----------
+        return_details : boolean, optional
+            If True, returns the forces from each laser and the scattering rate
+            matrix.
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : array_like
+            If return_details is True, the forces due to each laser.
+        R : array_like
+            The scattering rate matrix.
+        """
         F, F_laser = self.force(self.r0, self.v0, t=0.)
 
         if return_details:
@@ -198,17 +216,33 @@ class heuristiceq(governingeq):
         else:
             return F
 
-    def generate_force_profile(self, R, V,  **kwargs):
-        """
-        Method that maps out the equilbirium forces:
-        """
-        name = kwargs.pop('name', None)
-        progress_bar = kwargs.pop('progress_bar', False)
-        deltat_r = kwargs.pop('deltat_r', None)
-        deltat_v = kwargs.pop('deltat_v', None)
-        deltat_tmax = kwargs.pop('deltat_tmax', np.inf)
-        initial_rho = kwargs.pop('initial_rho', 'rateeq')
 
+    def generate_force_profile(self, R, V, name=None, progress_bar=False):
+        """
+        Map out the equilibrium force vs. position and velocity
+
+        Parameters
+        ----------
+        R : array_like, shape(3, ...)
+            Position vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            repsectively.
+        V : array_like, shape(3, ...)
+            Velocity vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            repsectively.
+        name : str, optional
+            Name for the profile.  Stored in profile dictionary in this object.
+            If None, uses the next integer, cast as a string, (i.e., '0') as
+            the name.
+        progress_bar : boolean, optional
+            Displays a progress bar as the proceeds.  Default: False
+
+        Returns
+        -------
+        profile : pylcp.common.base_force_profile
+            Resulting force profile.
+        """
         if not name:
             name = '{0:d}'.format(len(self.profile))
 
@@ -234,3 +268,5 @@ class heuristiceq(governingeq):
 
             if progress_bar:
                 progress.update((it.iterindex+1)/it.itersize)
+
+        return self.profile[name]

@@ -10,8 +10,8 @@ from scipy.integrate import solve_ivp
 from inspect import signature
 from .fields import laserBeams, magField
 from .common import (progressBar, random_vector, spherical_dot,
-                     cart2spherical, spherical2cart, governingeq,
-                     base_force_profile)
+                     cart2spherical, spherical2cart, base_force_profile)
+from .governingeq import governingeq
 from .integration_tools import solve_ivp_random
 from scipy.interpolate import interp1d
 
@@ -20,6 +20,36 @@ def abs2(x):
     return x.real**2 + x.imag**2
 
 class force_profile(base_force_profile):
+    """
+    Rate equation force profile
+
+    The force profile object stores all of the calculated quantities created by
+    the rateeq.generate_force_profile() method.  It has following attributes:
+
+    Attributes
+    ----------
+
+    R : array_like, shape (3, ...)
+        Positions at which the force profile was calculated.
+    V : array_like, shape (3, ...)
+        Velocities at which the force profile was calculated.
+    F : array_like, shape (3, ...)
+        Total equilibrium force at position R and velocity V.
+    f_mag : array_like, shape (3, ...)
+        Magnetic force at position R and velocity V.
+    f : dictionary of array_like
+        The forces due to each laser, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    Neq : array_like
+        Equilibrium population found.
+    Rijl : dictionary of array_like
+        The pumping rates of each laser, indexed by the
+        manifold the laser addresses.  The dictionary is keyed by the transition
+        driven, and individual lasers are in the same order as in the
+        pylcp.laserBeams object used to create the governing equation.
+    """
     def __init__(self, R, V, laserBeams, hamiltonian):
         super().__init__(R, V, laserBeams, hamiltonian)
 
@@ -41,60 +71,53 @@ class force_profile(base_force_profile):
 
 class rateeq(governingeq):
     """
-    The class rateeq prduces a set of rate equations for a given
-    position and velocity and provides methods for solving them appropriately.
+    The rate equations
+
+    This class constructs the rate equations from the given laser
+    beams, magnetic field, and hamiltonian.
+
+    Parameters
+    ----------
+    laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
+        The laserBeams that will be used in constructing the optical Bloch
+        equations.  which transitions in the block diagonal hamiltonian.  It can
+        be any of the following:
+
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
+    magField : pylcp.magField or callable
+        The function or object that defines the magnetic field.
+    hamiltonian : pylcp.hamiltonian
+        The internal hamiltonian of the particle.
+    a : array_like, shape (3,), optional
+        A default acceleraiton to apply to the particle's motion, usually
+        gravity. Default: [0., 0., 0.]
+    include_mag_forces : boolean
+        Optional flag to inculde magnetic forces in the force calculation.
+        Default: True
+    r0 : array_like, shape (3,), optional
+        Initial position.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity.  Default: [0., 0., 0.]
     """
-    def __init__(self, *args, **kwargs):
-        """
-        First step is to save the imported laserBeams, magField, and
-        hamiltonian.
-        """
-        super().__init__(**kwargs)
+    def __init__(self, laserBeams, magField, hamitlonian,
+                 a=np.array([0., 0., 0.]), include_mag_forces=True,
+                 svd_eps=1e-10, r0=np.array([0., 0., 0.]),
+                 v0=np.array([0., 0., 0.])):
+        # First step is to save the imported laserBeams, magField, and
+        # hamiltonian.
+        super().__init__(laserBeams, magField, hamitlonian,
+                     a=np.array([0., 0., 0.]), r0=np.array([0., 0., 0.]),
+                     v0=np.array([0., 0., 0.]))
 
-        if len(args) < 3:
-            raise ValueError('You must specify laserBeams, magField, and Hamiltonian')
-        elif len(args) == 3:
-            self.constant_accel = np.array([0., 0., 0.])
-        elif len(args) == 4:
-            if not isinstance(args[3], np.ndarray):
-                raise TypeError('Constant acceleration must be an numpy array.')
-            elif args[3].size != 3:
-                raise ValueError('Constant acceleration must have length 3.')
-            else:
-                self.constant_accel = args[3]
-        else:
-            raise ValueError('No more than four positional arguments accepted.')
-
-        # Add the Hamiltonian:
-        self.hamiltonian = copy.copy(args[2])
-        self.hamiltonian.make_full_matrices()
-
-        # Add lasers:
-        self.laserBeams = {} # Laser beams are meant to be dictionary,
-        if isinstance(args[0], list):
-            self.laserBeams['g->e'] = copy.copy(laserBeams(args[0])) # Assume label is g->e
-        elif isinstance(args[0], laserBeams):
-            self.laserBeams['g->e'] = copy.copy(args[0]) # Again, assume label is g->e
-        elif isinstance(args[0], dict):
-            for key in args[0].keys():
-                if not isinstance(args[0][key], laserBeams):
-                    raise TypeError('Key %s in dictionary lasersBeams ' % key +
-                                     'is in not of type laserBeams.')
-            self.laserBeams = copy.copy(args[0]) # Now, assume that everything is the same.
-        else:
-            raise TypeError('laserBeams is not a valid type.')
-
-        # Add in magnetic field:
-        if callable(args[1]) or isinstance(args[1], np.ndarray):
-            self.magField = magField(args[1])
-        elif isinstance(args[1], magField):
-            self.magField = copy.copy(args[1])
-        else:
-            raise TypeError('The magnetic field must be either a lambda ' +
-                            'function or a magField object.')
-
-        self.include_mag_forces = kwargs.pop('include_mag_forces', True)
-        self.svd_eps = kwargs.pop('svd_eps', 1e-10)
+        self.include_mag_forces = include_mag_forces
+        self.svd_eps = svd_eps
 
         # Check function signatures for any time dependence:
         self.tdepend = {}
@@ -267,12 +290,16 @@ class rateeq(governingeq):
 
     def construct_evolution_matrix(self, r, v, t=0., default_axis=np.array([0., 0., 1.])):
         """
-        Constructs the
+        Constructs the evolution matrix at a given position and time.
 
         Parameters
         ----------
-            r: a three-element vector specifying the position of interest
-            v: a three-element vector specifying the velocity of interest
+        r : array_like, shape (3,)
+            Position at which to calculate the equilibrium population
+        v : array_like, shape (3,)
+            Velocity at which to calculate the equilibrium population
+        t : float
+            Time at which to calculate the equilibrium population
         """
         if self.tdepend['B']:
             B = self.magField.Field(r, t)
@@ -312,8 +339,35 @@ class rateeq(governingeq):
 
     def equilibrium_populations(self, r, v, t, **kwargs):
         """
-        Returns the equilibrium values of the rate equation matrix Rev by
-        singular matrix decomposition.
+        Returns the equilibrium population as determined by the rate equations
+
+        This method uses singular matrix decomposition to find the equilibrium
+        state of the rate equations at a given position, velocity, and time.
+
+        Parameters
+        ----------
+        r : array_like, shape (3,)
+            Position at which to calculate the equilibrium population
+        v : array_like, shape (3,)
+            Velocity at which to calculate the equilibrium population
+        t : float
+            Time at which to calculate the equilibrium population
+        return_details : boolean, optional
+            In addition to the equilibrium populations, return the full
+            population evolution matrix and the scattering rates for each of the
+            lasers
+
+        Returns
+        -------
+        Neq : array_like
+            Equilibrium population vector
+        Rev : array_like
+            If return details is True, the evolution matrix for the state
+            populations.
+        Rijl : dictionary of array_like
+            If return details is True, the scattering rates for each laser and
+            each combination of states between the manifolds specified by the
+            dictionary's index.
         """
         return_details = kwargs.pop('return_details', False)
 
@@ -339,7 +393,34 @@ class rateeq(governingeq):
             return Neq
 
 
-    def force(self, r, t, Npop, return_details=True):
+    def force(self, r, t, N, return_details=True):
+        """
+        Calculates the instantaneous force
+
+        Parameters
+        ----------
+        r : array_like
+            Position at which to calculate the force
+        t : float
+            Time at which to calculate the force
+        N : array_like
+            Relative state populations
+        return_details : boolean, optional
+            If True, returns the forces from each laser and the magnetic forces.
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : dictionary of array_like
+            If return_details is True, the forces due to each laser, indexed
+            by the manifold the laser addresses.  The dictionary is keyed by
+            the transition driven, and individual lasers are in the same order
+            as in the pylcp.laserBeams object used to create the governing
+            equation.
+        F_mag : array_like
+            If return_details is True, the forces due to the magnetic field.
+        """
         F = np.zeros((3,))
         f = {}
 
@@ -352,7 +433,7 @@ class rateeq(governingeq):
             m_off = sum(self.hamiltonian.ns[:ind[1]])
             m = self.hamiltonian.ns[ind[1]]
 
-            Ne, Ng = np.meshgrid(Npop[m_off:(m_off+m)], Npop[n_off:(n_off+n)], )
+            Ne, Ng = np.meshgrid(N[m_off:(m_off+m)], N[n_off:(n_off+n)], )
 
             for ll, beam in enumerate(self.laserBeams[key].beam_vector):
                 kvec = beam.kvec(r, t)
@@ -370,21 +451,21 @@ class rateeq(governingeq):
                 if self.hamiltonian.diagonal[ii]:
                     if isinstance(block, tuple):
                         fmag += np.sum(np.real(
-                            block[1].matrix[1] @ Npop[ind1:ind2]
+                            block[1].matrix[1] @ N[ind1:ind2]
                             ))*gradBmag
                     elif isinstance(block, self.hamiltonian.vector_block):
                         fmag += np.sum(np.real(
-                            block.matrix[1] @ Npop[ind1:ind2]
+                            block.matrix[1] @ N[ind1:ind2]
                             ))*gradBmag
                 else:
                     if isinstance(block, tuple):
                         fmag += np.sum(np.real(
                             self.hamiltonian.U[ii].T @ block[1].matrix[1] @
-                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+                            self.hamiltonian.U[ii]) @ N[ind1:ind2])*gradBmag
                     elif isinstance(block, self.hamiltonian.vector_block):
                         fmag += np.sum(np.real(
                             self.hamiltonian.U[ii].T @ block.matrix[1] @
-                            self.hamiltonian.U[ii]) @ Npop[ind1:ind2])*gradBmag
+                            self.hamiltonian.U[ii]) @ N[ind1:ind2])*gradBmag
 
             F += fmag
 
@@ -395,18 +476,55 @@ class rateeq(governingeq):
 
 
     def set_initial_pop(self, N0):
+        """
+        Sets the initial populations
+
+        Parameters
+        ----------
+        N0 : array_like
+            The initial state population vector :math:`N_0`.  It must have
+            :math:`n` elements, where :math:`n` is the total number of states
+            in the system.
+        """
         self.N0 = N0
 
     def set_initial_pop_from_equilibrium(self):
+        """
+        Sets the initial populations based on the equilibrium population at
+        the initial position and velocity and time t=0.
+        """
         self.N0 = self.equilibrium_populations(self.r0, self.v0, t=0)
 
 
     def evolve_populations(self, t_span, **kwargs):
         """
-        This function evolves the populations only.  It assumes that the atom
-        has velocity v, but is yet moving through space.  This allows us to
-        determine equilibrium populations and forces on atoms at every point
-        in space.
+        Evolve the state population in time.
+
+        This function integrates the rate equations to determine how the
+        populations evolve in time.  Any initial velocity is kept constant.
+        It is analogous to obe.evolve_densityv().
+
+        Parameters
+        ----------
+        t_span : list or array_like
+            A two element list or array that specify the initial and final time
+            of integration.
+        **kwargs :
+            Additional keyword arguments get passed to solve_ivp, which is
+            what actually does the integration.
+
+        Returns
+        -------
+        sol : OdeSolution
+            Bunch object that contains the following fields:
+
+                * t: integration times found by solve_ivp
+                * rho: density matrix
+                * v: atomic velocity (constant)
+                * r: atomic position
+
+            It contains other important elements, which can be discerned from
+            scipy's solve_ivp documentation.
         """
         if any([self.tdepend[key] for key in self.tdepend.keys()]):
             raise NotImplementedError('Time dependence not yet implemented.')
@@ -415,17 +533,62 @@ class rateeq(governingeq):
             self.sol = solve_ivp(lambda t, N: Rev @ N, t_span, self.N0, **kwargs)
 
 
-    def evolve_motion(self, t_span, **kwargs):
+    def evolve_motion(self, t_span, freeze_axis=[False, False, False],
+                      random_recoil=False, random_force=False,
+                      max_scatter_probability=0.1, progress_bar=False,
+                      record_force=False, **kwargs):
         """
-        This method evolves the rate equations and atomic motion while in both
-        changing laser fields and magnetic fields.
+        Evolve the populations :math:`N` and the motion of the atom in time.
+
+        This function evolves the rate equations, moving the atom through space,
+        given the instantaneous force, for some period of time.
+
+        Parameters
+        ----------
+        t_span : list or array_like
+            A two element list or array that specify the initial and final time
+            of integration.
+        freeze_axis : list of boolean
+            Freeze atomic motion along the specified axis.
+            Default: [False, False, False]
+        random_recoil : boolean
+            Allow the atom to randomly recoil from scattering events.
+            Default: False
+        random_force : boolean
+            Rather than calculating the force using the rateeq.force() method,
+            use the calculated scattering rates from each of the laser beam
+            (combined with the instantaneous populations) to randomly add photon
+            absorption events that cause the atom to recoil randomly from the
+            laser beam(s).
+            Default: False
+        max_scatter_probability : float
+            When undergoing random recoils and/or force, this sets the maximum
+            time step such that the maximum scattering probability is less than
+            or equal to this number during the next time step.  Default: 0.1
+        progress_bar : boolean
+            If true, show a progress bar as the calculation proceeds.
+            Default: False
+        record_force : boolean
+            If true, record the instantaneous force and store in the solution.
+            Default: False
+        **kwargs :
+            Additional keyword arguments get passed to solve_ivp_random, which
+            is what actually does the integration.
+
+        Returns
+        -------
+        sol : OdeSolution
+            Bunch object that contains the following fields:
+
+                * t: integration times found by solve_ivp
+                * N: population vs. time
+                * v: atomic velocity
+                * r: atomic position
+
+            It contains other important elements, which can be discerned from
+            scipy's solve_ivp documentation.
         """
-        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', np.array([False, False, False])))
-        random_recoil_flag = kwargs.pop('random_recoil', False)
-        random_force_flag = kwargs.pop('random_force', False)
-        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
-        progress_bar = kwargs.pop('progress_bar', False)
-        record_force = kwargs.pop('record_force', False)
+        free_axes = np.bitwise_not(freeze_axis)
 
         if progress_bar:
             progress = progressBar()
@@ -440,7 +603,7 @@ class rateeq(governingeq):
             r = y[-3:]
 
             Rev, Rijl = self.construct_evolution_matrix(r, v, t)
-            if not random_force_flag:
+            if not random_force:
                 if record_force:
                     F = self.force(r, t, N, return_details=True)
 
@@ -529,11 +692,11 @@ class rateeq(governingeq):
             return (num_of_scatters, new_dt_max)
 
         y0 = np.concatenate((self.N0, self.v0, self.r0))
-        if random_force_flag:
+        if random_force:
             self.sol = solve_ivp_random(motion, random_force, t_span, y0,
                                         initial_max_step=max_scatter_probability,
                                         **kwargs)
-        elif random_recoil_flag:
+        elif random_recoil:
             self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
                                         initial_max_step=max_scatter_probability,
                                         **kwargs)
@@ -565,13 +728,40 @@ class rateeq(governingeq):
         del self.sol.y
 
 
-    def find_equilibrium_force(self, **kwargs):
+    def find_equilibrium_force(self, return_details=False, **kwargs):
         """
-        Determines the force from the lasers at position r based on the
-        populations Npop, scattering rate Rijl, and laserBeams.
-        """
-        return_details = kwargs.pop('return_details', False)
+        Finds the equilibrium force at the initial position
 
+        This method works by finding the equilibrium population through the
+        rateeq.equilibrium_population() function, then calculating the resulting
+        force.
+
+        Parameters
+        ----------
+        return_details : boolean, optional
+            If true, returns the forces from each laser and the scattering rate
+            matrix.  Default: False
+        kwargs :
+            Any additional keyword arguments to be passed to
+            equilibrium_populations()
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : array_like
+            If return_details is True, the forces due to each laser.
+        Neq : array_like
+            If return_details is True, the equilibrium populations.
+        Rijl : dictionary of array_like
+            If return details is True, the scattering rates for each laser and
+            each combination of states between the manifolds specified by the
+            dictionary's index.
+        F_mag : array_like
+            If return_details is True, the forces due to the magnetic field.
+        ii : int
+            Number of iterations needed to converge.
+        """
         if any([self.tdepend[key] for key in self.tdepend.keys()]):
             raise NotImplementedError('Time dependence not yet implemented.')
         else:
@@ -586,14 +776,36 @@ class rateeq(governingeq):
         else:
             return F_eq
 
-    def generate_force_profile(self, R, V, **kwargs):
+    def generate_force_profile(self, R, V, name=None, progress_bar=False,
+                               **kwargs):
         """
-        Method that maps out the equilbirium pupming rate, populations,
-        and forces:
-        """
-        name = kwargs.pop('name', None)
-        progress_bar = kwargs.pop('progress_bar', None)
+        Map out the equilibrium force vs. position and velocity
 
+        Parameters
+        ----------
+        R : array_like, shape(3, ...)
+            Position vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            repsectively.
+        V : array_like, shape(3, ...)
+            Velocity vector.  First dimension of the array must be length 3, and
+            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            repsectively.
+        name : str, optional
+            Name for the profile.  Stored in profile dictionary in this object.
+            If None, uses the next integer, cast as a string, (i.e., '0') as
+            the name.
+        progress_bar : boolean, optional
+            Displays a progress bar as the proceeds.  Default: False
+        kwargs :
+            Any additional keyword arguments to be passed to
+            rateeq.find_equilibrium_force()
+
+        Returns
+        -------
+        profile : pylcp.rateeq.force_profile
+            Resulting force profile.
+        """
         if not name:
             name = '{0:d}'.format(len(self.profile))
 

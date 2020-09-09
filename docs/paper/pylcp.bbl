@@ -1,0 +1,95 @@
+\begin{thebibliography}{10}
+\expandafter\ifx\csname url\endcsname\relax
+  \def\url#1{\texttt{#1}}\fi
+\expandafter\ifx\csname urlprefix\endcsname\relax\def\urlprefix{URL }\fi
+\expandafter\ifx\csname href\endcsname\relax
+  \def\href#1#2{#2} \def\path#1{#1}\fi
+
+\bibitem{Gordon1980}
+J.~P. Gordon, A.~Ashkin, {Motion of atoms in a radiation trap}, Physical Review
+  A 21~(5) (1980) 1606--1617.
+\newblock \href {https://doi.org/10.1103/PhysRevA.21.1606}
+  {\path{doi:10.1103/PhysRevA.21.1606}}.
+
+\bibitem{Ungar1989}
+P.~J. Ungar, D.~S. Weiss, E.~Riis, S.~Chu, {Optical molasses and multilevel
+  atoms: theory}, Journal of the Optical Society of America B 6~(11) (1989)
+  2058.
+\newblock \href {https://doi.org/10.1364/JOSAB.6.002058}
+  {\path{doi:10.1364/JOSAB.6.002058}}.
+
+\bibitem{Devlin2018}
+J.~A. Devlin, M.~R. Tarbutt, {Laser cooling and magneto-optical trapping of
+  molecules analyzed using optical Bloch equations and the
+  Fokker-Planck-Kramers equation}, Physical Review A 98~(6) (2018) 1--14.
+\newblock \href {https://doi.org/10.1103/PhysRevA.98.063415}
+  {\path{doi:10.1103/PhysRevA.98.063415}}.
+
+\bibitem{Dalibard1982}
+J.~Dalibard, J.~Dupont-Roc, C.~Cohen-Tannoudji, {Vacuum Fluctuations and
+  Radiation Reaction - Identification of Their Respective Contributions.},
+  Journal de physique Paris 43~(11) (1982) 1617--1638.
+\newblock \href {https://doi.org/10.1051/jphys:0198200430110161700}
+  {\path{doi:10.1051/jphys:0198200430110161700}}.
+
+\bibitem{Milonni1984}
+P.~W. Milonni, {Why spontaneous emission?}, American Journal of Physics 52~(4)
+  (1984) 340--343.
+\newblock \href {https://doi.org/10.1119/1.13886} {\path{doi:10.1119/1.13886}}.
+
+\bibitem{Tarbutt2015}
+M.~R. Tarbutt, {Magneto-optical trapping forces for atoms and molecules with
+  complex level structures}, New Journal of Physics 17~(1) (2015) 015007.
+\newblock \href {https://doi.org/10.1088/1367-2630/17/1/015007}
+  {\path{doi:10.1088/1367-2630/17/1/015007}}.
+
+\bibitem{Lett1989}
+P.~D. Lett, W.~D. Phillips, S.~L. Rolston, C.~E. Tanner, R.~N. Watts, C.~I.
+  Westbrook, {Optical molasses}, Journal of the Optical Society of America B
+  6~(11) (1989) 2084.
+\newblock \href {https://doi.org/10.1364/JOSAB.6.002084}
+  {\path{doi:10.1364/JOSAB.6.002084}}.
+
+\bibitem{Devlin2016}
+J.~A. Devlin, M.~R. Tarbutt, {Three-dimensional Doppler, polarization-gradient,
+  and magneto-optical forces for atoms and molecules with dark states}, New
+  Journal of Physics 18~(12) (2016) 123017.
+\newblock \href {https://doi.org/10.1088/1367-2630/18/12/123017}
+  {\path{doi:10.1088/1367-2630/18/12/123017}}.
+
+\bibitem{Grier2013}
+A.~T. Grier, I.~Ferrier-Barbut, B.~S. Rem, M.~Delehaye, L.~Khaykovich,
+  F.~Chevy, C.~Salomon, {$\Lambda$-enhanced sub-Doppler cooling of lithium
+  atoms in D$_1$ gray molasses}, Physical Review A 87~(6) (2013) 063411.
+\newblock \href {https://doi.org/10.1103/PhysRevA.87.063411}
+  {\path{doi:10.1103/PhysRevA.87.063411}}.
+
+\bibitem{Haubrich1993}
+D.~Haubrich, A.~H{\"{o}}pe, D.~Meschede, {A simple model for optical capture of
+  atoms in strong magnetic quadrupole fields}, Optics Communications 102~(3-4)
+  (1993) 225--230.
+\newblock \href {https://doi.org/10.1016/0030-4018(93)90387-K}
+  {\path{doi:10.1016/0030-4018(93)90387-K}}.
+
+\bibitem{Hanley2018}
+R.~K. Hanley, P.~Huillery, N.~C. Keegan, A.~D. Bounds, D.~Boddy, R.~Faoro,
+  M.~P. Jones, {Quantitative simulation of a magneto-optical trap operating
+  near the photon recoil limit}, Journal of Modern Optics 65~(5-6) (2018)
+  667--676.
+\newblock \href {https://doi.org/10.1080/09500340.2017.1401679}
+  {\path{doi:10.1080/09500340.2017.1401679}}.
+
+\bibitem{Tarbutt2015a}
+M.~R. Tarbutt, T.~C. Steimle, {Modeling magneto-optical trapping of CaF
+  molecules}, Physical Review A 92~(5) (2015) 053401.
+\newblock \href {https://doi.org/10.1103/PhysRevA.92.053401}
+  {\path{doi:10.1103/PhysRevA.92.053401}}.
+
+\bibitem{Soding1997}
+J.~S{\"{o}}ding, R.~Grimm, Y.~Ovchinnikov, P.~Bouyer, C.~Salomon,
+  {Short-Distance Atomic Beam Deceleration with a Stimulated Light Force},
+  Physical Review Letters 78 (1997) 1420--1423.
+\newblock \href {https://doi.org/10.1103/PhysRevLett.78.1420}
+  {\path{doi:10.1103/PhysRevLett.78.1420}}.
+
+\end{thebibliography}
