@@ -14,14 +14,26 @@ class heuristiceq(governingeq):
     """
     Heuristic force equation
 
+    The heuristic equation governs the atom or molecule as if it has a single
+    transition between an :math:`F=0` ground state to an :math:`F'=1` excited
+    state.
+
     Parameters
     ----------
     laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
         The laserBeams that will be used in constructing the optical Bloch
         equations.  which transitions in the block diagonal hamiltonian.  It can
         be any of the following:
-        - A dictionary of laserBeams: if this is the case, the keys of the
-          laser beams should address the
+
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.  Here, it must be `g->e`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
+
     magField : pylcp.magField or callable
         The function or object that defines the magnetic field.
     hamiltonian : pylcp.hamiltonian
@@ -29,6 +41,17 @@ class heuristiceq(governingeq):
     a : array_like, shape (3,), optional
         A default acceleraiton to apply to the particle's motion, usually
         gravity. Default: [0., 0., 0.]
+    r0 : array_like, shape (3,), optional
+        Initial position of the atom or molecule.  Default: [0., 0., 0.]
+    v0 : array_like, shape (3,), optional
+        Initial velocity of the atom or molecule.  Default: [0., 0., 0.]
+    mass : float, optional
+        Mass of the atom or molecule. Default: 100
+    gamma : float, optional
+        Decay rate of the single transition in the atom or molecule. Default: 1
+    k : float, optional
+        Magnitude of the k vector for the single transition in the atom or
+        molecule. Default: 1
     """
     def __init__(self, laserBeams, magField, a=np.array([0., 0., 0.]),
                  mass=100, gamma=1, k=1, r0=np.array([0., 0., 0.]),

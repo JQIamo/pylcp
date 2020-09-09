@@ -12,11 +12,10 @@ Overview
 .. autosummary::
 
     hamiltonian
-    hamiltonian.add_H_0_block
 
 
 Detailed functions
 ------------------
 
-.. automodule:: pylcp.hamiltonian
+.. autoclass:: pylcp.hamiltonian
   :members:

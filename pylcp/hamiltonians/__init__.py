@@ -176,10 +176,10 @@ def dqij_two_fine_stucture_manifolds_uncoupled(basis_g, basis_e):
     ----------
     basis_g : list or array_like
         A list of the basis vectors for the ground state.  In the uncoupled
-        basis, they are of the form |mL, mS, mI>
-    basis_g : list or array_like
+        basis, they are of the form :math:`|m_L, m_S, m_I\\rangle`
+    basis_e : list or array_like
         A list of the basis vectors for the ground state.  In the uncoupled
-        basis, they are of the form |mL, mS, mI>
+        basis, they are of the form :math:`|m_L\', m_S\', m_I\'\\rangle`
 
     Returns
     -------
@@ -189,8 +189,8 @@ def dqij_two_fine_stucture_manifolds_uncoupled(basis_g, basis_e):
     """
     d_q = np.zeros((3, len(basis_g), len(basis_e)))
     for kk, q in enumerate(range(-1, 2)):
-        for ii, (mL, mS, mI) in enumerate(args[0]):
-            for jj, (mLp, mSp, mIp) in enumerate(args[1]):
+        for ii, (mL, mS, mI) in enumerate(basis_g):
+            for jj, (mLp, mSp, mIp) in enumerate(basis_e):
                 d_q[kk, ii, jj] = (mI==mIp)*(mS==mSp)*(mL==mLp+q)
 
     return d_q
@@ -199,6 +199,42 @@ def dqij_two_fine_stucture_manifolds_uncoupled(basis_g, basis_e):
 def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
                         muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
                         return_basis = False):
+    """
+    Construct the hyperfine Hamiltonian in the coupled basis.
+
+    For parameterization of this Hamiltonian, see Steck, Alkali D line data,
+    which contains a useful description of the hyperfine Hamiltonian.
+
+    Parameters
+    ----------
+    J : int or float
+        Lower hyperfine manifold :math:`J` quantum number
+    I : int or float
+        Nuclear spin associated with both manifolds
+    gJ : float
+        Electronic Lande g-factor
+    gI : float
+        Nuclear g-factor
+    Ahfs : float
+        Hyperfine :math:`A` parameter
+    Bhfs : float, optional
+        Hyperfine :math:`B` parameter. Default: 0.
+    Chfs : float, optional
+        Hyperfine :math:`C` parameter. Default: 0.
+    muB : float, optional
+        Bohr magneton.  Default: the real thing in Hz/G
+    return_basis : boolean, optional
+        If true, return the basis.  Default: False
+
+    Returns
+    -------
+    H_0 : array_like
+        Field independent component of the Hamiltonian
+    mu_q : array_like
+        Magnetic field dependent component of the Hamiltonian
+    basis : list
+        List of :math:`(J, I, m_J, m_I)` basis states
+    """
     index = lambda J, I, mJ, mI: uncoupled_index(J, I, mJ, mI)
 
     num_of_states = int((2*J+1)*(2*I+1))
@@ -316,9 +352,38 @@ def hyperfine_coupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     """
     Construct the hyperfine Hamiltonian in the coupled basis.
 
+    For parameterization of this Hamiltonian, see Steck, Alkali D line data,
+    which contains a useful description of the hyperfine Hamiltonian.
+
     Parameters
     ----------
+    J : int or float
+        Lower hyperfine manifold :math:`J` quantum number
+    I : int or float
+        Nuclear spin associated with both manifolds
+    gJ : float
+        Electronic Lande g-factor
+    gI : float
+        Nuclear g-factor
+    Ahfs : float
+        Hyperfine :math:`A` parameter
+    Bhfs : float, optional
+        Hyperfine :math:`B` parameter. Default: 0.
+    Chfs : float, optional
+        Hyperfine :math:`C` parameter. Default: 0.
+    muB : float, optional
+        Bohr magneton.  Default: the real thing in Hz/G
+    return_basis : boolean, optional
+        If true, return the basis.  Default: False
 
+    Returns
+    -------
+    H_0 : array_like
+        Field independent component of the Hamiltonian
+    mu_q : array_like
+        Magnetic field dependent component of the Hamiltonian
+    basis : list
+        List of :math:`(F, m_F)` basis states
     """
     # Determine the full number of F's:
     Fmin = np.abs(I-J)
@@ -385,7 +450,27 @@ def hyperfine_coupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
 def singleF(F, gF=1, muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
             return_basis=False):
     """
-    The Hamiltonian for a single F state:
+    Construct the Hamiltonian for a lonely angular momentum state
+
+    Parameters
+    ----------
+    F : int or float
+        Angular momentum quantum number
+    gF : float
+        Associated Lande g-factor
+    muB : float, optional
+        Bohr magneton.  Default: the real thing in Hz/G
+    return_basis : boolean, optional
+        If true, return the basis.  Default: False
+
+    Returns
+    -------
+    H_0 : array_like
+        Field independent component of the Hamiltonian
+    mu_q : array_like
+        Magnetic field dependent component of the Hamiltonian
+    basis : list
+        List of :math:`(F, m_F)` basis states
     """
     index = lambda mF: int(F+mF)
 
@@ -431,8 +516,30 @@ def dqij_norm(dqij):
 
 def dqij_two_hyperfine_manifolds(J, Jp, I, normalize=True, return_basis=False):
     """
-    Dipole matrix element matrix elements matrix for a dipole matrix element
-    transition.
+    Dipole matrix element matrix elements for transitions between two
+    hyperfine manifolds.
+
+    Parameters
+    ----------
+    J : int or float
+        Lower hyperfine manifold :math:`J` quantum number
+    Jp : int or float
+        Upper hyperfine manifold :math:`J\\'` quantum number
+    I : int or float
+        Nuclear spin associated with both manifolds
+    normalize : boolean, optional
+        Normalize the d_q to one.  Default: True
+    return_basis : boolean, optional
+        If true, returns the basis states as well as the :math:`d_q`
+
+    Returns
+    -------
+    d_q : array_like
+        Dipole matrix elements between hyperfine manifolds
+    basis_g : list
+        If return_basis is true, list of (:math:`F`, :math:`m_F`)
+    basis_e : list
+        If return_basis is true, list of (:math:`F\\'`, :math:`m_F\\'`)
     """
     def matrix_element(J, F, m_F, Jp, Fp, m_Fp, I, q):
         return (-1)**(F-m_F+J+I+Fp+1)*np.sqrt((2*F+1)*(2*Fp+1))*\
@@ -514,12 +621,9 @@ def dqij_two_bare_hyperfine(F, Fp, normalize=True):
                 dqij[ii, index(F, m_F), index(Fp, m_Fp)] =\
                     (-1)**(F-m_F)*wig3j(F, 1, Fp, -m_F, q, m_Fp)
 
-    # Normalization
-    """
-    Normalization involves normalzing each transition |g>->|e> to the norm of
-    all the transitions from the excited state sum(|e>->|g>).   That means
-    summing each column and each
-    """
+    # Normalization involves normalzing each transition |g>->|e> to the norm of
+    # all the transitions from the excited state sum(|e>->|g>).   That means
+    # summing each column and each
     if normalize:
         dqij = dqij_norm(dqij)
 

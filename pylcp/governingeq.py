@@ -17,8 +17,16 @@ class governingeq(object):
         The laserBeams that will be used in constructing the optical Bloch
         equations.  which transitions in the block diagonal hamiltonian.  It can
         be any of the following:
-        - A dictionary of laserBeams: if this is the case, the keys of the
-          laser beams should address the
+
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
+
     magField : pylcp.magField or callable
         The function or object that defines the magnetic field.
     hamiltonian : pylcp.hamiltonian or None

@@ -24,8 +24,10 @@ class force_profile(base_force_profile):
     Rate equation force profile
 
     The force profile object stores all of the calculated quantities created by
-    the rateeq.generate_force_profile() method.  It has the following
-    attributes:
+    the rateeq.generate_force_profile() method.  It has following attributes:
+
+    Attributes
+    ----------
 
     R : array_like, shape (3, ...)
         Positions at which the force profile was calculated.
@@ -78,7 +80,17 @@ class rateeq(governingeq):
     ----------
     laserBeams : dictionary of pylcp.laserBeams, pylcp.laserBeams, or list of pylcp.laserBeam
         The laserBeams that will be used in constructing the optical Bloch
-        equations.  which transitions in the block diagonal hamiltonian.
+        equations.  which transitions in the block diagonal hamiltonian.  It can
+        be any of the following:
+
+            * A dictionary of pylcp.laserBeams: if this is the case, the keys of
+              the dictionary should match available :math:`$d^{nm}$` matrices
+              in the pylcp.hamiltonian object.  The key structure should be
+              `n->m`.
+            * pylcp.laserBeams: a single set of laser beams is assumed to
+              address the transition `g->e`.
+            * a list of pylcp.laserBeam: automatically promoted to a
+              pylcp.laserBeams object assumed to address the transtion `g->e`.
     magField : pylcp.magField or callable
         The function or object that defines the magnetic field.
     hamiltonian : pylcp.hamiltonian
@@ -577,7 +589,7 @@ class rateeq(governingeq):
             scipy's solve_ivp documentation.
         """
         free_axes = np.bitwise_not(freeze_axis)
-        
+
         if progress_bar:
             progress = progressBar()
 

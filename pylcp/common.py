@@ -81,6 +81,8 @@ class base_force_profile():
     the governingeq.generate_force_profile() method.  It has the following
     attributes:
 
+    Attributes
+    ----------
     R : array_like, shape (3, ...)
         Positions at which the force profile was calculated.
     V : array_like, shape (3, ...)
