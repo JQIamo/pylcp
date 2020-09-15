@@ -631,7 +631,7 @@ class rateeq(governingeq):
 
             return dydt
 
-        def random_force(t, y, dt):
+        def random_force_func(t, y, dt):
             total_P = 0
             num_of_scatters = 0
 
@@ -664,7 +664,7 @@ class rateeq(governingeq):
             return (num_of_scatters, new_dt_max)
 
 
-        def random_recoil(t, y, dt):
+        def random_recoil_func(t, y, dt):
             num_of_scatters = 0
             total_P = 0.
 
@@ -693,11 +693,11 @@ class rateeq(governingeq):
 
         y0 = np.concatenate((self.N0, self.v0, self.r0))
         if random_force:
-            self.sol = solve_ivp_random(motion, random_force, t_span, y0,
+            self.sol = solve_ivp_random(motion, random_force_func, t_span, y0,
                                         initial_max_step=max_scatter_probability,
                                         **kwargs)
         elif random_recoil:
-            self.sol = solve_ivp_random(motion, random_recoil, t_span, y0,
+            self.sol = solve_ivp_random(motion, random_recoil_func, t_span, y0,
                                         initial_max_step=max_scatter_probability,
                                         **kwargs)
         else:
