@@ -114,7 +114,6 @@ class hamiltonian():
         self.laser_keys = {}
         self.mass = mass
 
-        muB = kwargs.pop('muB', 1.)
         if len(args) == 5:
             self.add_H_0_block('g', args[0])
             self.add_H_0_block('e', args[1])
