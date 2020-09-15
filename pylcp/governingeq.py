@@ -19,7 +19,7 @@ class governingeq(object):
         be any of the following:
 
             * A dictionary of pylcp.laserBeams: if this is the case, the keys of
-              the dictionary should match available :math:`$d^{nm}$` matrices
+              the dictionary should match available :math:`d^{nm}` matrices
               in the pylcp.hamiltonian object.  The key structure should be
               `n->m`.
             * pylcp.laserBeams: a single set of laser beams is assumed to

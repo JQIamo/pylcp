@@ -524,7 +524,7 @@ def dqij_two_hyperfine_manifolds(J, Jp, I, normalize=True, return_basis=False):
     J : int or float
         Lower hyperfine manifold :math:`J` quantum number
     Jp : int or float
-        Upper hyperfine manifold :math:`J\\'` quantum number
+        Upper hyperfine manifold :math:`J\'` quantum number
     I : int or float
         Nuclear spin associated with both manifolds
     normalize : boolean, optional
@@ -539,7 +539,7 @@ def dqij_two_hyperfine_manifolds(J, Jp, I, normalize=True, return_basis=False):
     basis_g : list
         If return_basis is true, list of (:math:`F`, :math:`m_F`)
     basis_e : list
-        If return_basis is true, list of (:math:`F\\'`, :math:`m_F\\'`)
+        If return_basis is true, list of (:math:`F\'`, :math:`m_F\'`)
     """
     def matrix_element(J, F, m_F, Jp, Fp, m_Fp, I, q):
         return (-1)**(F-m_F+J+I+Fp+1)*np.sqrt((2*F+1)*(2*Fp+1))*\
