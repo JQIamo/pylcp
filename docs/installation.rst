@@ -11,19 +11,20 @@ numpy??
 Recommended installation: via Python pip
 ----------------------------------------
 
-This should happen soon, but it should be installable by `pip install pylcp`
+Install via pip: `pip install pylcp`
 
 
 Manual installation
 -------------------
-But currently, there is no setup.py.  In order to function, make sure to add the
-directory containing pylcp into your path.  For example, if the path is
-~/git/packages/pylcp, add a file to your site-packages directory in python
-that contains ~/git/packages.  Then python will find pylcp.
 
-Notes from DSB for windows:
-The site-packages directory for a single user anaconda install should be
-"C:\Users\<username>\AppData\Local\continuum\anaconda3\Lib\site-packages".
-In that directory, add a file named, e.g., "custom_packages.pth", which
-contains the absolute path to your github packages directory (~/git/packages
-from above).
+One can also manually check out the package from GitHub, navigate to the
+directory, and use::
+
+  python setup.py install
+
+If one wishes to participate in development, one should use::
+
+  python setup.py develop
+
+which does the standard thing and puts an entry for pylcp in your easy_path.pth
+in your python installation.

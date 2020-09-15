@@ -40,7 +40,8 @@ extensions = [
     'sphinx.ext.ifconfig',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
-    'sphinx.ext.autosummary'
+    'sphinx.ext.autosummary',
+    'nbsphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -63,3 +64,53 @@ html_theme = 'pyramid'
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# Options for LaTeX output
+# ------------------------
+
+# The paper size ('letter' or 'a4').
+#latex_paper_size = 'letter'
+
+# The font size ('10pt', '11pt' or '12pt').
+#latex_font_size = '10pt'
+
+# Grouping the document tree into LaTeX files. List of tuples
+# (source start file, target name, title, author, document class [howto/manual]).
+# latex_documents = []
+
+# The name of an image file (relative to this directory) to place at the top of
+# the title page.
+# latex_logo = './_static/banner-large.png'
+
+# For "manual" documents, if this is true, then toplevel headings are parts,
+# not chapters.
+latex_use_parts = False
+
+latex_elements = {
+# The paper size ('letter' or 'a4').
+'papersize': 'letter',
+
+# The font size ('10pt', '11pt' or '12pt').
+#'pointsize': '10pt',
+
+# necessary for unicode charactacters in pdf output
+'inputenc': '',
+'utf8extra': '',
+
+# remove blank pages (between the title page and the TOC, etc.)
+'classoptions': ',openany,oneside',
+'babel' : '\\usepackage[english]{babel}',
+
+# Additional stuff for the LaTeX preamble.
+'preamble': r'''
+  \usepackage{hyperref}
+  \setcounter{tocdepth}{2}
+'''
+}
+
+# Documents to append as an appendix to all manuals.
+#latex_appendices = []
+
+# If false, no module index is generated.
+# latex_use_modindex = True
+#

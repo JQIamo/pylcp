@@ -12,14 +12,12 @@ automatic generation of the optical Bloch equations or some approximation
 thereof given a atom or molecule internal Hamiltonian, a set of laser beams, and
 a possible magnetic field.
 
-Contents
---------
-
 .. toctree::
   :maxdepth: 2
 
   installation
   getting_started
+  examples
   detailed_reference
 
 Credits

@@ -1,6 +1,9 @@
 Detailed Reference
 ==================
 
+This reference contains the full API for `pylcp`
+
+
 .. toctree::
    :maxdepth: 1
 
