@@ -58,12 +58,30 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'pyramid'
+html_theme = 'alabaster'
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['_static']
+
+# The name for this set of Sphinx documents.
+# "<project> v<release> documentation" by default.
+#
+# html_title = u'test vtest'
+
+# A shorter title for the navigation bar.  Default is the same as html_title.
+html_short_title = 'PyLCP'
+
+# If true, “(C) Copyright …” is shown in the HTML footer. Default is True.
+html_show_copyright = False
+
+html_theme_options = {
+    'description': 'A python package for simulating laser cooling physics',
+    'logo': 'pylcp_logo.png',
+    'font_size': 10,
+    'caption_font_size': 8
+}
 
 # Options for LaTeX output
 # ------------------------

@@ -3,8 +3,8 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to pylcp's documentation!
-=================================
+Welcome to pylcp!
+=================
 
 `pylcp` is a python package meant to help with the calculation of a variety of
 interesting quantities in laser cooling physics.  At its heart, it allows for
