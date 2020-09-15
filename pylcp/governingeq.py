@@ -53,9 +53,6 @@ class governingeq(object):
             self.laserBeams['g->e'] = copy.copy(laserBeams) # Again, assume label is g->e
         elif isinstance(laserBeams, dict):
             for key in laserBeams.keys():
-                if not key is 'g->e':
-                    raise KeyError('laserBeam dictionary should only contain ' +
-                                   'a single key of \'g->e\' for the heutisticeq.')
                 if not isinstance(laserBeams[key], laserBeamsObject):
                     raise TypeError('Key %s in dictionary lasersBeams ' % key +
                                      'is in not of type laserBeams.')

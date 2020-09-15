@@ -58,6 +58,13 @@ class heuristiceq(governingeq):
                  v0=np.array([0., 0., 0.])):
         super().__init__(laserBeams, magField, a=a, r0=r0, v0=v0)
 
+        # Check to make sure the laserBeams dictionary has only one key:
+        for key in self.laserBeams:
+            if key != 'g->e':
+                print(key)
+                raise KeyError('laserBeam dictionary should only contain ' +
+                                'a single key of \'g->e\' for the heutisticeq.')
+
         # Finally, handle optional arguments:
         self.mass = mass
         self.gamma = gamma
