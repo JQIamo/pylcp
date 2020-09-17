@@ -80,7 +80,9 @@ html_theme_options = {
     'description': 'A python package for simulating laser cooling physics',
     'logo': 'pylcp_logo.png',
     'font_size': 10,
-    'caption_font_size': 8
+    'caption_font_size': 8,
+    'show_related': True,
+    'sidebar_collapse': True
 }
 
 # Options for LaTeX output
