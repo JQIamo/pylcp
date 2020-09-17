@@ -91,18 +91,18 @@ class heuristiceq(governingeq):
             Bhat = B/np.linalg.norm(B)
 
         kvecs = self.laserBeams['g->e'].kvec(r, t)
-        betas = self.laserBeams['g->e'].beta(r, t)
+        intensities = self.laserBeams['g->e'].intensity(r, t)
         pols = self.laserBeams['g->e'].project_pol(Bhat, r, t)
         deltas = self.laserBeams['g->e'].delta(t)
 
-        totbeta = np.sum(betas)
+        totintensity = np.sum(intensities)
 
-        for ii, (kvec, beta, pol, delta) in enumerate(zip(kvecs, betas, pols, deltas)):
+        for ii, (kvec, intensity, pol, delta) in enumerate(zip(kvecs, intensities, pols, deltas)):
             self.R[ii] = 0.
             polsqrd = np.abs(pol)**2
             for (q, pol_i) in zip(np.array([-1., 0., 1.]), polsqrd):
-                self.R[ii] += self.gamma/2*beta*pol_i/\
-                (1+ totbeta + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
+                self.R[ii] += self.gamma/2*intensity*pol_i/\
+                (1+ totintensity + 4*(delta - np.dot(kvec, v) - q*Bmag)**2/self.gamma**2)
 
         if return_kvecs:
             return self.R, kvecs

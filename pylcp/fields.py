@@ -418,11 +418,11 @@ class laserBeam(object):
         have a signature like (R, t), (R), or (t) where R is an array_like with
         shape (3,) and t is a float and it must return an array_like with three
         elements.
-    beta : float or callable
-        The intensity of the laser beam, specified as either a float or as
-        callable function.  If a callable, it must have a signature
-        like (R, t), (R), or (t) where R is an array_like with shape (3,) and
-        t is a float and it must return a float.
+    s : float or callable
+        The intensity of the laser beam, normalized to the saturation intensity,
+        specified as either a float or as callable function.  If a callable, 
+        it must have a signature like (R, t), (R), or (t) where R is an 
+        array_like with shape (3,) and t is a float and it must return a float.
     delta: float or callable
         Detuning of the laser beam.  If a callable, it must have a
         signature like (t) where t is a float and it must return a float.
@@ -442,15 +442,15 @@ class laserBeam(object):
     phase : float
         Overall phase of the laser beam.
     """
-    def __init__(self, kvec=None, beta=None, pol=None, delta=None,
+    def __init__(self, kvec=None, s=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
         # Promote it to a lambda func:
         if not kvec is None:
             self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
 
         # Promote it to a lambda func:
-        if not beta is None:
-            self.beta, self.beta_sig = promote_to_lambda(beta, var_name='beta')
+        if not s is None:
+            self.intensity, self.intensity_sig = promote_to_lambda(s, var_name='s')
 
         if not pol is None:
             if not callable(pol):
@@ -548,7 +548,7 @@ class laserBeam(object):
         """
         pass
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+    def intensity(self, R=np.array([0., 0., 0.]), t=0.):
         """
         Returns the intensity of the laser beam at position R and t
 
@@ -562,7 +562,7 @@ class laserBeam(object):
 
         Returns
         -------
-        beta : float or array_like
+        s : float or array_like
             Saturation parameter of the laser beam at R and t.
         """
         pass
@@ -860,12 +860,12 @@ class laserBeam(object):
             electric field in the spherical basis.
         """
         kvec = self.kvec(R, t)
-        beta = self.beta(R, t)
+        s = self.intensity(R, t)
         pol = self.pol(R, t)
         delta_phase = self.delta_phase(t)
         phase = self.phase(t)
 
-        amp = np.sqrt(2*beta)
+        amp = np.sqrt(2*s)
 
         if isinstance(t, float):
             Eq = electric_field(R, t, amp, pol, kvec, delta_phase - phase)
@@ -939,7 +939,7 @@ class infinitePlaneWaveBeam(laserBeam):
         the k-vector of the light.  If `pol>0`, the polarization will be right
         circular polarized.  If array_like, polarization will be specified by the
         vector, whose basis is specified by `pol_coord`.
-    beta : float or callable
+    s : float or callable
         The intensity of the laser beam, specified as either a float or as
         callable function.
     delta: float or callable
@@ -953,26 +953,26 @@ class infinitePlaneWaveBeam(laserBeam):
     This implementation is much faster, when it can be used, compared to the
     base laserBeam class.
     """
-    def __init__(self, kvec, pol, beta, delta, **kwargs):
+    def __init__(self, kvec, pol, s, delta, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for an infinite plane wave.')
 
-        if callable(beta):
-            raise TypeError('Beta cannot be a function for an infinite plane wave.')
+        if callable(s):
+            raise TypeError('s cannot be a function for an infinite plane wave.')
 
         if callable(pol):
             raise TypeError('Polarization cannot be a function for an infinite plane wave.')
 
-        # Use the super class to define the functions kvec, beta, pol, and delta.
-        super().__init__(kvec=kvec, beta=beta, pol=pol, delta=delta,
+        # Use the super class to define the functions kvec, s, pol, and delta.
+        super().__init__(kvec=kvec, s=s, pol=pol, delta=delta,
                          **kwargs)
 
         # Save the constant values (might be useful):
         self.con_kvec = kvec
-        self.con_beta = beta
+        self.con_s = s
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
         # Define attributes to speed up gradient calculation:
-        self.amp = np.sqrt(2*self.con_beta)
+        self.amp = np.sqrt(2*self.con_s)
         self.dEq_prefactor = (-1j*self.amp*self.con_kvec.reshape(3, 1)*
                               self.con_pol.reshape(1, 3))
 
@@ -1019,7 +1019,7 @@ class gaussianBeam(laserBeam):
         the k-vector of the light.  If `pol>0`, the polarization will be right
         circular polarized.  If array_like, polarization will be specified by the
         vector, whose basis is specified by `pol_coord`.
-    beta : float or callable
+    s : float or callable
         The maximum intensity of the laser beam at the center, specified as
         either a float or as callable function.
     delta : float or callable
@@ -1030,7 +1030,7 @@ class gaussianBeam(laserBeam):
     **kwargs:
         Additional keyword arguments to pass to the laserBeam superclass.
     """
-    def __init__(self, kvec, pol, beta, delta, wb, **kwargs):
+    def __init__(self, kvec, pol, s, delta, wb, **kwargs):
         if callable(kvec):
             raise TypeError('kvec cannot be a function for a Gaussian beam.')
 
@@ -1046,7 +1046,7 @@ class gaussianBeam(laserBeam):
         self.con_pol = self.pol(np.array([0., 0., 0.]), 0.)
 
         # Save the parameters specific to the Gaussian beam:
-        self.beta_max = beta # central saturation parameter
+        self.s_max = s # central saturation parameter
         self.wb = wb # 1/e^2 radius
         self.define_rotation_matrix()
 
@@ -1058,12 +1058,12 @@ class gaussianBeam(laserBeam):
         # Use scipy to define the rotation matrix
         self.rmat = Rotation.from_euler('ZY', [phi, th]).inv().as_matrix()
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+    def intensity(self, R=np.array([0., 0., 0.]), t=0.):
         # Rotate up to the z-axis where we can apply formulas:
         Rp = np.einsum('ij,j...->i...', self.rmat, R)
         rho_sq=np.sum(Rp[:2]**2, axis=0)
         # Return the intensity:
-        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)
+        return self.s_max*np.exp(-2*rho_sq/self.wb**2)
 
 
 class clippedGaussianBeam(gaussianBeam):
@@ -1095,7 +1095,7 @@ class clippedGaussianBeam(gaussianBeam):
         the k-vector of the light.  If `pol>0`, the polarization will be right
         circular polarized.  If array_like, polarization will be specified by the
         vector, whose basis is specified by `pol_coord`.
-    beta : float or callable
+    s : float or callable
         The maximum intensity of the laser beam at the center, specified as
         either a float or as callable function.
     delta : float or callable
@@ -1108,15 +1108,15 @@ class clippedGaussianBeam(gaussianBeam):
     **kwargs:
         Additional keyword arguments to pass to the laserBeam superclass.
     """
-    def __init__(self, kvec, pol, beta, delta, wb, rs, **kwargs):
-        super().__init__(kvec=kvec, pol=pol, beta=beta, delta=delta, wb=wb, **kwargs)
+    def __init__(self, kvec, pol, s, delta, wb, rs, **kwargs):
+        super().__init__(kvec=kvec, pol=pol, s=s, delta=delta, wb=wb, **kwargs)
 
         self.rs = rs # Save the radius of the stop.
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+    def intensity(self, R=np.array([0., 0., 0.]), t=0.):
         Rp = np.einsum('ij,j...->i...', self.rmat, R)
         rho_sq = np.sum(Rp[:2]**2, axis=0)
-        return self.beta_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
+        return self.s_max*np.exp(-2*rho_sq/self.wb**2)*(np.sqrt(rho_sq)<self.rs)
 
 
 class laserBeams(object):
@@ -1200,7 +1200,7 @@ class laserBeams(object):
         """
         return np.array([beam.pol(R, t) for beam in self.beam_vector])
 
-    def beta(self, R=np.array([0., 0., 0.]), t=0.):
+    def intensity(self, R=np.array([0., 0., 0.]), t=0.):
         """
         Returns the intensity of the laser beam at position R and t
 
@@ -1214,10 +1214,10 @@ class laserBeams(object):
 
         Returns
         -------
-        beta : list of float or array_like
+        s : list of float or array_like
             Saturation parameters of all laser beams at R and t.
         """
-        return np.array([beam.beta(R, t) for beam in self.beam_vector])
+        return np.array([beam.intensity(R, t) for beam in self.beam_vector])
 
     def kvec(self, R=np.array([0., 0., 0.]), t=0.):
         """
@@ -1541,29 +1541,29 @@ if __name__ == '__main__':
 
     example_beams = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'delta':-2, 's': 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': 1.},
+         'pol_coord':'spherical', 'delta':-2, 's': 1.},
         ])
 
     print(example_beams.beam_vector[0].jones_vector(np.array([1., 0., 0.]), np.array([0., 1., 0.])))
 
     print(example_beams.kvec())
     print(example_beams.pol())
-    print(example_beams.beta())
+    print(example_beams.intensity())
     print(example_beams.electric_field_gradient(np.array([0., 0., 0.]), 0.5))
 
     example_beams_2 = laserBeams([
         {'kvec':np.array([0., 0., 1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'delta':-2, 's': lambda R: 1.},
         {'kvec':np.array([0., 0., -1.]), 'pol':np.array([0., 0., 1.]),
-         'pol_coord':'spherical', 'delta':-2, 'beta': lambda R: 1.},
+         'pol_coord':'spherical', 'delta':-2, 's': lambda R: 1.},
         ])
 
     print(example_beams_2.electric_field_gradient(np.array([0., 0., 0.]), 0.5))
 
     example_beam = gaussianBeam(np.array([1., 0., 0.]), +1, 5, -2, 1000)
-    print(example_beam.beta(np.array([0., 1000/np.sqrt(2), 1000/np.sqrt(2)])))
+    print(example_beam.s(np.array([0., 1000/np.sqrt(2), 1000/np.sqrt(2)])))
 
     example_beam = infinitePlaneWaveBeam(np.array([1., 0., 0.]), +1, 5, -2)
     print(example_beam.electric_field_gradient(np.array([0., 0., 0.]), 0.))

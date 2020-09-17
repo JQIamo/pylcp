@@ -125,7 +125,7 @@ class rateeq(governingeq):
         """self.tdepend['pol'] = False
         self.tdepend['kvec'] = False
         self.tdepend['det'] = False
-        self.tdepend['beta'] = False"""
+        self.tdepend['intensity'] = False"""
 
         """if 't' in str(signature(self.magField)):
             self.tdepend['B'] = True
@@ -137,8 +137,8 @@ class rateeq(governingeq):
                     self.tdepend['kvec'] = True
                 if not beam.delta_sig is None and 't' in beam.delta_sig:
                     self.tdepend['det'] = True
-                if not beam.beta_sig is None and 't' in beam.beta_sig:
-                    self.tdepend['beta'] = True"""
+                if not beam.intensity_sig is None and 't' in beam.intensity_sig:
+                    self.tdepend['intensity'] = True"""
 
         # Set up two dictionaries that are useful for both random forces and
         # random recoils:
@@ -251,18 +251,18 @@ class rateeq(governingeq):
 
             # Grab the laser parameters:
             kvecs = self.laserBeams[key].kvec(r, t)
-            betas = self.laserBeams[key].beta(r, t)
+            intensities = self.laserBeams[key].intensity(r, t)
             deltas = self.laserBeams[key].delta(t)
 
             projs = self.laserBeams[key].project_pol(Bhat, R=r, t=t)
 
             # Loop through each laser beam driving this transition:
-            for ll, (kvec, beta, proj, delta) in enumerate(zip(kvecs, betas, projs, deltas)):
+            for ll, (kvec, intensity, proj, delta) in enumerate(zip(kvecs, intensities, projs, deltas)):
                 fijq = np.abs(d_q[0]*proj[2] + d_q[1]*proj[1] +d_q[2]*proj[0])**2
 
                 # Finally, calculate the scattering rate the polarization
                 # onto the appropriate basis:
-                self.Rijl[key][ll] = gamma*beta/2*\
+                self.Rijl[key][ll] = gamma*intensity/2*\
                     fijq/(1 + 4*(-(E2 - E1) + delta - np.dot(kvec, v))**2/gamma**2)
 
 
