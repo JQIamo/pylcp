@@ -113,8 +113,7 @@ class rateeq(governingeq):
         # First step is to save the imported laserBeams, magField, and
         # hamiltonian.
         super().__init__(laserBeams, magField, hamitlonian,
-                     a=np.array([0., 0., 0.]), r0=np.array([0., 0., 0.]),
-                     v0=np.array([0., 0., 0.]))
+                         a=a, r0=r0, v0=v0)
 
         self.include_mag_forces = include_mag_forces
         self.svd_eps = svd_eps
