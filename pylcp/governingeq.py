@@ -409,10 +409,7 @@ class governingeq(object):
 
                     F[jj] = f[axis]
 
-                if np.diff(F)<0:
-                    self.beta[axis] = -np.diff(F)/(2*eps[axis])
-                else:
-                    self.beta[axis] = 0
+                self.beta[axis] = -np.diff(F)/(2*eps[axis])
             else:
                 self.beta[axis] = 0
 
