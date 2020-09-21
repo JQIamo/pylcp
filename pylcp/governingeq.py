@@ -195,8 +195,30 @@ class governingeq(object):
         """
         pass
 
-    def find_equilibrium_position(self, axes=[2], upper_lim=5., lower_lim=-5.,
-                                  Npts=51, initial_search=True):
+    def find_equilibrium_position(self, axes, upper_lim=5.,
+                                  lower_lim=-5., Npts=51,
+                                  initial_search=True, **kwargs):
+        """
+        Find the equilibrium position
+
+        Uses the find_equilibrium force() method to calculate the where the
+        :math:`\\mathbf{f}(\mathbf{r}, \mathbf{v}=0)=0`.
+
+        Parameters
+        ----------
+        axes : array_like
+            A list of axis indices to compute the trapping frequencies along.
+            Here, :math:`\hat{x}` is index 0, :math:`\hat{y}` is index 1, and
+            :math:`\hat{z}` is index 2.  For example, `axes=[2]` calculates
+            the trapping frquency along :math:`\hat{z}`.
+        kwargs :
+            Any additional keyword arguments to pass to find_equilibrium_force()
+
+        Returns
+        -------
+        r_eq : list or float
+            The equilibrium positions along the selected axes.
+        """
         if self.r_eq is None:
             self.r_eq = np.zeros((3,))
 
@@ -236,7 +258,7 @@ class governingeq(object):
                 r_wrap[axes] = r_changing
 
                 self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
+                F = self.find_equilibrium_force(**kwargs)
 
                 return np.sum(F**2)
 
@@ -266,7 +288,36 @@ class governingeq(object):
 
         return self.r_eq
 
-    def trapping_frequencies(self, axes=[0, 2], r=None, eps=0.01):
+    def trapping_frequencies(self, axes, r=None, eps=0.01, **kwargs):
+        """
+        Find the trapping frequency
+
+        Uses the find_equilibrium force() method to calculate the trapping
+        frequency for the particular configuration.
+
+        Parameters
+        ----------
+        axes : array_like
+            A list of axis indices to compute the trapping frequencies along.
+            Here, :math:`\hat{x}` is index 0, :math:`\hat{y}` is index 1, and
+            :math:`\hat{z}` is index 2.  For example, `axes=[2]` calculates
+            the trapping frquency along :math:`\hat{z}`.
+        r : array_like, optional
+            The position at which to calculate the damping coefficient.  By
+            default r=None, which defaults to calculating at the equilibrium
+            position as found by the find_equilibrium_position() method.  If
+            this method has not been run, it defaults to the origin.
+        eps : float, optional
+            The small numerical :math:`\epsilon` parameter used for calculating
+            the :math:`df/dr` derivative.  Default: 0.01
+        kwargs :
+            Any additional keyword arguments to pass to find_equilibrium_force()
+
+        Returns
+        -------
+        omega : list or float
+            The trapping frequencies along the selected axes.
+        """
         self.omega = np.zeros(3,)
 
         if isinstance(eps, float):
@@ -292,7 +343,7 @@ class governingeq(object):
                 for jj in range(2):
                     self.set_initial_position_and_velocity(rpmdri[:, jj],
                                                            np.zeros((3,)))
-                    f = self.find_equilibrium_force()
+                    f = self.find_equilibrium_force(**kwargs)
 
                     F[jj] = f[axis]
 
@@ -305,7 +356,36 @@ class governingeq(object):
 
         return self.omega[axes]
 
-    def damping_coeff(self, axes=[0, 2], r=None, eps=0.01):
+    def damping_coeff(self, axes, r=None, eps=0.01, **kwargs):
+        """
+        Find the damping coefficent
+
+        Uses the find_equilibrium force() method to calculate the damping
+        coefficient for the particular configuration.
+
+        Parameters
+        ----------
+        axes : array_like
+            A list of axis indices to compute the damping coefficient(s) along.
+            Here, :math:`\hat{x}` is index 0, :math:`\hat{y}` is index 1, and
+            :math:`\hat{z}` is index 2.  For example, `axes=[2]` calculates
+            the damping parameter along :math:`\hat{z}`.
+        r : array_like, optional
+            The position at which to calculate the damping coefficient.  By
+            default r=None, which defaults to calculating at the equilibrium
+            position as found by the find_equilibrium_position() method.  If
+            this method has not been run, it defaults to the origin.
+        eps : float
+            The small numerical :math:`\epsilon` parameter used for calculating
+            the :math:`df/dv` derivative.  Default: 0.01
+        kwargs :
+            Any additional keyword arguments to pass to find_equilibrium_force()
+
+        Returns
+        -------
+        beta : list or float
+            The damping coefficients along the selected axes.
+        """
         self.beta = np.zeros(3,)
 
         if isinstance(eps, float):
@@ -325,7 +405,7 @@ class governingeq(object):
                 F = np.zeros((2,))
                 for jj in range(2):
                     self.set_initial_position_and_velocity(r, vpmdvi[:, jj])
-                    f = self.find_equilibrium_force()
+                    f = self.find_equilibrium_force(**kwargs)
 
                     F[jj] = f[axis]
 
