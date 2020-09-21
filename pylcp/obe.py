@@ -1013,6 +1013,7 @@ class obe(governingeq):
 
     def find_equilibrium_force(self, deltat=500, itermax=100, Npts=5001,
                                rel=1e-5, abs=1e-9, debug=False,
+                               initial_rho ='rateeq',
                                return_details=False, **kwargs):
         """
         Finds the equilibrium force at the initial position
@@ -1037,6 +1038,9 @@ class obe(governingeq):
             Absolute convergence parameter.  Default: 1e-9
         debug : boolean, optional
             If true, pring out debug information as it goes.
+        initial_rho : 'rateeq' or 'equally'
+            Determines how to set the initial rho at the start of the
+            calculation.
         return_details : boolean, optional
             If true, returns the forces from each laser and the scattering rate
             matrix.
@@ -1064,6 +1068,12 @@ class obe(governingeq):
         ii : int
             Number of iterations needed to converge.
         """
+        if initial_rho is 'rateeq':
+            self.set_initial_rho_from_rateeq()
+        elif initial_rho is 'equally':
+            self.set_initial_rho_equally()
+        else:
+            raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
         old_f_avg = np.array([np.inf, np.inf, np.inf])
 
@@ -1120,7 +1130,7 @@ class obe(governingeq):
 
 
     def generate_force_profile(self, R, V, name=None, progress_bar=False,
-                               initial_rho ='rateeq', **kwargs):
+                               **kwargs):
         """
         Map out the equilibrium force vs. position and velocity
 
@@ -1140,9 +1150,6 @@ class obe(governingeq):
             the name.
         progress_bar : boolean, optional
             Displays a progress bar as the proceeds.  Default: False
-        initial_rho : 'rateeq' or 'equally'
-            Determines how to set the initial rho at each point in the position
-            and velocity map.
 
         Returns
         -------
@@ -1197,12 +1204,6 @@ class obe(governingeq):
                 tic = time.time()
 
             self.set_initial_position_and_velocity(r, v)
-            if initial_rho is 'rateeq':
-                self.set_initial_rho_from_rateeq()
-            elif initial_rho is 'equally':
-                self.set_initial_rho_equally()
-            else:
-                raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
             if not deltat_func(r, v) is None:
                 kwargs['deltat'] = deltat_func(r, v)
