@@ -96,11 +96,13 @@ Governing equation
 
 Once all the components are created, we can combine them together into a
 govening equation.  In this case, it is an optical Bloch equation ::
+
   obe = pylcp.obe(laserBeams, magField, hamiltonian)
 
 And once you have your governing equation, you simply calculate the thing of
 interest.  For example, if you wanted to calculate the force at locations :math:`R`
 and velocities :math:`V`, you could use the `generate_force_profile` method ::
+
   obe.generate_force_profile(R, V)
 
 All methods of the governing equations are documented in :doc:`governing_equations`.
