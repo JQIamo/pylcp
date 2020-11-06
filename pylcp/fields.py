@@ -420,8 +420,8 @@ class laserBeam(object):
         elements.
     s : float or callable
         The intensity of the laser beam, normalized to the saturation intensity,
-        specified as either a float or as callable function.  If a callable, 
-        it must have a signature like (R, t), (R), or (t) where R is an 
+        specified as either a float or as callable function.  If a callable,
+        it must have a signature like (R, t), (R), or (t) where R is an
         array_like with shape (3,) and t is a float and it must return a float.
     delta: float or callable
         Detuning of the laser beam.  If a callable, it must have a
@@ -433,7 +433,7 @@ class laserBeam(object):
         or 'spherical' (default).
     eps : float, optional
         Small distance to use in calculation of numerical derivatives.  By default
-        `eps=1e-4`.
+        `eps=1e-5`.
 
     Attributes
     ----------
