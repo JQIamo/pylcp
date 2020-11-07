@@ -2,6 +2,7 @@ import copy
 import numpy as np
 from .fields import magField as magFieldObject
 from .fields import laserBeams as laserBeamsObject
+from scipy.optimize import root_scalar, root
 
 class governingeq(object):
     """
@@ -195,9 +196,7 @@ class governingeq(object):
         """
         pass
 
-    def find_equilibrium_position(self, axes, upper_lim=5.,
-                                  lower_lim=-5., Npts=51,
-                                  initial_search=True, **kwargs):
+    def find_equilibrium_position(self, axes, **kwargs):
         """
         Find the equilibrium position
 
@@ -222,69 +221,22 @@ class governingeq(object):
         if self.r_eq is None:
             self.r_eq = np.zeros((3,))
 
-        # Next, find the equilibrium point in z, and evaluate derivatives there:
-        r_eqi = np.zeros((3,))
-        z = np.linspace(lower_lim, upper_lim, Npts)
+        def simple_wrapper(r_changing):
+            r_wrap = self.r_eq.copy()
+            r_wrap[axes] = r_changing
 
-        if initial_search:
-            for axis in axes:
-                v = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r = np.array([np.zeros(z.shape), np.zeros(z.shape), np.zeros(z.shape)])
-                r[axis] = z
+            self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
+            F = self.find_equilibrium_force()
 
-                default_axis=np.zeros((3,))
-                default_axis[axis] = 1.
-                self.generate_force_profile(r, v, name='root_search',
-                                            default_axis=default_axis)
-
-                z_possible = z[np.where(np.diff(np.sign(
-                    self.profile['root_search'].F[axis]))<0)[0]]
-
-                if z_possible.size>0:
-                    if z_possible.size>1:
-                        ind = np.argmin(z_possible**2)
-                    else:
-                        ind = 0
-                    r_eqi[axis] = z_possible[ind]
-                else:
-                    r_eqi[axis] = np.nan
-
-                del self.profile['root_search']
+            return F[axes]
 
         #print('Initial guess: %s' % r_eqi[axes])
         if len(axes)>1:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force(**kwargs)
-
-                return np.sum(F**2)
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                # Find the center of the trap:
-                result = minimize(simple_wrapper, r_eqi[axes], method='SLSQP')
-                if result.success:
-                    self.r_eq[axes] = result.x
-                else:
-                    self.r_eq[axes] = np.nan
-            else:
-                self.r_eq = np.nan
+            result = root(simple_wrapper, **kwargs)
+            self.r_eq[axes] = result.x
         else:
-            def simple_wrapper(r_changing):
-                r_wrap = np.zeros((3,))
-                r_wrap[axes] = r_changing
-
-                self.set_initial_position_and_velocity(r_wrap, np.array([0.0, 0.0, 0.0]))
-                F = self.find_equilibrium_force()
-
-                return F[axes]
-
-            if np.sum(np.isnan(r_eqi)) == 0:
-                self.r_eq[axes] = fsolve(simple_wrapper, r_eqi[axes])[0]
-            else:
-                self.r_eq[axes] = np.nan
+            result = root_scalar(simple_wrapper, **kwargs)
+            self.r_eq[axes] = result.root
 
         return self.r_eq
 
