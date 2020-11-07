@@ -726,6 +726,8 @@ class rateeq(governingeq):
 
         del self.sol.y
 
+        return self.sol
+
 
     def find_equilibrium_force(self, return_details=False, **kwargs):
         """
