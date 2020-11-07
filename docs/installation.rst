@@ -1,18 +1,23 @@
 Installation instructions
 =========================
 
-Prerequisite: Python
---------------------
+Prerequisites
+-------------
 
-Install python packages.  `pylcp` has been test with python 3.6+.  It requires
-numpy??
-
+Install python packages and packages for scientific computing in python.
+Specifically, `pylcp` uses `numpy`, `scipy`, `numba`.  We recommend installing
+python and the supporting packages via the Anaconda distribution; `pylcp` has
+been tested and found to work with Anaconda versions 2020.02+ (python 3.7).
 
 Recommended installation: via Python pip
 ----------------------------------------
 
-Install via pip: `pip install pylcp`
+Install via pip::
 
+  pip install pylcp
+
+This automatically install `pylcp` into your python installation.  Please report
+issues to the GitHub page if you have any problems.
 
 Manual installation
 -------------------
