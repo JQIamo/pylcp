@@ -26,18 +26,27 @@ Credits
 :Authors:
     Stephen Eckel,
     Daniel Barker,
-    Eric Norrgard,
-    Abrar,
-    Leo Wang,
-    Chad Ropp
+    Eric Norrgard
+:Contributors:
+    Abrar Sheikh,
+    Shangjie Guo,
+    Chad Ropp,
+    Leo Wang
+
 
 :Cite as:
-    TO insert
+    Stephen Eckel, Daniel Barker, Eric Norrgard, and Julia Scherschligt,
+    "PyLCP: A python package for computing laser cooling physics",
+    in preparation (2020).
 
-:Licence: GPLv3
+:Version: 1.0.0 of 2020/11/07
 
-:Version: 1.0.0 of 2020/10/1
-
+:Disclaimer:
+  The full description of the procedures used in this documentation requires
+  the identification of certain commercial products. The inclusion of such
+  information should in no way be construed as indicating that such products
+  are endorsed by NIST or are recommended by NIST or that they are necessarily
+  the best software for the purposes described.
 
 Indices and tables
 ------------------
