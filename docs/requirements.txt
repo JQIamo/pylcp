@@ -1,3 +1,4 @@
 ipykernel
 nbsphinx
 sympy
+numba
