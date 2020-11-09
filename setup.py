@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pylcp",
-    version="0.9.1",
+    version="0.9.2",
     packages=find_packages(),
     #scripts=["say_hello.py"],
 
@@ -28,7 +28,7 @@ setup(
     url="https://github.com/JQIamo/pylcp/",   # project home page, if any
     project_urls={
         "Bug Tracker": "https://github.com/JQIamo/pylcp/issues",
-        "Documentation": "https://docs.example.com/HelloWorld/",
+        "Documentation": "https://python-laser-cooling-physics.readthedocs.io/en/stable",
         "Source Code": "https://github.com/JQIamo/pylcp/",
     },
     license="NIST",
@@ -36,6 +36,7 @@ setup(
         "Development Status :: 5 - Production/Stable"
         "Intended Audience :: Science/Research"
         "License :: Other/Proprietary License"
+        'Programming Language :: Python :: 3.6'
         'Programming Language :: Python :: 3.7'
         'Programming Language :: Python :: 3.8'
     ]

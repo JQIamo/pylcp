@@ -39,7 +39,7 @@ Credits
     "PyLCP: A python package for computing laser cooling physics",
     in preparation (2020).
 
-:Version: 1.0.0 of 2020/11/07
+:Version: 0.9.2 of 2020/11/09
 
 :Disclaimer:
   The full description of the procedures used in this documentation requires
