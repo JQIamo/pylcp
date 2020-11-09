@@ -1,6 +1,8 @@
 pylcp
 =================================
 
+[![Documentation Status](https://readthedocs.org/projects/python-laser-cooling-physics/badge/?version=latest)](https://python-laser-cooling-physics.readthedocs.io/en/latest/?badge=latest)
+
 `pylcp` is a python package meant to help with the calculation of a variety of
 interesting quantities in laser cooling physics.
 It allows automatic generation of the optical Bloch equations (or some approximation
@@ -90,4 +92,4 @@ and velocities `V`, you could use the `generate_force_profile` method:
 There are plenty of examples contained in the `examples/` directory as Juypter
 notebooks.
 
-Further documentation is available in the full API.
+Further documentation is available at https://python-laser-cooling-physics.readthedocs.io.
