@@ -18,11 +18,11 @@ sys.path.insert(0, os.path.abspath('..'))
 # -- Project information -----------------------------------------------------
 
 project = 'pylcp'
-copyright = '2020, Steve Eckel, Daniel Barker, Eric Norrgard, and others'
+# copyright = '2020, Steve Eckel, Daniel Barker, Eric Norrgard, and others'
 author = 'Steve Eckel, Daniel Barker, Eric Norrgard, and others'
 
 # The full version, including alpha/beta/rc tags
-release = '0.9.2'
+release = '1.0.0'
 
 
 # -- General configuration ---------------------------------------------------

@@ -20,6 +20,11 @@ a possible magnetic field.
   examples
   detailed_reference
 
+Support
+-------
+
+Join our google group: https://groups.google.com/g/pylcp/
+
 Credits
 -------
 
@@ -39,7 +44,7 @@ Credits
     "PyLCP: A python package for computing laser cooling physics",
     in preparation (2020).
 
-:Version: 0.9.2 of 2020/11/09
+:Version: 1.0.0 of 2020/11/10
 
 :Disclaimer:
   The full description of the procedures used in this documentation requires

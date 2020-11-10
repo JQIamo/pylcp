@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="pylcp",
-    version="0.9.2",
+    version="1.0.0",
     packages=find_packages(),
     #scripts=["say_hello.py"],
 
@@ -21,8 +21,8 @@ setup(
     },
 
     # metadata to display on PyPI
-    author="Stephen Eckel",
-    author_email="stephen.eckel@nist.gov",
+    author="Stephen Eckel, Daniel Barker, Eric Norrgard",
+    author_email="pylcp@googlegroups.com",
     description="A package for calculating laser cooling physics",
     keywords="atomic physics, laser cooling, numerical integration",
     url="https://github.com/JQIamo/pylcp/",   # project home page, if any
