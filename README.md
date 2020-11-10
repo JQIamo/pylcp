@@ -1,7 +1,7 @@
 pylcp
 =================================
 
-[![Documentation Status](https://readthedocs.org/projects/python-laser-cooling-physics/badge/?version=latest)](https://python-laser-cooling-physics.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/python-laser-cooling-physics/badge/?version=latest)](https://python-laser-cooling-physics.readthedocs.io/en/latest/?badge=latest) [![GitHub version](https://badge.fury.io/gh/jqiAMO%2Fpylcp.svg)](https://badge.fury.io/gh/jqiAMO%2Fpylcp) [![PyPI version](https://badge.fury.io/py/pylcp.svg)](https://badge.fury.io/py/pylcp)
 
 `pylcp` is a python package meant to help with the calculation of a variety of
 interesting quantities in laser cooling physics.
@@ -11,7 +11,7 @@ a magnetic field.
 
 Installation
 ------------
-[ONCE released on pip]. You can install on the command line:
+You can install on the command line using pip:
 ```
   pip install pylcp
 ```
