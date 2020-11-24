@@ -1,7 +1,7 @@
 pylcp
 =================================
 
-[![Documentation Status](https://readthedocs.org/projects/python-laser-cooling-physics/badge/?version=latest)](https://python-laser-cooling-physics.readthedocs.io/en/latest/?badge=latest) [![GitHub version](https://badge.fury.io/gh/jqiAMO%2Fpylcp.svg)](https://badge.fury.io/gh/jqiAMO%2Fpylcp) [![PyPI version](https://badge.fury.io/py/pylcp.svg)](https://badge.fury.io/py/pylcp)
+[![Documentation Status](https://readthedocs.org/projects/python-laser-cooling-physics/badge/?version=latest)](https://python-laser-cooling-physics.readthedocs.io/en/latest/?badge=latest) [![GitHub version](https://badge.fury.io/gh/jqiAMO%2Fpylcp.svg)](https://badge.fury.io/gh/jqiAMO%2Fpylcp) [![PyPI version](https://badge.fury.io/py/pylcp.svg)](https://badge.fury.io/py/pylcp) [![Google group : SSFAM News](https://img.shields.io/badge/Google%20Group-pylcp-blue.svg)](https://groups.google.com/g/pylcp)
 
 `pylcp` is a python package meant to help with the calculation of a variety of
 interesting quantities in laser cooling physics.
