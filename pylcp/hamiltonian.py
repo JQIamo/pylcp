@@ -427,8 +427,13 @@ class hamiltonian():
 
         Parameters
         ----------
-        Eq : array_like, shape (3,)
-            The electric field in spherical basis.
+        Eq : dictionary of array_like, each with shape (3,)
+            The electric field(s) driving transitions between manifolds,
+            each expressed in the spherical basis.  Each electric field
+            driving a transition between manifolds needs to specified with the
+            correct key in the dictionary.  For example, for a two-manifold
+            Hamiltonian with manifold labels `g` and `e`, the dictionary should
+            contain a single entry with `g->e`.
         Bq : array_like, shape (3,)
             The magnetic field in spherical basis.
 
