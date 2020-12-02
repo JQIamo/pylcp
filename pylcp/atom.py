@@ -12,8 +12,53 @@ from numpy import pi
 
 class state():
     """
-    Defines the relavent quantum numbers for and other properties for external
-    fields of an atomic state.
+    The quantum state and its parameters for an atom.
+
+    Parameters
+    ----------
+        n : integer
+            Principal quantum number of the state.
+        S : integer or float
+            Total spin angular momentum of the state.
+        L : integer or float
+            Total orbital angular momentum of the state.
+        J : integer or float
+            Total electronic angular momentum of the state.
+        lam : float, optional
+            Wavelength, in meters, of the photon necessary to excite the state
+            from the ground state.  electronic angular momentum of the state.
+        E : float, optional
+            Energy of the state above the ground state in cm:math:`^{-1}`.
+        tau : float, optioanl
+            Lifetime of the state in s.  If not specified, it is assumed to
+            be infinite (the ground state).
+        gJ : float
+            Total angular momentum Lande g-factor.
+        Ahfs : float
+            A hyperfine coefficient.
+        Bhfs : float
+            B hyperfine coefficient.
+        Chfs : float
+            C hyperfine coefficient.
+
+    Attributes
+    ----------
+    All the parameters above are saved as attirbutes.
+
+    Additional attributes:
+        gamma : float
+            Lifetime in s:math:`^{-1}`
+        gammaHz : float
+            Corresponding linewidth in Hz, given by :math:`\gamma/2\pi`.
+        energy : float
+            The energy in cm:math:`^{-1}`
+
+    Notes
+    -----
+    One can define the energy of the state either through `lam` or through `E`.
+    One of these two optional variables must be specified.
+
+    This construction of the state assumes L-S coupling.
     """
     def __init__(self, n=None, S=None, L=None, J=None, lam=None, E=None,
                  tau=np.inf, gJ=1, Ahfs=0, Bhfs=0, Chfs=0):
@@ -68,8 +113,31 @@ class transition():
 
 class atom():
     """
-    Class that defines the physical properties of an atom, including its
-    internal states and transitions.
+    A class containing reference data for laser cooling alkali atoms
+
+    Parameters
+    ----------
+        species : string
+            The isotope number and species of alkali atom.  For lithium-7,
+            species can be eiter "7Li" or "Li7", for example.  Supported species
+            are "6Li", "7Li", "23Na", "85Rb", and "87Rb"
+
+    Attributes
+    ----------
+        I : float
+            Nuclear spin of the isoptope
+        gI : float
+            Nuclear g-factor of the isotope.  Note that the nuclear g-factor
+            is specified relative to the Bohr magneton, not the nuclear
+            magneton.
+        mass : float
+            Mass, in kg, of the atom.
+        states : list of pylcp.atom.state
+            States of the atom useful for laser cooling, in order of increasing
+            energy.
+        transitions : list of pylcp.atom.transition
+            Transitions in the atom useful for laser cooling.  All transitions
+            are from the ground state.
     """
     def __init__(self, species="7Li"):
         # Prepare to add in some useful electronic states:
@@ -173,10 +241,10 @@ class atom():
             raise ValueError("Atom {0:s} not recognized.".format(species))
 
         # Take the states and make transitions:
-        self.make_transitions()
+        self.__make_transitions()
 
 
-    def sort_states(self):
+    def __sort_states(self):
         """
         Sorts the states by energy.
         """
@@ -184,7 +252,7 @@ class atom():
         pass
 
 
-    def make_transitions(self):
+    def __make_transitions(self):
         """
         Take subtractions of energies to generate transitions from ground
         state
