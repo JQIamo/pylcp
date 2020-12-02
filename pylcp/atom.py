@@ -155,7 +155,7 @@ class atom():
         elif species == "87Rb" or species == "Rb87":
             self.I = 3/2  # nuclear spin
             self.gI = -0.0009951414  # nuclear magnetic moment
-            self.mass = 87.911789732*cts.value('atomic mass constant')
+            self.mass = 86.909180527*cts.value('atomic mass constant')
 
             # Ground state:
             self.state.append(state(n=5, L=0, J=1/2, lam=np.inf, tau=np.inf,
