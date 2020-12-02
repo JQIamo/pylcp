@@ -9,7 +9,6 @@ import scipy.constants as cts
 import numpy as np
 from numpy import pi
 
-
 class state():
     """
     The quantum state and its parameters for an atom.
@@ -88,8 +87,37 @@ class state():
 
 class transition():
     """
-    A transition is between two states and has interesting properties for laser
-    cooling.
+    Reference numbers for transitions.
+
+    Parameters
+    ----------
+        state1 : pylcp.atom.state
+            The lower state of the transition.
+        state2 : pylcp.atom.state
+            The upper state of the transition.
+        mass : float
+            Mass of the atom in kg
+
+    Attributes
+    ----------
+        k : float
+            Wavevector in cm:math:`^{-1}`.
+        lam : float
+            Wavelength in m.
+        nu : float
+            Frequency in Hz of the transition.
+        omega : float
+            Angular frequency in rad/s of the transition.
+        Isat : float
+            Saturation intensity of the transition in mW/cm:math:`^2`.
+        a0 : float
+            Maximum acceleration :math:`a_0 = \hbar k/2\Gamma` in cm/s:math:`^2`.
+        v0 : float
+            Doppler velocity :math:`v_0 = k/\Gamma` in cm/s.
+        x0 : float
+            Length scale :math:`x_0 = v_0^2/a_0` in cm.
+        t0 : float
+            Time scale :math:`t_0 = v_0/a_0` in s.
     """
     def __init__(self, state1, state2, mass):
         self.k = state2.energy - state1.energy  # cm^{-1}
