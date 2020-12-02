@@ -1,22 +1,15 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-author: spe, ebn
-
-Hamiltonians for alkaline-earth fluoride molecules.
-"""
 import numpy as np
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
 import scipy.constants as cts
 
-def wig3j(j1, j2, j3, m1, m2, m3):
+def __wig3j(j1, j2, j3, m1, m2, m3):
     """
     This function redefines the wig3jj in terms of things that I like:
     """
     return float(wigner_3j(j1, j2, j3, m1, m2, m3))
 
 
-def wig6j(j1, j2, j3, l1, l2, l3):
+def __wig6j(j1, j2, j3, l1, l2, l3):
     """
     This function redefines the wig6jj in terms of things that I like:
     """
@@ -24,21 +17,21 @@ def wig6j(j1, j2, j3, l1, l2, l3):
 
 
 
-def wig9j(j1, j2, j3, l1, l2, l3, n1, n2, n3):
+def __wig9j(j1, j2, j3, l1, l2, l3, n1, n2, n3):
     """
     This function redefines the wig9jj in terms of things that I like:
     """
     return float(wigner_9j(j1, j2, j3, l1, l2, l3, n1, n2, n3))
 
 
-def ishermitian(A):
+def __ishermitian(A):
     """
     Simple method to check if a matrix is Hermitian.
     """
     return np.allclose(A, np.conjugate(A.T), rtol=1e-10, atol=1e-10)
 
 
-def isunitary(A):
+def __isunitary(A):
     """
     Simple method to check if a matrix is Hermitian.
     """
@@ -49,8 +42,26 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
            c=178.5, cc=0, q0=0, q2=0, gS=2.0023193043622, gI=0.00304206,
            muB=cts.value('Bohr magneton in Hz/T')*1e-10, return_basis=False):
     """
-    Defines the field free and field dependent Hamiltonian of the ground state.
-    Using the basis |Lambda, N, Sigma, J, F, m, P>.  We consider only one N=1 and one Lambda=1
+    Defines the field free and field dependent Hamiltonian of the X ground state.
+
+    Parameters
+    ----------
+        Lambda : int
+            :math:`\Lambda` quantum number.
+        N : int
+            Rotational quantum number.
+        S : int or float
+            Spin quantum number.
+        I1 : int or float
+            Nuclear spin quantum number
+        B : float
+            Rotational constant
+
+    Notes
+    -----
+    Using the basis :math:`|\\Lambda, N, \\Sigma, J, F, m_F, P \\rangle.`  We
+    consider only one case :math:`N=1` and one :math:`\Lambda=1`.
+
     Default constants are given for $^{14}$MgF:
     B = 6046.9
     gamma = 50.697
@@ -83,7 +94,7 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         """
         Spin rotation interaction.  l: Lambda.
         """
-        return gamma*(-1)**(NN + J + S)*wig6j(S, NN, J, NN, S, 1)*\
+        return gamma*(-1)**(NN + J + S)*__wig6j(S, NN, J, NN, S, 1)*\
             np.sqrt(S*(S + 1)*(2*S + 1)*NN*(NN + 1)*(2*NN + 1))*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)
 
@@ -91,8 +102,8 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         """
         Hyperfine interaction.
         """
-        return (b + c/3)*(-1)**(Jp + F + I1)*wig6j(I1, Jp, F, J, I1, 1)*\
-            (-1)**(NN+J+S+1)*wig6j(S, Jp, NN, J, S, 1)*\
+        return (b + c/3)*(-1)**(Jp + F + I1)*__wig6j(I1, Jp, F, J, I1, 1)*\
+            (-1)**(NN+J+S+1)*__wig6j(S, Jp, NN, J, S, 1)*\
             np.sqrt((2*J+1)*(2*Jp+1)*I1*(I1+1)*(2*I1+1)*S*(S+1)*(2*S+1))*\
             (NN == NNp)*(F == Fp)*(m == mp)
 
@@ -101,11 +112,11 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         Dipole-dipole itneraction.
         """
         return (1/3*c*np.sqrt(30))*(-1)**(Jp + F + I1 + 1 + NN)*\
-            wig6j(I1, Jp, F, J, I1, 1)*\
+            __wig6j(I1, Jp, F, J, I1, 1)*\
             np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
             np.sqrt((2*J+1)*(2*Jp+1))*\
             np.sqrt(S*(S + 1)*(2*S + 1))*\
-            wig9j(J, Jp, 1, NN, NNp, 2, S, S, 1)*\
+            __wig9j(J, Jp, 1, NN, NNp, 2, S, S, 1)*\
             np.sqrt((2*NN + 1)*(2*NNp + 1))*\
             wig3j(NN, 2, NNp, 0, 0, 0)*\
             (NN == NNp)*(F == Fp)*(m == mp)*(P == Pp)
@@ -116,9 +127,9 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         Nuclear spin rotation interaction, Brown and Carrington pg. 458
         """
         return cc*(-1)**(Jp + F + I1)*\
-            wig6j(I1, Jp, F, J, I1, 1)*\
+            __wig6j(I1, Jp, F, J, I1, 1)*\
             (-1)**(Jp + NN + 1 + S)*np.sqrt((2*Jp + 1)*(2*J + 1))*\
-            wig6j(J, NN, S, NN, Jp, 1)*\
+            __wig6j(J, NN, S, NN, Jp, 1)*\
             np.sqrt(NN*(NN + 1)*(2*NN + 1))*\
             np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
             (NN == NNp)*(F == Fp)*(m == mp)*(P == Pp)
@@ -135,8 +146,8 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         """
         Electric quadrupole interaction.
         """
-        return (-1)**(Jp + I1 + F)*wig6j(I1, J, F, Jp, I1, 2)*\
-            (-1)**(NNp + S + J)*wig6j(J, NN, S, NN, Jp, 2)*\
+        return (-1)**(Jp + I1 + F)*__wig6j(I1, J, F, Jp, I1, 2)*\
+            (-1)**(NNp + S + J)*__wig6j(J, NN, S, NN, Jp, 2)*\
             (-1)**(NN - l)*np.sqrt((2*J+1)*(2*Jp+1)*(2*NN + 1)*(2*NNp + 1))/\
             wig3j(I1, 2, I1, -I1, 0, I1)*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(P == Pp)*(m == mp)*\
@@ -151,9 +162,9 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         """
         return gS*muB*(-1)**(F - MF)*wig3j(F, 1, Fp, -MF, q, MFp)*\
             (-1)**(Fp + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
-            wig6j(F, J, I1, Jp, Fp, 1)*\
+            __wig6j(F, J, I1, Jp, Fp, 1)*\
             (-1)**(J + NN + 1 + S)*np.sqrt((2*Jp + 1)*(2*J + 1))*\
-            wig6j(J, S, NN, S, Jp, 1)*\
+            __wig6j(J, S, NN, S, Jp, 1)*\
             np.sqrt(S*(S + 1)*(2*S + 1))*\
             (NN == NNp)*(P == Pp)
 
@@ -164,7 +175,7 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         """
         return gI*muB*(-1)**(F - MF)*wig3j(F, 1, Fp, -MF, q, MFp)*\
             (-1)**(F + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
-            wig6j(F, I1, J, I1, Fp, 1)*np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
+            __wig6j(F, I1, J, I1, Fp, 1)*np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
             (NN == NNp)*(P == Pp)
 
     H0 = np.zeros((basis.shape[0], basis.shape[0]))
@@ -187,7 +198,7 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
 
     # Check to see if H0 is diagonal.  If not, diagonalize it:
     if np.count_nonzero(H0 - np.diag(np.diagonal(H0))) > 0:
-        if not ishermitian(H0):
+        if not __ishermitian(H0):
             raise ValueError("H0 is not hermitian.")
 
         # Diagonalize each m_F separately:
@@ -204,7 +215,7 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
                 U[inds, inds] = 1
 
         # Check the U matrix:
-        if not isunitary(U):
+        if not __isunitary(U):
             raise ValueError("Something went wrong with diagonalization.")
 
         ind = np.lexsort((basis['mF'], E))
@@ -226,8 +237,18 @@ def Astate(Lambda=1, J=1/2, S=1/2, I1=1/2, P=+1, Ahfs=-1.5, gJ=0.003, gI=0.003,
            muB=cts.value('Bohr magneton in Hz/T')/1e6*1e-4, p=510., q=-51.,
            return_basis=False):
     """
-    Defines the field free and static mangetic field versions of the A state.
-    the A state is in Hund's case (b): |Lambda, Sigma, J, Omega, F, mF, P>.  Taking guesses as to the parameters for gyromagnetic rations.
+    Defines the field-free and static mangetic field versions of the excited A state.
+
+    Parameters
+    ----------
+        Lambda : int
+            :math:`\Lambda` quantum number of the A state.
+
+    Notes
+    -----
+    Assumes the A state is in Hund's case (b): :math:`|Lambda, Sigma, J, Omega, F, mF, P>`.
+
+    Taking guesses as to the parameters for gyromagnetic rations.
     """
     basis = np.empty((0, ),
                      dtype=[('Lambda', 'i4'), ('S','f4'), ('J', 'f4'),
@@ -258,13 +279,13 @@ def Astate(Lambda=1, J=1/2, S=1/2, I1=1/2, P=+1, Ahfs=-1.5, gJ=0.003, gI=0.003,
         """
         Zeeman interaction: L: Lambda, Sig:Sigma, O:Omega, others obvious
         """
-        return gJ*muB*(-1)**(F-mF)*wig3j(F, 1, Fp, mF, q, -mFp)*\
+        return gJ*muB*(-1)**(F-mF)*__wig3j(F, 1, Fp, mF, q, -mFp)*\
             np.sqrt((2*Fp+1)*(2*F+1))*(-1)**(J+I1+Fp+1)*\
-            wig6j(J, F, I1, Fp, J, 1)*\
+            __wig6j(J, F, I1, Fp, J, 1)*\
             np.sqrt(J*(J+1)*(2*J+1)) +\
-            gI*muB*(-1)**(F-mF)*wig3j(F, 1, Fp, mF, q, -mFp)*\
+            gI*muB*(-1)**(F-mF)*__wig3j(F, 1, Fp, mF, q, -mFp)*\
             np.sqrt((2*Fp+1)*(2*F+1))*(-1)**(J+I1+Fp+1)*\
-            wig6j(I1, F, J, Fp, I1, 1)*\
+            __wig6j(I1, F, J, Fp, I1, 1)*\
             np.sqrt(I1*(I1+1)*(2*I1+1))*(L==Lp)*(P==Pp)*(J==Jp)
 
     H_0 = np.zeros((basis.shape[0], basis.shape[0]))
@@ -302,17 +323,17 @@ def dipoleXandAstates(xbasis, abasis, I1=1/2, S=1/2, UX=[],
         The dipole matrix element, less the reduced matrix element between the X
         and A states.  Shorthand: L=Lambda, O=Omega, P=parity.
         """
-        return (-1)**(F-mF)*wig3j(F, 1, Fp, -mF, q, mFp)*(-1)**(Fp+J+I1+1)*\
-            np.sqrt((2*F+1)*(2*Fp+1))*wig6j(Jp, Fp, I1, F, J, 1)*\
+        return (-1)**(F-mF)*__wig3j(F, 1, Fp, -mF, q, mFp)*(-1)**(Fp+J+I1+1)*\
+            np.sqrt((2*F+1)*(2*Fp+1))*__wig6j(Jp, Fp, I1, F, J, 1)*\
             (-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
-            (wig3j(J, 1, Jp, -O, -1, Op) + wig3j(J, 1, Jp, -O, +1, Op))
+            (__wig3j(J, 1, Jp, -O, -1, Op) + __wig3j(J, 1, Jp, -O, +1, Op))
 
     def elements_transform_a_to_b(L, Sig, O, J, F, mF,
                                   Lp, Np, Jp, Fp, mFp, Pp):
         """
         Matrix elements to transform for Hund's case (a) to (b) (Norrgard thesis, pg.)
         """
-        return (-1)**(J+Sig+L)*np.sqrt(2*Np+1)*wig3j(S, Np, J, Sig, L, -O)*\
+        return (-1)**(J+Sig+L)*np.sqrt(2*Np+1)*__wig3j(S, Np, J, Sig, L, -O)*\
             (L == Lp)*(J == Jp)*(F == Fp)*(mF == mFp)
 
     def elements_transform_a_to_p(L, S, J, I, F, mF, P,
