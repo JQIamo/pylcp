@@ -38,9 +38,8 @@ def __isunitary(A):
     return np.allclose(np.identity(A.shape[0]), A.T @ A, atol=1e-10)
 
 
-def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
-           c=178.5, cc=0, q0=0, q2=0, gS=2.0023193043622, gI=0.00304206,
-           muB=cts.value('Bohr magneton in Hz/T')*1e-10, return_basis=False):
+def Xstate(Lambda, N, S, I1, B, gamma, q, b, c, cc, q0, q2, gS, gI,
+           muB=cts.value('Bohr magneton in Hz/T')*1e-4, return_basis=False):
     """
     Defines the field free and field dependent Hamiltonian of the X ground state.
 
@@ -56,21 +55,35 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
             Nuclear spin quantum number
         B : float
             Rotational constant
+        gamma : float
+            Some number
+        q : float
+            Some number
+        b : float
+            Some number
+        c : float
+            Some number
+        cc : float
+            Some number
+        q0 : float
+            Some number
+        q2 : float
+            Some number
+        gS : float
+            Some number
+        gI : float
+            Some number
+        muB : float, optional
+            Bohr Magneton.  Default value is the CODATA value in Hz/G.
+        return_basis : boolean, optional
+            Boolean to specify whether to return the basis as well as the
+            Hamiltonian matrices.  Default: True.
 
     Notes
     -----
-    Using the basis :math:`|\\Lambda, N, \\Sigma, J, F, m_F, P \\rangle.`  We
+    Assuming Hund's case (b) with basis
+    :math:`|\\Lambda, N, \\Sigma, J, F, m_F, P \\rangle.`  We
     consider only one case :math:`N=1` and one :math:`\Lambda=1`.
-
-    Default constants are given for $^{14}$MgF:
-    B = 6046.9
-    gamma = 50.697
-    q = 0
-    b = 154.7
-    c = 178.5
-    cc = 0
-    q0 = 0
-    q2 = 0
     """
     # Update N to an array
     Ns = np.array(N)
@@ -233,8 +246,8 @@ def Xstate(Lambda=0, N=1, S=1/2, I1=1/2, B=6046.9, gamma=50.697, q=0, b=154.7,
         return H0, Bq, U
 
 
-def Astate(Lambda=1, J=1/2, S=1/2, I1=1/2, P=+1, Ahfs=-1.5, gJ=0.003, gI=0.003,
-           muB=cts.value('Bohr magneton in Hz/T')/1e6*1e-4, p=510., q=-51.,
+def Astate(Lambda, J, S, I1, P, Ahfs, gJ, gI, p, q,
+           muB=cts.value('Bohr magneton in Hz/T')/1e6*1e-4,
            return_basis=False):
     """
     Defines the field-free and static mangetic field versions of the excited A state.
@@ -242,13 +255,35 @@ def Astate(Lambda=1, J=1/2, S=1/2, I1=1/2, P=+1, Ahfs=-1.5, gJ=0.003, gI=0.003,
     Parameters
     ----------
         Lambda : int
-            :math:`\Lambda` quantum number of the A state.
+            :math:`\\Lambda` quantum number of the A state.
+        J : int or float
+            Total angular momentum quantum number
+        S : int or float
+            some number
+        I1 : int or float
+            some number
+        P : int or float
+            Parity quantum number (:math:`\\pm1`)
+        Ahfs : int or float
+            Hyperfine contact interaction coefficent.
+        gJ : float
+            Total electronic Lande g-factor.
+        gI : float
+            Nuclear Lande g-factor.
+        p : float
+            some number
+        q : float
+            some number
+        muB :
+            Bohr Magneton.  Default value is the CODATA value in Hz/G.
+        return_basis : boolean, optional
+            Boolean to specify whether to return the basis as well as the
+            Hamiltonian matrices.  Default: True.
 
     Notes
     -----
-    Assumes the A state is in Hund's case (b): :math:`|Lambda, Sigma, J, Omega, F, mF, P>`.
-
-    Taking guesses as to the parameters for gyromagnetic rations.
+    Assumes the A state is in Hund's case (b), namely
+    :math:`|\\Lambda, \\Sigma, J, \\Omega, F, m_F, P>`.
     """
     basis = np.empty((0, ),
                      dtype=[('Lambda', 'i4'), ('S','f4'), ('J', 'f4'),
@@ -310,10 +345,30 @@ def Astate(Lambda=1, J=1/2, S=1/2, I1=1/2, P=+1, Ahfs=-1.5, gJ=0.003, gI=0.003,
 def dipoleXandAstates(xbasis, abasis, I1=1/2, S=1/2, UX=[],
                       return_intermediate=False):
     """
-    Calculate the oscillator strengths between the X and A states.  X state
-    basis is assumed to be Hund's case (b) while the A state is assumed to be
-    Hund's case (a).  Thus, we need to make an itermediate basis to transform
-    between the two.
+    Calculate the oscillator strengths between the X and A states.
+
+    Parameters
+    ----------
+        xbasis : list or array_like
+            List of basis vectors for the X state
+        abasis : list or array_like
+            List of basis vectors for the A state
+        I1 : int or float
+            some number
+        S : int or float
+            Spin angular momentum
+        UX : two-dimensional array, optional
+            a rotation matrix for case (b) into the integermediate eigenbasis.
+            Default: empty
+        return_intermediate : boolean, optional
+            Argument to return the intermediate bases and transformation
+            matrices.
+
+    Notes
+    ----
+    The X state is assumed to be Hund's case (b) while the A state is assumed
+    to be Hund's case (a).  Thus, this function makes an itermediate basis to
+    transform between the two.
     """
     dijq = np.zeros((3, xbasis.shape[0], abasis.shape[0]))
 

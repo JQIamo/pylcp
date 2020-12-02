@@ -42,9 +42,6 @@ class state():
 
     Attributes
     ----------
-    All the parameters above are saved as attirbutes.
-
-    Additional attributes:
         gamma : float
             Lifetime in s:math:`^{-1}`
         gammaHz : float
@@ -54,8 +51,9 @@ class state():
 
     Notes
     -----
-    One can define the energy of the state either through `lam` or through `E`.
-    One of these two optional variables must be specified.
+    All the parameters passed to the class on creation are stored as attrributes,
+    with the exception of `lam` and `E`, one of which defines the stored
+    attribute `energy`.  One of these two optional variable must be specified.
 
     This construction of the state assumes L-S coupling.
     """
@@ -141,7 +139,7 @@ class transition():
 
 class atom():
     """
-    A class containing reference data for laser cooling alkali atoms
+    A class containing reference data for select laser-coolable alkali atoms
 
     Parameters
     ----------
