@@ -530,6 +530,7 @@ class rateeq(governingeq):
         else:
             Rev, Rijl = self.construct_evolution_matrix(self.r0, self.v0)
             self.sol = solve_ivp(lambda t, N: Rev @ N, t_span, self.N0, **kwargs)
+            return self.sol
 
 
     def evolve_motion(self, t_span, freeze_axis=[False, False, False],
