@@ -189,7 +189,7 @@ def Xstate(Lambda, N, S, I1, B, gamma, q, b, c, cc, q0, q2, gS, gI,
         return gI*muB*(-1)**(F - MF)*wig3j(F, 1, Fp, -MF, q, MFp)*\
             (-1)**(F + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
             __wig6j(F, I1, J, I1, Fp, 1)*np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
-            (NN == NNp)*(P == Pp)
+            (NN == NNp)*(P == Pp)*(J==Jp)
 
     H0 = np.zeros((basis.shape[0], basis.shape[0]))
     for ii, basis_i in enumerate(basis):
