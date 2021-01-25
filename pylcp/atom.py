@@ -146,7 +146,8 @@ class atom():
         species : string
             The isotope number and species of alkali atom.  For lithium-7,
             species can be eiter "7Li" or "Li7", for example.  Supported species
-            are "6Li", "7Li", "23Na", "85Rb", and "87Rb"
+            are "6Li", "7Li", "23Na", "39K", "40K", "41K", "85Rb", "87Rb",
+            and "133Cs".
 
     Attributes
     ----------
@@ -254,16 +255,16 @@ class atom():
 
             # Ground state:
             self.state.append(state(n=4, L=0, J=1/2, lam=np.inf, tau=np.inf,
-                                    gJ=2.00229421, Ahfs=−285.7308e6,
+                                    gJ=2.00229421, Ahfs=-285.7308e6,
                                     S=1/2))
             # D1 line (6P_{1/2})
             self.state.append(state(n=4, L=1, J=1/2, lam=770.108136507e-9,
-                                    tau=26.72e-9, gJ=2/3, Ahfs=−34.523e6,
+                                    tau=26.72e-9, gJ=2/3, Ahfs=-34.523e6,
                                     S=1/2))
             # D2 line (6P_{3/2})
             self.state.append(state(n=4, L=1, J=3/2, lam=766.700674872e-9,
-                                    tau=26.37e-9, gJ=4/3, Ahfs=−7.585e6,
-                                    Bhfs=−3.445e6, S=1/2))
+                                    tau=26.37e-9, gJ=4/3, Ahfs=-7.585e6,
+                                    Bhfs=-3.445e6, S=1/2))
 
         elif species == "41K" or species == "K41":
             self.I = 3/2  # nuclear spin
@@ -320,7 +321,7 @@ class atom():
 
         elif species == "133Cs" or species == "Cs133":
             self.I = 7/2  # nuclear spin
-            self.gI = −0.00039885395  # nuclear magnetic moment
+            self.gI = -0.00039885395  # nuclear magnetic moment
             self.mass = 132.905451931*cts.value('atomic mass constant')
 
             # Ground state:
