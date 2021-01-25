@@ -165,7 +165,7 @@ class atom():
             Transitions in the atom useful for laser cooling.  All transitions
             are from the ground state.
     """
-    def __init__(self, species="7Li"):
+    def __init__(self, species):
         # Prepare to add in some useful electronic states:
         self.state = []
 
@@ -218,16 +218,70 @@ class atom():
             self.mass = 22.9897692807*cts.value('atomic mass constant')  # kg
 
             # Ground state:
-            self.state.append(state(n=2, L=0, J=1/2, lam=np.inf, tau=np.inf,
+            self.state.append(state(n=3, L=0, J=1/2, lam=np.inf, tau=np.inf,
                                     gJ=2.00229600, Ahfs=885.81306440e6, S=1/2))
             # D1 line (2P_{1/2})
-            self.state.append(state(n=2, L=1, J=1/2, lam=589.7558147e-9,
+            self.state.append(state(n=3, L=1, J=1/2, lam=589.7558147e-9,
                                     tau=16.299e-9, gJ=0.66581, Ahfs=94.44e6,
                                     S=1/2))
             # D2 line (2P_{3/2})
-            self.state.append(state(n=2, L=1, J=3/2, lam=589.1583264e-9,
+            self.state.append(state(n=3, L=1, J=3/2, lam=589.1583264e-9,
                                     tau=16.2492e-9, gJ=1.33420, Ahfs=18.534e6,
                                     Bhfs=2.724e6, S=1/2))
+
+        elif species == "39K" or species == "K39":
+            self.I = 3/2  # nuclear spin
+            self.gI = -0.00014193489  # nuclear magnetic moment
+            self.mass = 38.96370668*cts.value('atomic mass constant')
+
+            # Ground state:
+            self.state.append(state(n=4, L=0, J=1/2, lam=np.inf, tau=np.inf,
+                                    gJ=2.00229421, Ahfs=230.8598601e6,
+                                    S=1/2))
+            # D1 line (6P_{1/2})
+            self.state.append(state(n=4, L=1, J=1/2, lam=770.108385049e-9,
+                                    tau=26.72e-9, gJ=2/3, Ahfs=27.775e6,
+                                    S=1/2))
+            # D2 line (6P_{3/2})
+            self.state.append(state(n=4, L=1, J=3/2, lam=766.700921822e-9,
+                                    tau=26.37e-9, gJ=4/3, Ahfs=6.093e6,
+                                    Bhfs=2.786e6, S=1/2))
+
+        elif species == "40K" or species == "K40":
+            self.I = 4  # nuclear spin
+            self.gI = 0.000176490  # nuclear magnetic moment
+            self.mass = 39.96399848*cts.value('atomic mass constant')
+
+            # Ground state:
+            self.state.append(state(n=4, L=0, J=1/2, lam=np.inf, tau=np.inf,
+                                    gJ=2.00229421, Ahfs=−285.7308e6,
+                                    S=1/2))
+            # D1 line (6P_{1/2})
+            self.state.append(state(n=4, L=1, J=1/2, lam=770.108136507e-9,
+                                    tau=26.72e-9, gJ=2/3, Ahfs=−34.523e6,
+                                    S=1/2))
+            # D2 line (6P_{3/2})
+            self.state.append(state(n=4, L=1, J=3/2, lam=766.700674872e-9,
+                                    tau=26.37e-9, gJ=4/3, Ahfs=−7.585e6,
+                                    Bhfs=−3.445e6, S=1/2))
+
+        elif species == "41K" or species == "K41":
+            self.I = 3/2  # nuclear spin
+            self.gI = -0.00007790600  # nuclear magnetic moment
+            self.mass = 40.96182576*cts.value('atomic mass constant')
+
+            # Ground state:
+            self.state.append(state(n=4, L=0, J=1/2, lam=np.inf, tau=np.inf,
+                                    gJ=2.00229421, Ahfs=127.0069352e6,
+                                    S=1/2))
+            # D1 line (6P_{1/2})
+            self.state.append(state(n=4, L=1, J=1/2, lam=770.107919192e-9,
+                                    tau=26.72e-9, gJ=2/3, Ahfs=15.245e6,
+                                    S=1/2))
+            # D2 line (6P_{3/2})
+            self.state.append(state(n=4, L=1, J=3/2, lam=766.70045870e-9,
+                                    tau=26.37e-9, gJ=4/3, Ahfs=3.363e6,
+                                    Bhfs=3.351e6, S=1/2))
 
         elif species == "85Rb" or species == "Rb85":
             self.I = 5/2  # nuclear spin
@@ -263,6 +317,25 @@ class atom():
             self.state.append(state(n=5, L=1, J=3/2, lam=780.241209686e-9,
                                     tau=26.2348e-9, gJ=1.3362, Ahfs=84.7185e6,
                                     Bhfs=12.4965e6, S=1/2))
+
+        elif species == "133Cs" or species == "Cs133":
+            self.I = 7/2  # nuclear spin
+            self.gI = −0.00039885395  # nuclear magnetic moment
+            self.mass = 132.905451931*cts.value('atomic mass constant')
+
+            # Ground state:
+            self.state.append(state(n=6, L=0, J=1/2, lam=np.inf, tau=np.inf,
+                                    gJ=2.00254032, Ahfs=2.2981579425e9,
+                                    S=1/2))
+            # D1 line (6P_{1/2})
+            self.state.append(state(n=6, L=1, J=1/2, lam=894.59295986e-9,
+                                    tau=34.791e-9, gJ=0.665900, Ahfs=291.9201e6,
+                                    S=1/2))
+            # D2 line (6P_{3/2})
+            self.state.append(state(n=6, L=1, J=3/2, lam=852.34727582e-9,
+                                    tau=30.405e-9, gJ=1.33400, Ahfs=50.28827e6,
+                                    Bhfs=-0.4934e6, Chfs=0.560e3, S=1/2))
+
         else:
             raise ValueError("Atom {0:s} not recognized.".format(species))
 
