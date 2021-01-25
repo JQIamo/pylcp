@@ -492,7 +492,7 @@ class rateeq(governingeq):
         Sets the initial populations based on the equilibrium population at
         the initial position and velocity and time t=0.
         """
-        self.N0 = self.equilibrium_populations(self.r0, self.v0, t=0)
+        self.N0 = self.equilibrium_populations(self.r0, self.v0, t=0.)
 
 
     def evolve_populations(self, t_span, **kwargs):
@@ -767,7 +767,7 @@ class rateeq(governingeq):
             raise NotImplementedError('Time dependence not yet implemented.')
         else:
             N_eq, Rev, Rijl = self.equilibrium_populations(
-                self.r0, self.v0, t=0, return_details=True, **kwargs
+                self.r0, self.v0, t=0., return_details=True, **kwargs
                 )
 
             F_eq, f_eq, f_mag = self.force(self.r0, 0., N_eq)
