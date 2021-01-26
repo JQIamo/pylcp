@@ -40,6 +40,7 @@ def __isunitary(A):
 
 def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
            muB=cts.value('Bohr magneton in Hz/T')*1e-4, return_basis=False):
+           muN=cts.m_e/cts.m_p*muB
     """
     Defines the field free and field dependent Hamiltonian of the X ground
     state.
@@ -58,7 +59,9 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
             Nuclear spin quantum number of the fluorine, usually 1/2
         B : float
             Rotational constant
+
         gamma : float
+<<<<<<< Updated upstream
             Electron-spin rotational coupling constant
         q : float
             Rotational centrifugal coupling?
@@ -68,6 +71,24 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
             Anisotropic spin-spin interaction
         CI : float
             Nuclear-spin rotational coupling constant
+=======
+            electron spin-rotation constant
+
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%
+        Frosch and Foley parameters
+            a : float
+                orbital hyperfine constant
+            b : float
+                contact term.  Note b = bF -c/3, where bF is the Fermi contact parameter
+            c : float
+                (axial) electron spin-nuclear spin dipole-dipole coupling
+        %%%%%%%%%%%%%%%%%%%%%%%%%%%
+        q : float
+            Some number
+
+        cc : float
+            nuclear spin-rotation constants
+>>>>>>> Stashed changes
         q0 : float
             Electron quadrupole constant
         q2 : float
@@ -78,6 +99,8 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
             Nuclear Lande g-factor
         muB : float, optional
             Bohr Magneton.  Default value is the CODATA value in Hz/G.
+        muN : float
+            Nuclear Magneton.  Default value is the CODATA value in Hz/G
         return_basis : boolean, optional
             Boolean to specify whether to return the basis as well as the
             Hamiltonian matrices.  Default: True.
@@ -105,23 +128,23 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
                         basis, np.array([(Lambda, N, J, F, mF, (-1)**N)],
                                          dtype=basis.dtype))
 
-
+#Brown and Carrington 9.89
     def spinrotation(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
         """
         Spin rotation interaction.  l: Lambda.
         """
         return gamma*(-1)**(NN + J + S)*__wig6j(S, NN, J, NN, S, 1)*\
             np.sqrt(S*(S + 1)*(2*S + 1)*NN*(NN + 1)*(2*NN + 1))*\
-            (NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)
-
+            (l==lp)*(NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)*(P==Pp)
+#Brown and Carrington 9.90
     def hyperfine(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
         """
         Hyperfine interaction.
         """
         return (b + c/3)*(-1)**(Jp + F + I1)*__wig6j(I1, Jp, F, J, I1, 1)*\
-            (-1)**(NN+J+S+1)*__wig6j(S, Jp, NN, J, S, 1)*\
+            (-1)**(NN+Jp+S+1)*__wig6j(S, Jp, NN, J, S, 1)*\
             np.sqrt((2*J+1)*(2*Jp+1)*I1*(I1+1)*(2*I1+1)*S*(S+1)*(2*S+1))*\
-            (NN == NNp)*(F == Fp)*(m == mp)
+            (l==lp)*(NN == NNp)*(F == Fp)*(m == mp)*(P==Pp)
 
     def dipoledipole(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
         """
@@ -149,15 +172,16 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
             np.sqrt(NN*(NN + 1)*(2*NN + 1))*\
             np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
             (NN == NNp)*(F == Fp)*(m == mp)*(P == Pp)
-
+#Brown and Carrington 9.88
     def rotation(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
         """
         Rotation of the molecule
         """
-        return (B*(NN*(NN + 1) - l**2) + (-1)**(NN)*(P)*q/2*NN*(NN + 1))*\
+        return B*NN*(NN + 1)*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)*(P == Pp)
 
-
+#Brown and Carrington 9.53, adapted to Hund's case b
+#see also Brown and Carrington 9.94
     def electricquadrupole(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
         """
         Electronic quadrupole interaction.
@@ -167,32 +191,47 @@ def Xstate(Lambda, S, N, I1, B, gamma, q, b, c, CI, q0, q2, gS, gI,
             (-1)**(NN - l)*np.sqrt((2*J+1)*(2*Jp+1)*(2*NN + 1)*(2*NNp + 1))/\
             __wig3j(I1, 2, I1, -I1, 0, I1)*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(P == Pp)*(m == mp)*\
+<<<<<<< Updated upstream
             (q0/4*__wig3j(NN, 2, NNp, -l, 2, lp) +
+=======
+            (q0/4*wig3j(NN, 2, NNp, -l,0, lp) +
+>>>>>>> Stashed changes
              q2/(4*np.sqrt(6))*(-1)**(J - S)*P*\
              __wig3j(NN, 2, NNp, -l, 2, -lp))
 
     # Brown and Carrington 8.183
-    def electronspinzeeman(l, NN, J, F, MF, P, lp, NNp, Jp, Fp, MFp, Pp, q):
+    def electronspinzeeman(l, NN, J, F, MF, P, lp, NNp, Jp, Fp, MFp, Pp, p):
         """
         Zeeman effect matrix element due to the electron spin.
         """
+<<<<<<< Updated upstream
         return gS*muB*(-1)**(F - MF)*__wig3j(F, 1, Fp, -MF, q, MFp)*\
+=======
+        return gS*muB*(-1)**(F - MF)*wig3j(F, 1, Fp, -MF, p, MFp)*\
+>>>>>>> Stashed changes
             (-1)**(Fp + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
             __wig6j(F, J, I1, Jp, Fp, 1)*\
             (-1)**(J + NN + 1 + S)*np.sqrt((2*Jp + 1)*(2*J + 1))*\
             __wig6j(J, S, NN, S, Jp, 1)*\
             np.sqrt(S*(S + 1)*(2*S + 1))*\
-            (NN == NNp)*(P == Pp)
+            (l==lp)*(NN == NNp)*(P == Pp)
 
     # Brown and Carrington 8.185
-    def nuclearspinzeeman(l, NN, J, F, MF, P, lp, NNp, Jp, Fp, MFp, Pp, q):
+    def nuclearspinzeeman(l, NN, J, F, MF, P, lp, NNp, Jp, Fp, MFp, Pp, p):
         """
         Zeeman effect matrix element due to the nuclear spin.
         """
+<<<<<<< Updated upstream
         return gI*muB*(-1)**(F - MF)*__wig3j(F, 1, Fp, -MF, q, MFp)*\
             (-1)**(F + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
             __wig6j(F, I1, J, I1, Fp, 1)*np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
             (NN == NNp)*(P == Pp)*(J==Jp)
+=======
+        return -gI*muN*(-1)**(F - MF)*wig3j(F, 1, Fp, -MF, p, MFp)*\
+            (-1)**(F + J + 1 + I1)*np.sqrt((2*Fp + 1)*(2*F + 1))*\
+            __wig6j(F, I1, J, I1, Fp, 1)*np.sqrt(I1*(I1 + 1)*(2*I1 + 1))*\
+            (l==lp)*(NN == NNp)*(P == Pp)
+>>>>>>> Stashed changes
 
     H0 = np.zeros((basis.shape[0], basis.shape[0]))
     for ii, basis_i in enumerate(basis):
