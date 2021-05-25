@@ -1517,7 +1517,8 @@ class conventional3DMOTBeams(laserBeams):
         other keyword arguments to pass to beam_type
     """
     def __init__(self, k=1, pol=+1, rotation_angles=[0., 0., 0.],
-                 rotation_spec='ZYZ', beam_type=laserBeam, **kwargs):
+                 rotation_spec='ZYZ', beam_type=laserBeam,
+                 random_phase=False, **kwargs):
         super().__init__()
 
         rot_mat = Rotation.from_euler(rotation_spec, rotation_angles).as_matrix()
@@ -1526,10 +1527,13 @@ class conventional3DMOTBeams(laserBeams):
                  np.array([ 0.,  1.,  0.]), np.array([ 0., -1.,  0.]),
                  np.array([ 0.,  0.,  1.]), np.array([ 0.,  0., -1.])]
         pols = [-pol, -pol, -pol, -pol, +pol, +pol]
-
-        for kvec, pol in zip(kvecs, pols):
-            self.add_laser(beam_type(kvec=rot_mat @ (k*kvec), pol=pol, **kwargs))
-
+        if random_phase:
+            phases = np.random.uniform(low=0.,high=2*np.pi,size=6)
+            for kvec, pol, phase in zip(kvecs, pols, phases):
+                self.add_laser(beam_type(kvec=rot_mat @ (k*kvec), pol=pol, phase=phase, **kwargs))
+        else:
+            for kvec, pol in zip(kvecs, pols):
+                self.add_laser(beam_type(kvec=rot_mat @ (k*kvec), pol=pol, **kwargs))
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt

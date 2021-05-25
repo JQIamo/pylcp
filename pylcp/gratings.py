@@ -63,7 +63,8 @@ class infiniteGratingMOTBeams(laserBeams):
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  reflected_pol=np.array([np.pi, 0]),
                  reflected_pol_basis='poincare',
-                 eta=None, grating_angle=0):
+                 eta=None, grating_angle=0,
+                 phase_in=0., phase_out=np.array([0.,0.,0.])):
         """
         Creates beams that would be made from a grating.
         Parameters:
@@ -88,6 +89,8 @@ class infiniteGratingMOTBeams(laserBeams):
                 phase delay.
             eta: diffraction efficiency of each of the reflected beams
             grating_angle: overall azimuthal rotation of the grating
+            phase_in: phase of the input beam.
+            phase_out: array of phases for the diffracted beams.
         """
 
         # Turn on a bunch of stuff for making this laser beam collection:
@@ -104,7 +107,8 @@ class infiniteGratingMOTBeams(laserBeams):
 
         self.add_laser(infinitePlaneWaveBeam(kvec=np.array([0., 0., 1.]),
                                              pol=pol, s=s, delta=delta,
-                                             pol_coord='cartesian'))
+                                             pol_coord='cartesian',
+                                             phase=phase_in))
 
         # Store the input polarization as a Carterian coordiante:
         self.input_pol = self.beam_vector[0].cartesian_pol()
@@ -119,7 +123,8 @@ class infiniteGratingMOTBeams(laserBeams):
                                                  pol=pol_refs[:, ii],
                                                  s=self.eta*s/np.cos(self.thd),
                                                  delta=delta,
-                                                 pol_coord='cartesian'))
+                                                 pol_coord='cartesian',
+                                                 phase=phase_out[ii]))
 
     def _calculate_reflected_kvecs_and_pol(self, reflected_pol,
                                            reflected_pol_basis):
