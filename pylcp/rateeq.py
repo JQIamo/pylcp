@@ -676,7 +676,7 @@ class rateeq(governingeq):
                 P = dt*self.decay_rates[key]*y[self.decay_N_indices[key]]
 
                 # Roll the dice N times, where $N=\sum(n_i)
-                dice = rng.rand(len(P))
+                dice = rng.random(len(P))
 
                 # For any random number that is lower than P_i, add a
                 # recoil velocity.
