@@ -137,27 +137,33 @@ class base_force_profile():
             self.f_mag[(jj,) + ind] = F_mag[jj]
 
 
-def random_vector():
-    a, b = np.random.rand(2)
-    th = np.arccos(2*b-1)
-    phi = 2*np.pi*a
-
-def random_vector(free_axes=[True, True, True]):
+def random_vector(rng, free_axes=[True, True, True]):
     """
-    This function returns a random vector with magnitude 1, in either 1D, 2D
-    or 3D, depending on which axes are free to move (defined by the argument
-    free_axes)
+    This function returns a random vector in either 1D, 2D or 3D
+
+    Parameters:
+    -----------
+        rng: numpy.random.Generator()
+            Properly seeded random number generator.
+        free_axis: list of 3 boolean (option)
+            Which axes (x, y, z) are considered free axes.  Default:
+            [True, True, True], i.e., a 3D vector.
+
+    Returns
+    -------
+        vector: array_like of shape (3,)
+            Random vector with unit length.
     """
     if np.sum(free_axes)==1:
-        return (np.sign(np.random.rand(1)-0.5)*free_axes).astype('float64')
+        return (np.sign(rng.random(1)-0.5)*free_axes).astype('float64')
     elif np.sum(free_axes)==2:
-        phi = 2*np.pi*np.random.rand(1)[0]
+        phi = 2*np.pi*rng.random(1)[0]
         x = np.array([np.cos(phi), np.sin(phi)])
         y =np.zeros((3,))
         y[free_axes] = x
         return y
     elif np.sum(free_axes)==3:
-        a, b = np.random.rand(2)
+        a, b = rng.random(2)
         th = np.arccos(2*b-1)
         phi = 2*np.pi*a
 

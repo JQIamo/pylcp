@@ -726,7 +726,8 @@ class obe(governingeq):
 
     def evolve_motion(self, t_span, freeze_axis=[False, False, False],
                       random_recoil=False, max_scatter_probability=0.1,
-                      progress_bar=False, record_force=False, **kwargs):
+                      progress_bar=False, record_force=False,
+                      rng=np.random.default_rng(), **kwargs):
         """
         Evolve :math:`\\rho_{ij}` and the motion of the atom in time.
 
@@ -754,6 +755,9 @@ class obe(governingeq):
         record_force : boolean
             If true, record the instantaneous force and store in the solution.
             Default: False
+        rng : numpy.random.Generator()
+            A properly-seeded random number generator.  Default: calls
+            ``numpy.random.default.rng()``
         **kwargs :
             Additional keyword arguments get passed to solve_ivp_random, which
             is what actually does the integration.
@@ -810,14 +814,14 @@ class obe(governingeq):
                 P = dt*self.decay_rates_truncated[key]*np.real(y[self.decay_rho_indices[key]])
 
                 # Roll the dice N times, where $N=\sum(n_i)
-                dice = np.random.rand(len(P))
+                dice = rng.random(len(P))
 
                 # For any random number that is lower than P_i, add a
                 # recoil velocity.
                 for ii in range(np.sum(dice<P)):
                     num_of_scatters += 1
-                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes)+
-                                                           random_vector(free_axes))
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(rng, free_axes)+
+                                                           random_vector(rng, free_axes))
 
                 # Save the total probability of a scatter:
                 total_P += np.sum(P)

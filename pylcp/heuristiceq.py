@@ -123,6 +123,7 @@ class heuristiceq(governingeq):
         random_force_flag = kwargs.pop('random_force', False)
         max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
         progress_bar = kwargs.pop('progress_bar', False)
+        rng = kwargs.pop('rng', np.random.default_rng())
 
         if progress_bar:
             progress = progressBar()
@@ -147,9 +148,9 @@ class heuristiceq(governingeq):
         def random_recoil(t, y, dt):
             num_of_scatters = 0
             total_P = np.sum(self.R)*dt
-            if np.random.rand(1)<total_P:
-                y[0:3] += self.k/self.mass*(random_vector(free_axes)+
-                                            random_vector(free_axes))
+            if rng.random(1)<total_P:
+                y[0:3] += self.k/self.mass*(random_vector(rng, free_axes)+
+                                            random_vector(rng, free_axes))
                 num_of_scatters += 1
 
             new_dt_max = (max_scatter_probability/total_P)*dt
