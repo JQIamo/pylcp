@@ -427,13 +427,15 @@ class hamiltonian():
 
         Parameters
         ----------
-        Eq : dictionary of array_like, each with shape (3,)
+        Eq : array_like or dictionary of array_like
             The electric field(s) driving transitions between manifolds,
             each expressed in the spherical basis.  Each electric field
             driving a transition between manifolds needs to specified with the
             correct key in the dictionary.  For example, for a two-manifold
             Hamiltonian with manifold labels `g` and `e`, the dictionary should
-            contain a single entry with `g->e`.
+            contain a single entry with `g->e`.  If the electric field is
+            given as a single array_like, it is assumed to drive the `g->e`
+            transition.
         Bq : array_like, shape (3,)
             The magnetic field in spherical basis.
 
@@ -446,6 +448,9 @@ class hamiltonian():
             self.make_full_matrices()
 
         H = self.H_0 - np.tensordot(self.mu_q, np.conjugate(Bq), axes=(0, 0))
+
+        if isinstance(Eq, list) or isinstance(Eq, np.ndarray):
+            Eq = {'g->e':Eq} # Promote to a dictionary.
 
         for key in Eq.keys():
             for ii, q in enumerate(np.arange(-1., 2., 1.)):
