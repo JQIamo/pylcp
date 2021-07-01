@@ -535,7 +535,8 @@ class rateeq(governingeq):
     def evolve_motion(self, t_span, freeze_axis=[False, False, False],
                       random_recoil=False, random_force=False,
                       max_scatter_probability=0.1, progress_bar=False,
-                      record_force=False, **kwargs):
+                      record_force=False, rng=np.random.default_rng(),
+                      **kwargs):
         """
         Evolve the populations :math:`N` and the motion of the atom in time.
 
@@ -570,6 +571,9 @@ class rateeq(governingeq):
         record_force : boolean
             If true, record the instantaneous force and store in the solution.
             Default: False
+        rng : numpy.random.Generator()
+            A properly-seeded random number generator.  Default: calls
+            ``numpy.random.default.rng()``
         **kwargs :
             Additional keyword arguments get passed to solve_ivp_random, which
             is what actually does the integration.
@@ -643,7 +647,7 @@ class rateeq(governingeq):
                 P = Rl*dt
 
                 # Roll the dice N times, where $N=\sum(lasers)
-                dice = np.random.rand(len(P))
+                dice = rng.random(len(P))
 
                 # Give them kicks!
                 for ii in np.arange(len(Rl))[dice<P]:
@@ -652,7 +656,7 @@ class rateeq(governingeq):
                                 self.hamiltonian.mass
                     # Can branch to a differe, lower state, but let's ignore that
                     # for the moment.
-                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes))
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(rng, free_axes))
 
                 total_P += np.sum(P)
 
@@ -672,14 +676,14 @@ class rateeq(governingeq):
                 P = dt*self.decay_rates[key]*y[self.decay_N_indices[key]]
 
                 # Roll the dice N times, where $N=\sum(n_i)
-                dice = np.random.rand(len(P))
+                dice = rng.random(len(P))
 
                 # For any random number that is lower than P_i, add a
                 # recoil velocity.
                 for ii in range(np.sum(dice<P)):
                     num_of_scatters += 1
-                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(free_axes)+
-                                                           random_vector(free_axes))
+                    y[-6:-3] += self.recoil_velocity[key]*(random_vector(rng, free_axes)+
+                                                           random_vector(rng, free_axes))
 
                 # Save the total probability of a scatter:
                 total_P += np.sum(P)
