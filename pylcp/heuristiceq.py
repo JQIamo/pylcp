@@ -329,11 +329,11 @@ class heuristiceq(governingeq):
         ----------
         R : array_like, shape(3, ...)
             Position vector.  First dimension of the array must be length 3, and
-            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            corresponds to :math:`x`, :math:`y`, and :math:`z` components,
             repsectively.
         V : array_like, shape(3, ...)
             Velocity vector.  First dimension of the array must be length 3, and
-            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            corresponds to :math:`v_x`, :math:`v_y`, and :math:`v_z` components,
             repsectively.
         name : str, optional
             Name for the profile.  Stored in profile dictionary in this object.

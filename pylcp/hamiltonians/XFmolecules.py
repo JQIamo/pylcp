@@ -90,7 +90,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
     9.91 (dipole-dipole interaction), 9.53 (electric quadrupole), 8.183
     (electronic spin Zeeman) and 8.185 (nuclear spin Zeeman).  See the comments
     in the code for more details on equations used and approximations made.
-    Most Hamiltonian parameters are both keyowrd arguments and by default zero
+    Most Hamiltonian parameters are both keyword arguments and by default zero
     so that the user can easily turn on only the relavent terms easily.
     """
     # -----
@@ -338,7 +338,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
     8.506 (quadrupole), 9.57, 9.58, 9.59, 9.60, 9.70, and 9.71 (Zeeman
     interaction).  See the comments in the code for more details on equations
     used and approximations made.  Most Hamiltonian parameters are
-    both keyowrd arguments and by default zero so that the user can easily
+    both keyword arguments and by default zero so that the user can easily
     turn on only the relavent terms easily.
     """
     basis = np.empty((0, ),

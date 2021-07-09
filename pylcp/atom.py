@@ -26,7 +26,7 @@ class state():
             Wavelength, in meters, of the photon necessary to excite the state
             from the ground state.  electronic angular momentum of the state.
         E : float, optional
-            Energy of the state above the ground state in cm:math:`^{-1}`.
+            Energy of the state above the ground state in :math:`\\text{cm}^{-1}`.
         tau : float, optioanl
             Lifetime of the state in s.  If not specified, it is assumed to
             be infinite (the ground state).
@@ -42,11 +42,11 @@ class state():
     Attributes
     ----------
         gamma : float
-            Lifetime in s:math:`^{-1}`
+            Lifetime in :math:`\\text{s}^{-1}`
         gammaHz : float
             Corresponding linewidth in Hz, given by :math:`\gamma/2\pi`.
         energy : float
-            The energy in cm:math:`^{-1}`
+            The energy in :math:`\\text{cm}^{-1}`
 
     Notes
     -----
@@ -98,7 +98,7 @@ class transition():
     Attributes
     ----------
         k : float
-            Wavevector in cm:math:`^{-1}`.
+            Wavevector in :math:`\\text{cm}^{-1}`.
         lam : float
             Wavelength in m.
         nu : float
@@ -106,9 +106,9 @@ class transition():
         omega : float
             Angular frequency in rad/s of the transition.
         Isat : float
-            Saturation intensity of the transition in mW/cm:math:`^2`.
+            Saturation intensity of the transition in :math:`\\text{mW/cm}^2`.
         a0 : float
-            Maximum acceleration :math:`a_0 = \hbar k/2\Gamma` in cm/s:math:`^2`.
+            Maximum acceleration :math:`a_0 = \hbar k/2\Gamma` in :math:`\\text{cm/s}^2`.
         v0 : float
             Doppler velocity :math:`v_0 = k/\Gamma` in cm/s.
         x0 : float
