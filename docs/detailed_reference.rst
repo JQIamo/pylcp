@@ -12,3 +12,4 @@ This reference contains the full API for `pylcp`
    magnetic_fields
    laser_fields
    governing_equations
+   atom_class

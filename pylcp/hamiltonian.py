@@ -30,10 +30,10 @@ class hamiltonian():
     ----------
     H0_g : array_like, shape (N, N), optional
         Ground manifold field-independent matrix
-    muq_g : array_like, shape (3, N, N), optional
-        Ground manifold magnetic field-dependent component, in spherical basis.
     H0_e : array_like, shape (M, M), optional
         Excited manifold field-independent matrix
+    muq_g : array_like, shape (3, N, N), optional
+        Ground manifold magnetic field-dependent component, in spherical basis.
     muq_e : array_like, shape (3, M, M), optional
         Excited manifold magnetic field-dependent component, in spherical basis.
     d_q : array_like, shape (3, N, M), optional

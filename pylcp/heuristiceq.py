@@ -83,6 +83,33 @@ class heuristiceq(governingeq):
         self.R = np.zeros((self.laserBeams['g->e'].num_of_beams, ))
 
     def scattering_rate(self, r, v, t, return_kvecs=False):
+        """
+        Calculates the scattering rate
+
+        Parameters
+        ----------
+        r : array_like
+            Position at which to calculate the force
+        v : array_like
+            Velocity at which to calculate the force
+        t : float
+            Time at which to calculate the force
+        return_kvecs : bool
+            If true, returns both the scattering rate and the k-vecotrs from
+            the lasers.
+
+        Returns
+        -------
+        R : array_like
+            Array of scattering rates associated with the lasers driving the
+            transition.
+        kvecs : array_like
+            If return_kvecs is True, the k-vectors of each of the lasers.  This
+            is used in heuristiceq.force, where it calls this function to
+            calculate the scattering rate first.  By returning the k-vectors
+            with the scattering rates, it prevents the need of having to
+            recompute the k-vectors again.
+        """
         B = self.magField.Field(r, t)
         Bmag = np.linalg.norm(B)
         if Bmag==0:
@@ -110,6 +137,29 @@ class heuristiceq(governingeq):
             return self.R
 
     def force(self, r, v, t):
+        """
+        Calculates the instantaneous force
+
+        Parameters
+        ----------
+        r : array_like
+            Position at which to calculate the force
+        v : array_like
+            Velocity at which to calculate the force
+        t : float
+            Time at which to calculate the force
+
+        Returns
+        -------
+        F : array_like
+            total equilibrium force experienced by the atom
+        F_laser : dictionary of array_like
+            If return_details is True, the forces due to each laser, indexed
+            by the manifold the laser addresses.  The dictionary is keyed by
+            the transition driven, and individual lasers are in the same order
+            as in the pylcp.laserBeams object used to create the governing
+            equation.
+        """
         R, kvecs = self.scattering_rate(r, v, t, return_kvecs=True)
 
         self.F_laser['g->e'] = (kvecs*R[:, np.newaxis]).T
@@ -117,13 +167,57 @@ class heuristiceq(governingeq):
 
         return self.F, self.F_laser
 
-    def evolve_motion(self, t_span, **kwargs):
-        free_axes = np.bitwise_not(kwargs.pop('freeze_axis', [False, False, False]))
-        random_recoil_flag = kwargs.pop('random_recoil', False)
-        random_force_flag = kwargs.pop('random_force', False)
-        max_scatter_probability = kwargs.pop('max_scatter_probability', 0.1)
-        progress_bar = kwargs.pop('progress_bar', False)
-        rng = kwargs.pop('rng', np.random.default_rng())
+    def evolve_motion(self, t_span, freeze_axis=[False, False, False],
+                      random_recoil=False, random_force=False,
+                      max_scatter_probability=0.1, progress_bar=False,
+                      rng=np.random.default_rng(), **kwargs):
+        """
+        Evolve the motion of the atom in time.
+
+        Parameters
+        ----------
+        t_span : list or array_like
+            A two element list or array that specify the initial and final time
+            of integration.
+        freeze_axis : list of boolean
+            Freeze atomic motion along the specified axis.
+            Default: [False, False, False]
+        random_recoil : boolean
+            Allow the atom to randomly recoil from scattering events.
+            Default: False
+        random_force : boolean
+            Rather than calculating the force using the heuristieq.force() method,
+            use the calculated scattering rates from each of the laser beam
+            to randomly add photon absorption events that cause the atom to
+            recoil randomly from the laser beam(s).
+            Default: False
+        max_scatter_probability : float
+            When undergoing random recoils, this sets the maximum time step such
+            that the maximum scattering probability is less than or equal to
+            this number during the next time step.  Default: 0.1
+        progress_bar : boolean
+            If true, show a progress bar as the calculation proceeds.
+            Default: False
+        rng : numpy.random.Generator()
+            A properly-seeded random number generator.  Default: calls
+            ``numpy.random.default.rng()``
+        **kwargs :
+            Additional keyword arguments get passed to solve_ivp_random, which
+            is what actually does the integration.
+
+        Returns
+        -------
+        sol : OdeSolution
+            Bunch object that contains the following fields:
+
+                * t: integration times found by solve_ivp
+                * v: atomic velocity
+                * r: atomic position
+
+            It contains other important elements, which can be discerned from
+            scipy's solve_ivp documentation.
+        """
+        free_axes = np.bitwise_not(freeze_axis)
 
         if progress_bar:
             progress = progressBar()
@@ -145,7 +239,7 @@ class heuristiceq(governingeq):
 
             return np.concatenate((self.constant_accel, y[0:3]))
 
-        def random_recoil(t, y, dt):
+        def random_recoil_func(t, y, dt):
             num_of_scatters = 0
             total_P = np.sum(self.R)*dt
             if rng.random(1)<total_P:
@@ -157,7 +251,7 @@ class heuristiceq(governingeq):
 
             return (num_of_scatters, new_dt_max)
 
-        def random_force(t, y, dt):
+        def random_force_func(t, y, dt):
             R, kvecs = self.scattering_rate(y[3:6], y[0:3], t, return_kvecs=True)
 
             num_of_scatters = 0
@@ -172,21 +266,23 @@ class heuristiceq(governingeq):
 
             return (num_of_scatters, new_dt_max)
 
-        if not random_recoil_flag and not random_force_flag:
+        if random_force:
+            self.sol = solve_ivp_random(
+                dydt_random_force, random_force_func, t_span,
+                np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
+                **kwargs
+                )
+        elif random_recoil:
+            self.sol = solve_ivp_random(
+                dydt, random_recoil_func, t_span,
+                np.concatenate((self.v0, self.r0)),
+                initial_max_step=max_scatter_probability,
+                **kwargs
+                )
+        else:
             self.sol = solve_ivp(
                 dydt, t_span, np.concatenate((self.v0, self.r0)),
-                **kwargs)
-        elif random_force_flag:
-            self.sol = solve_ivp_random(
-                dydt_random_force, random_force, t_span,
-                np.concatenate((self.v0, self.r0)),
-                initial_max_step=max_scatter_probability,
-                **kwargs)
-        else:
-            self.sol = solve_ivp_random(
-                dydt, random_recoil, t_span,
-                np.concatenate((self.v0, self.r0)),
-                initial_max_step=max_scatter_probability,
                 **kwargs
                 )
 
@@ -233,11 +329,11 @@ class heuristiceq(governingeq):
         ----------
         R : array_like, shape(3, ...)
             Position vector.  First dimension of the array must be length 3, and
-            corresponds to :math:`x`, :math:`y`, and :math`z` components,
+            corresponds to :math:`x`, :math:`y`, and :math:`z` components,
             repsectively.
         V : array_like, shape(3, ...)
             Velocity vector.  First dimension of the array must be length 3, and
-            corresponds to :math:`v_x`, :math:`v_y`, and :math`v_z` components,
+            corresponds to :math:`v_x`, :math:`v_y`, and :math:`v_z` components,
             repsectively.
         name : str, optional
             Name for the profile.  Stored in profile dictionary in this object.

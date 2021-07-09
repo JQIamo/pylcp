@@ -58,9 +58,9 @@ For this example, we create two counterpropagating laser beams:
 ```
   laserBeams = pylcp.laserBeams([
           {'kvec':np.array([1., 0., 0.]), 'pol':np.array([0., 1., 0.]),
-           'pol_coord':'spherical', 'delta':delta, 'beta':beta},
+           'pol_coord':'spherical', 'delta':delta, 's':norm_intensity},
           {'kvec':np.array([-1., 0., 0.]), 'pol':np.array([0., 1., 0.]),
-           'pol_coord':'spherical', 'delta':delta, 'beta':beta}
+           'pol_coord':'spherical', 'delta':delta, 's':norm_intensity}
           ], beam_type=pylcp.infinitePlaneWaveBeam)
 ```
 

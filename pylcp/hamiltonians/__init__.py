@@ -16,7 +16,8 @@ def uncoupled_index(J, I, mJ, mI):
 
 
 def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
-                             muB, return_basis=False):
+                             muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
+                             return_basis=False):
     """
     Returns the full fine structure manifold in the uncoupled basis.
 
@@ -42,8 +43,8 @@ def fine_structure_uncoupled(L, S, I, xi, a_c, a_orb, a_dip, gL, gS, gI,
         Spin g-factor
     gI : float
         Nuclear g-factor
-    muB : float
-        Bohr magneton
+    muB : float, optional
+        Bohr magneton.  Default: the CODATA value in Hz/G
     return_basis : bool, optional
         Return the basis vectors as well as gthe
 
@@ -222,7 +223,7 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     Chfs : float, optional
         Hyperfine :math:`C` parameter. Default: 0.
     muB : float, optional
-        Bohr magneton.  Default: the real thing in Hz/G
+        Bohr magneton.  Default: the CODATA value in Hz/G
     return_basis : boolean, optional
         If true, return the basis.  Default: False
 
@@ -372,7 +373,7 @@ def hyperfine_coupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
     Chfs : float, optional
         Hyperfine :math:`C` parameter. Default: 0.
     muB : float, optional
-        Bohr magneton.  Default: the real thing in Hz/G
+        Bohr magneton.  Default: the CODATA value in Hz/G
     return_basis : boolean, optional
         If true, return the basis.  Default: False
 
@@ -459,7 +460,7 @@ def singleF(F, gF=1, muB=(cts.value("Bohr magneton in Hz/T")*1e-4),
     gF : float
         Associated Lande g-factor
     muB : float, optional
-        Bohr magneton.  Default: the real thing in Hz/G
+        Bohr magneton.  Default: the CODATA value in Hz/G
     return_basis : boolean, optional
         If true, return the basis.  Default: False
 
