@@ -67,7 +67,7 @@ def promote_to_lambda(val, var_name='', type='Rt'):
         sig : string
             Either `(R,t)` or `(t)`
     """
-    if type is 'Rt':
+    if type == 'Rt':
         if not callable(val):
             if isinstance(val, list) or isinstance(val, np.ndarray):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_vector(R, t, val)
@@ -90,7 +90,7 @@ def promote_to_lambda(val, var_name='', type='Rt'):
                                 'understood.'% (sig, var_name))
 
         return func, sig
-    elif type is 't':
+    elif type == 't':
         if not callable(val):
             func = lambda t=0.: return_constant_val_t(t, val)
             sig = '()'

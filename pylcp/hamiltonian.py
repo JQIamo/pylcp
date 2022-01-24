@@ -168,12 +168,12 @@ class hamiltonian():
         return ind
 
     def __make_elem_label(self, type, state_label):
-        if type is 'H_0' or type is 'mu_q':
+        if type == 'H_0' or type == 'mu_q':
             if not isinstance(state_label, str):
                 raise TypeError('For type %s, state label %s must be a' +
                                 ' string.' % (type,state_label))
             return '<%s|%s|%s>' % (state_label, type, state_label)
-        elif type is 'd_q':
+        elif type == 'd_q':
             if not isinstance(state_label, list):
                 raise TypeError('For type %s, state label %s must be a' +
                                 ' list of two strings.' % (type, state_label))
