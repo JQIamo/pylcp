@@ -397,7 +397,7 @@ class hamiltonian():
         # Next, return d_q:
         for ii in range(self.blocks.shape[0]):
             for jj in range(ii+1, self.blocks.shape[1]):
-                if not self.blocks[ii, jj] is None:
+                if not self.blocks[ii, jj] == None:
                     key = self.state_labels[ii] + '->' + self.state_labels[jj]
                     nstart = int(np.sum(self.ns[:ii]))
                     mstart = int(np.sum(self.ns[:jj]))
@@ -510,7 +510,7 @@ class hamiltonian():
             for ii, block_row in enumerate(self.blocks):
                 for jj, block in enumerate(block_row):
                     if jj>ii:
-                        if not block is None:
+                        if not block == None:
                             self.rotated_hamiltonian.add_d_q_block(
                                 self.state_labels[ii], self.state_labels[jj],
                                 block.matrix,
@@ -567,7 +567,7 @@ class hamiltonian():
             # Now, rotate the d_q:
             for ii in range(self.blocks.shape[0]):
                 for jj in range(ii+1, self.blocks.shape[1]):
-                    if (not self.blocks[ii, jj] is None) and (not self.diagonal[ii] or not self.diagonal[jj] or B<0):
+                    if (not self.blocks[ii, jj] == None) and (not self.diagonal[ii] or not self.diagonal[jj] or B<0):
                         for kk in range(3):
                             self.rotated_hamiltonian.blocks[ii, jj].matrix[kk] = \
                                 self.U[ii].T @ self.blocks[ii,jj].matrix[kk] @ self.U[jj]

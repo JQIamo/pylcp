@@ -472,14 +472,14 @@ class laserBeam(object):
     def __init__(self, kvec=None, s=None, pol=None, delta=None,
                  phase=0., pol_coord='spherical', eps=1e-5):
         # Promote it to a lambda func:
-        if not kvec is None:
+        if not kvec == None:
             self.kvec, self.kvec_sig = promote_to_lambda(kvec, var_name='kvector')
 
         # Promote it to a lambda func:
-        if not s is None:
+        if not s == None:
             self.intensity, self.intensity_sig = promote_to_lambda(s, var_name='s')
 
-        if not pol is None:
+        if not pol == None:
             if not callable(pol):
                 pol = self.__parse_constant_polarization(pol, pol_coord)
 
@@ -487,7 +487,7 @@ class laserBeam(object):
             self.pol, self.pol_sig = promote_to_lambda(pol, var_name='polarization')
 
         # Promote it to a lambda func:
-        if not delta is None:
+        if not delta == None:
             self.delta, self.delta_sig = promote_to_lambda(delta, var_name='delta', type='t')
 
         if self.delta_sig == '(t)':
@@ -496,7 +496,7 @@ class laserBeam(object):
             self.delta_phase = lambda t: delta*t
 
         # Promote it to a lambda func:
-        if not phase is None:
+        if not phase == None:
             self.phase, self.phase_sig = promote_to_lambda(phase, var_name='phase', type='t')
 
         self.eps = eps
