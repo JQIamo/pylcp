@@ -121,23 +121,23 @@ class rateeq(governingeq):
         # Check function signatures for any time dependence:
         self.tdepend = {}
         self.tdepend['B'] = False
-        # self.tdepend['pol'] = False
-        # self.tdepend['kvec'] = False
-        # self.tdepend['det'] = False
-        # self.tdepend['intensity'] = False
+        """self.tdepend['pol'] = False
+        self.tdepend['kvec'] = False
+        self.tdepend['det'] = False
+        self.tdepend['intensity'] = False"""
 
-        # if 't' in str(signature(self.magField)):
-        #     self.tdepend['B'] = True
-        # for key in self.laserBeams:
-        #     for beam in self.laserBeams[key]:
-        #         if not beam.pol_sig == None and 't' in beam.pol_sig:
-        #             self.tdepend['pol'] = True
-        #         if not beam.kvec_sig == None and 't' in beam.kvec_sig:
-        #             self.tdepend['kvec'] = True
-        #         if not beam.delta_sig == None and 't' in beam.delta_sig:
-        #             self.tdepend['det'] = True
-        #         if not beam.intensity_sig == None and 't' in beam.intensity_sig:
-        #             self.tdepend['intensity'] = True
+        """if 't' in str(signature(self.magField)):
+            self.tdepend['B'] = True
+        for key in self.laserBeams:
+            for beam in self.laserBeams[key]:
+                if not beam.pol_sig is None and 't' in beam.pol_sig:
+                    self.tdepend['pol'] = True
+                if not beam.kvec_sig is None and 't' in beam.kvec_sig:
+                    self.tdepend['kvec'] = True
+                if not beam.delta_sig is None and 't' in beam.delta_sig:
+                    self.tdepend['det'] = True
+                if not beam.intensity_sig is None and 't' in beam.intensity_sig:
+                    self.tdepend['intensity'] = True"""
 
         # Set up two dictionaries that are useful for both random forces and
         # random recoils:

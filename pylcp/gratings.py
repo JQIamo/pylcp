@@ -97,7 +97,7 @@ class infiniteGratingMOTBeams(laserBeams):
         self.thd = thd
         self.grating_angle = grating_angle
 
-        if eta == None:
+        if eta is None:
             self.eta = 1/nr
         else:
             self.eta = eta
@@ -479,7 +479,7 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
         self.thd = thd
         self.grating_angle = grating_angle
 
-        if eta == None:
+        if eta is None:
             self.eta = 1/nr
         else:
             self.eta = eta

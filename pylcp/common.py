@@ -111,7 +111,7 @@ class base_force_profile():
         self.R = copy.copy(R)
         self.V = copy.copy(V)
 
-        if hamiltonian == None:
+        if hamiltonian is None:
             self.Neq = None
         else:
             self.Neq = np.zeros(R[0].shape + (hamiltonian.n,))
@@ -125,7 +125,7 @@ class base_force_profile():
         self.F = np.zeros(R.shape)
 
     def store_data(self, ind, Neq, F, F_laser, F_mag):
-        if not Neq == None:
+        if not Neq is None:
             self.Neq[ind] = Neq
 
         for jj in range(3):

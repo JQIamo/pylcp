@@ -218,7 +218,7 @@ class governingeq(object):
         r_eq : list or float
             The equilibrium positions along the selected axes.
         """
-        if self.r_eq == None:
+        if self.r_eq is None:
             self.r_eq = np.zeros((3,))
 
         def simple_wrapper(r_changing):
@@ -275,9 +275,9 @@ class governingeq(object):
         if isinstance(eps, float):
             eps = np.array([eps]*3)
 
-        if r == None and self.r_eq == None:
+        if r is None and self.r_eq is None:
             r = np.array([0., 0., 0.])
-        elif r == None:
+        elif r is None:
             r = self.r_eq
 
         if hasattr(self, 'mass'):
@@ -343,9 +343,9 @@ class governingeq(object):
         if isinstance(eps, float):
             eps = np.array([eps]*3)
 
-        if r == None and self.r_eq == None:
+        if r is None and self.r_eq is None:
             r = np.array([0., 0., 0.])
-        elif r == None:
+        elif r is None:
             r = self.r_eq
 
         for axis in axes:

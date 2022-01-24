@@ -154,7 +154,7 @@ class obe(governingeq):
         self.include_mag_forces = include_mag_forces
 
         # Should we use sparse matrices?
-        if use_sparse_matrices == None:
+        if use_sparse_matrices is None:
             if self.hamiltonian.n>10: # Generally offers a performance increase
                 self.use_sparse_matrices = True
             else:
@@ -576,7 +576,7 @@ class obe(governingeq):
         This function calculates the OBE evolution matrix by assembling
         pre-stored versions of the component matries.  This should be
         significantly faster than full_OBE_ev_scratch, but it may suffer bugs
-        in the evolution that full_OBE_ev_scratch will not. If Bq == None,
+        in the evolution that full_OBE_ev_scratch will not. If Bq is None,
         it will compute Bq based on r, t
 
         Parameters
@@ -895,7 +895,7 @@ class obe(governingeq):
         observable : float or array
             observable has shape (O[:-2])+(rho[2:])
         """
-        if rho == None:
+        if rho is None:
             rho = self.sol.rho
 
         if rho.shape[:2]!=(self.hamiltonian.n, self.hamiltonian.n):
@@ -1092,7 +1092,7 @@ class obe(governingeq):
 
         ii=0
         while True:
-            if not Npts == None:
+            if not Npts is None:
                 kwargs['t_eval'] = np.linspace(ii*deltat, (ii+1)*deltat, int(Npts))
 
             self.evolve_density([ii*deltat, (ii+1)*deltat], **kwargs)
@@ -1209,7 +1209,7 @@ class obe(governingeq):
 
             self.set_initial_position_and_velocity(r, v)
 
-            if not deltat_func(r, v) == None:
+            if not deltat_func(r, v) is None:
                 kwargs['deltat'] = deltat_func(r, v)
             kwargs['return_details'] = True
 
