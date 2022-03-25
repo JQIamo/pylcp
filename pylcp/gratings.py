@@ -63,7 +63,7 @@ class infiniteGratingMOTBeams(laserBeams):
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  reflected_pol=np.array([np.pi, 0]),
                  reflected_pol_basis='poincare',
-                 eta=None, grating_angle=0):
+                 eta=None, grating_angle=0, **kwargs):
         """
         Creates beams that would be made from a grating.
         Parameters:
@@ -104,7 +104,7 @@ class infiniteGratingMOTBeams(laserBeams):
 
         self.add_laser(infinitePlaneWaveBeam(kvec=np.array([0., 0., 1.]),
                                              pol=pol, s=s, delta=delta,
-                                             pol_coord='cartesian'))
+                                             pol_coord='cartesian', **kwargs))
 
         # Store the input polarization as a Carterian coordiante:
         self.input_pol = self.beam_vector[0].cartesian_pol()
@@ -119,7 +119,8 @@ class infiniteGratingMOTBeams(laserBeams):
                                                  pol=pol_refs[:, ii],
                                                  s=self.eta*s/np.cos(self.thd),
                                                  delta=delta,
-                                                 pol_coord='cartesian'))
+                                                 pol_coord='cartesian',
+                                                 **kwargs))
 
     def _calculate_reflected_kvecs_and_pol(self, reflected_pol,
                                            reflected_pol_basis):
@@ -255,7 +256,8 @@ class infiniteGratingMOTBeams(laserBeams):
 class inputGaussianBeam(clippedGaussianBeam):
     def __init__(self, kvec=np.array([0, 0, 1]), s=1., delta=-1.,
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
-                 pol_coord='cartesian', wb=1., rs=2., nr=3, center_hole=0.0, zgrating=1.0, grating_angle=0, **kwargs):
+                 pol_coord='cartesian', wb=1., rs=2., nr=3, center_hole=0.0,
+                 zgrating=1.0, grating_angle=0, **kwargs):
 
         if not np.allclose(kvec[:2], 0.):
             raise ValueError('inputGaussianBeam must be aligned with z axis')
@@ -434,7 +436,10 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
                  center_hole=0.0,
                  outer_radius=10.0,
                  zgrating=1.0,
-                 grating_angle=0):
+                 grating_angle=0,
+                 input_phase=0.0,
+                 diff_phases=None,
+                 **kwargs):
         """
         Creates beams that would be made from a grating.
         Parameters:
@@ -467,7 +472,10 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
             center_hole: inscribed radius of center hole.
             outer_radius: outer radius of the diffraction gratings.
             zgrating: z position of the diffraction grating chip.
-            grating_angle: overall azimuthal rotation of the grating
+            grating_angle: overall azimuthal rotation of the grating.
+            input_phase: Phase of input beam.
+            diff_phase: List or numpy array containing phases of diffracted
+            beams.
         """
         # I would like use to do super().super().__init__(), but that does not work.
         # Nonetheless, these are the only two things that need to be done
@@ -484,12 +492,17 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
         else:
             self.eta = eta
 
+        if diff_phases is None:
+            diff_phases = np.zeros(nr)
+
         self.add_laser(inputGaussianBeam(kvec=np.array([0., 0., 1.]),
                                          pol=pol, s=s, delta=delta,
                                          pol_coord='cartesian', wb=wb, rs=rs,
                                          nr=self.nr, center_hole=center_hole,
                                          zgrating=zgrating,
-                                         grating_angle=self.grating_angle))
+                                         grating_angle=self.grating_angle,
+                                         phase=input_phase,
+                                         **kwargs))
 
         # Store the input polarization as a Carterian coordiante:
         self.input_pol = self.beam_vector[0].cartesian_pol()
@@ -511,7 +524,9 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
                                                  center_hole=center_hole,
                                                  outer_radius=outer_radius,
                                                  zgrating=zgrating,
-                                                 grating_angle=self.grating_angle))
+                                                 grating_angle=self.grating_angle,
+                                                 phase=diff_phases[ii],
+                                                 **kwargs))
 
         if eta0 is not None:
             raise NotImplementedError("Zeroth-order reflected beam has not been implemented yet.")
