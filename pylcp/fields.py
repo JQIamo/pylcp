@@ -58,8 +58,6 @@ def promote_to_lambda(val, var_name=None, type='Rt'):
             elif ('(R, t)' in sig or '(r, t)' in sig or '(x, t)' in sig):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: val(R, t)
                 sig = '(R, t)'
-            elif '(t)' in sig:
-                func = lambda R=np.array([0., 0., 0.]), t=0.: val(t)
             else:
                 raise TypeError('Signature [%s] of function %s not'+
                                 'understood.'% (sig, var_name))
