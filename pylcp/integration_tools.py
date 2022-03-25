@@ -34,7 +34,7 @@ class RandomOdeResult(OptimizeResult):
 class parallelIntegrator(object):
     """
     parallelIntegrator: a class to integrate a function as it is being called
-    
+
     Parameters:
     ----------
     func : callable
@@ -72,9 +72,9 @@ class parallelIntegrator(object):
               from ODEPACK.
     tmax : float, optional
         Maximum magnitude of the time.  By default, 1e9.
-    kwargs : 
+    kwargs :
         Options passed to a chosen OdeSolver.
-        
+
     Attributes
     ----------
     t0 : initial time of the integrator
@@ -102,55 +102,60 @@ class parallelIntegrator(object):
         elif method == 'LSODA':
             self.intobj = LSODA
         else:
-            raise ValueError('Method %s not recognized'%self.method) 
-            
+            raise ValueError('Method %s not recognized'%self.method)
+
         self.extra_kwargs = kwargs
 
     def __call__(self, t):
         """
         __call: return value at time t:
-        
+
         Parameters:
         -----------
         t : float
             time at which to evaluate function
-        
+
         Returns:
         --------
         y : float
             value of the function at time t.
         """
-        # Is this the first call, or did we return to the initial time?
-        if self.t0 is None or t==self.t0:
-            self.t0 = t
-            self.tlast = None
-            self.interpolants = []
-            self.ts = [t]
-            
-            return 0.
-        # Second call, we will now establish a direction and create the solver:
-        elif self.tlast == None: 
-            if t>self.t0:
-                self.direction = +1
-            elif t<self.t0:
-                self.direction = -1
-            
-            self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
-                                        self.direction*self.tmax, **self.extra_kwargs)
-        # Did we go to a value smaller than our initial direction?
-        elif (t<self.t0 and self.direction==+1) or (t>self.t0 and self.direction==-1):
-            # Reset the integrator.
-            self.t0=None
-            self.tlast=None
-            return self(t)
-        
-        # If we made it here, we did not reset yet:
-        self.tlast = t
- 
-        if t == self.t0:
-            return 0.
-        else:
-            while self.integrator.t<t:
+        tarray = isinstance(t, np.ndarray)
+        if tarray:
+            # Is this the first call, or did we return to the initial time?
+            if self.t0 is None:
+                self.t0 = np.amin(t)
+                self.tlast = None
+                self.interpolants = []
+                self.ts = [self.t0]
+            if np.all(t==self.t0):
+                self.tlast = None
+                self.interpolants = []
+                self.ts = [self.t0]
+                # t is now an array, so don't return here.
+                return np.zeros(t.shape)
+            # When t is array the second call occurrs within the first call:
+            if self.tlast == None:
+                if np.all(t>=self.t0):
+                    self.direction = +1
+                elif np.all(t<=self.t0):
+                    self.direction = -1
+
+                self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
+                                            self.direction*self.tmax, **self.extra_kwargs)
+            # Did we go to a value smaller than our initial direction?
+            elif (np.any(t<self.t0) and self.direction==+1) or (np.any(t>self.t0) and self.direction==-1):
+                # Reset the integrator.
+                self.t0=None
+                self.tlast=None
+                return self(t)
+
+            # If we made it here, we did not reset yet:
+            self.tlast = np.amax(t)
+
+            # Don't need to check for zeroes as below because we
+            # did already.
+            while self.integrator.t<np.amax(t):
                 self.integrator.step()
                 sol = self.integrator.dense_output()
                 self.interpolants.append(sol)
@@ -160,7 +165,47 @@ class parallelIntegrator(object):
             sol = OdeSolution(self.ts, self.interpolants)
 
             return sol(t)
+        else:
+            # Is this the first call, or did we return to the initial time?
+            if self.t0 is None or t==self.t0:
+                self.t0 = t
+                self.tlast = None
+                self.interpolants = []
+                self.ts = [t]
 
+                return 0.
+            # Second call, we will now establish a direction and create the solver:
+            elif self.tlast == None:
+                if t>self.t0:
+                    self.direction = +1
+                elif t<self.t0:
+                    self.direction = -1
+
+                self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
+                                            self.direction*self.tmax, **self.extra_kwargs)
+            # Did we go to a value smaller than our initial direction?
+            elif (t<self.t0 and self.direction==+1) or (t>self.t0 and self.direction==-1):
+                # Reset the integrator.
+                self.t0=None
+                self.tlast=None
+                return self(t)
+
+            # If we made it here, we did not reset yet:
+            self.tlast = t
+
+            if t == self.t0:
+                return 0.
+            else:
+                while self.integrator.t<t:
+                    self.integrator.step()
+                    sol = self.integrator.dense_output()
+                    self.interpolants.append(sol)
+                    self.ts.append(self.integrator.t)
+
+                # Rebuild the solution:
+                sol = OdeSolution(self.ts, self.interpolants)
+
+                return sol(t)
 
 def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
                      dense_output=False, events=None, vectorized=False,
@@ -519,7 +564,7 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
 
     max_step_initial = options.pop('initial_max_step', np.inf)
     max_step_global = options.pop('max_step', np.inf)
-    
+
     solver = method(fun, t0, y0, tf, vectorized=vectorized,
                     max_step=max_step_initial, **options)
 
