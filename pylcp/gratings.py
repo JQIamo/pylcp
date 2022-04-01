@@ -439,6 +439,7 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
                  grating_angle=0,
                  input_phase=0.0,
                  diff_phases=None,
+                 init_beams=None,
                  **kwargs):
         """
         Creates beams that would be made from a grating.
@@ -476,12 +477,17 @@ class maskedGaussianGratingMOTBeams(infiniteGratingMOTBeams):
             input_phase: Phase of input beam.
             diff_phase: List or numpy array containing phases of diffracted
             beams.
+            init_beams: laserBeams object to append new laser beams to.
         """
         # I would like use to do super().super().__init__(), but that does not work.
         # Nonetheless, these are the only two things that need to be done
         # from laserBeams.__init__():
-        self.beam_vector = []
-        self.num_of_beams = 0
+        if init_beams is None:
+            self.beam_vector = []
+            self.num_of_beams = 0
+        else:
+            self.beam_vector = init_beams.beam_vector
+            self.num_of_beams = init_beams.num_of_beams
 
         self.nr = nr
         self.thd = thd
