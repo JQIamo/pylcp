@@ -1076,6 +1076,9 @@ class obe(governingeq):
             self.set_initial_rho_from_rateeq()
         elif initial_rho == 'equally':
             self.set_initial_rho_equally()
+        elif initial_rho == 'frompops':
+            Npop = kwargs.pop('init_pop', None)
+            self.set_initial_rho_from_populations(Npop)
         else:
             raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
