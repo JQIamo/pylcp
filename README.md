@@ -9,6 +9,8 @@ It allows automatic generation of the optical Bloch equations (or some approxima
 thereof) given an atom's or molecule's internal Hamiltonian, a set of laser beams, and
 a magnetic field.
 
+If you find `pylcp` useful in your research, please cite our paper describing the package: [![DOI](http://img.shields.io/badge/Computer%20Physics%20Communications-j.cpc.2021.108166-lightblue.svg)](https://doi.org/10.1016/j.cpc.2021.108166).
+
 Installation
 ------------
 You can install on the command line using pip:

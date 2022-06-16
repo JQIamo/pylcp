@@ -10,7 +10,8 @@ Welcome to pylcp!
 interesting quantities in laser cooling physics.  At its heart, it allows for
 automatic generation of the optical Bloch equations or some approximation
 thereof given a atom or molecule internal Hamiltonian, a set of laser beams, and
-a possible magnetic field.
+a possible magnetic field. If you find `pylcp` useful in your research, please
+cite our paper describing the package: https://doi.org/10.1016/j.cpc.2021.108166
 
 .. toctree::
   :maxdepth: 2
@@ -40,9 +41,10 @@ Credits
 
 
 :Cite as:
-    Stephen Eckel, Daniel Barker, Eric Norrgard, and Julia Scherschligt,
+    Stephen Eckel, Daniel S. Barker, Eric B. Norrgard, and Julia Scherschligt,
     "PyLCP: A python package for computing laser cooling physics",
-    in preparation (2020).
+    Computer Physics Communications 270, 108166 (2020).
+    https://doi.org/10.1016/j.cpc.2021.108166
 
 :Version: 1.0.0 of 2020/11/10
 
