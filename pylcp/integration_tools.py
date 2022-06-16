@@ -1,6 +1,7 @@
 from __future__ import division, print_function, absolute_import
 import inspect
 import numpy as np
+from inspect import signature
 from scipy.integrate._ivp.bdf import BDF
 from scipy.integrate._ivp.radau import Radau
 from scipy.integrate._ivp.rk import RK23, RK45
@@ -34,11 +35,16 @@ class RandomOdeResult(OptimizeResult):
 class parallelIntegrator(object):
     """
     parallelIntegrator: a class to integrate a function as it is being called
-    
+
     Parameters:
     ----------
     func : callable
-        The function that is to be integrated
+        The function that is to be integrated.  It can have the form func(t) or
+        func(t,y).
+
+    y0 : float or array, optional
+        The initial value of y.  Default value is 0.
+
     method : string, optional
         Integration method to use:
             * 'RK45' (default): Explicit Runge-Kutta method of order 5(4) [1]_.
@@ -72,9 +78,9 @@ class parallelIntegrator(object):
               from ODEPACK.
     tmax : float, optional
         Maximum magnitude of the time.  By default, 1e9.
-    kwargs : 
+    kwargs :
         Options passed to a chosen OdeSolver.
-        
+
     Attributes
     ----------
     t0 : initial time of the integrator
@@ -82,8 +88,14 @@ class parallelIntegrator(object):
     direction : direction of the integrator
     tmax : maximium value of integrator
     """
-    def __init__(self, func, method='RK45', tmax=1e9, **kwargs):
-        self.func = func
+    def __init__(self, func, y0=[0.], method='RK45', tmax=1e9, **kwargs):
+        if '(t, y' in str(signature(func)):
+            self.func = func
+        elif '(t' in str(signature(func)):
+            self.func = lambda t, y: func(t)
+        else:
+            raise ValueError('signature %s for func not recognized'%str(signature(func)))
+
         self.t0 = None
         self.tlast = None
         self.direction = +1
@@ -102,65 +114,83 @@ class parallelIntegrator(object):
         elif method == 'LSODA':
             self.intobj = LSODA
         else:
-            raise ValueError('Method %s not recognized'%self.method) 
-            
+            raise ValueError('Method %s not recognized'%self.method)
+
+        self.y0 = np.array(y0)
         self.extra_kwargs = kwargs
 
     def __call__(self, t):
         """
         __call: return value at time t:
-        
+
         Parameters:
         -----------
-        t : float
+        t : float or array_like
             time at which to evaluate function
-        
+
         Returns:
         --------
-        y : float
+        y : float or array_like
             value of the function at time t.
         """
+        if isinstance(t, np.ndarray):
+            self.__step(np.amin(t)) # start the intergrator
+            self.__step(np.amax(t)) # step the integrator through to max value
+
+            # Rebuild the solution:
+            sol = OdeSolution(self.ts, self.interpolants)
+
+            return sol(t) # return the full array
+        else:
+            self.__step(t) # step integrator
+
+            if t==self.t0:
+                return self.y0
+            else:
+                # Rebuild the solution:
+                sol = OdeSolution(self.ts, self.interpolants)
+
+                return sol(t)
+
+    def __step(self, t):
         # Is this the first call, or did we return to the initial time?
         if self.t0 is None or t==self.t0:
             self.t0 = t
             self.tlast = None
             self.interpolants = []
             self.ts = [t]
-            
-            return 0.
+
+            # Return the initial value:
+            return self.y0
+
         # Second call, we will now establish a direction and create the solver:
-        elif self.tlast == None: 
+        elif self.tlast == None:
             if t>self.t0:
                 self.direction = +1
             elif t<self.t0:
                 self.direction = -1
-            
-            self.integrator=self.intobj(lambda t, y: self.func(t), self.t0, [0.],
+
+            self.integrator=self.intobj(self.func, self.t0, self.y0,
                                         self.direction*self.tmax, **self.extra_kwargs)
-        # Did we go to a value smaller than our initial direction?
+
+        # Did we go to a value smaller than our initial value, given the
+        # direction?
         elif (t<self.t0 and self.direction==+1) or (t>self.t0 and self.direction==-1):
             # Reset the integrator.
             self.t0=None
             self.tlast=None
+            # Cute way to reset the integrator to a new starting t:
             return self(t)
-        
+
         # If we made it here, we did not reset yet:
         self.tlast = t
- 
-        if t == self.t0:
-            return 0.
-        else:
-            while self.integrator.t<t:
-                self.integrator.step()
-                sol = self.integrator.dense_output()
-                self.interpolants.append(sol)
-                self.ts.append(self.integrator.t)
 
-            # Rebuild the solution:
-            sol = OdeSolution(self.ts, self.interpolants)
-
-            return sol(t)
-
+        # Now integrator up to t:
+        while self.integrator.t<t:
+            self.integrator.step()
+            sol = self.integrator.dense_output()
+            self.interpolants.append(sol)
+            self.ts.append(self.integrator.t)
 
 def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
                      dense_output=False, events=None, vectorized=False,
@@ -519,7 +549,7 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
 
     max_step_initial = options.pop('initial_max_step', np.inf)
     max_step_global = options.pop('max_step', np.inf)
-    
+
     solver = method(fun, t0, y0, tf, vectorized=vectorized,
                     max_step=max_step_initial, **options)
 

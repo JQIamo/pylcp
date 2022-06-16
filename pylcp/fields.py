@@ -42,8 +42,32 @@ def return_constant_val_t(t, val):
     else:
         return val
 
-def promote_to_lambda(val, var_name=None, type='Rt'):
-    if type is 'Rt':
+def promote_to_lambda(val, var_name='', type='Rt'):
+    """
+    Promotes a constant or callable to a lambda function with proper arguments.
+
+    Parameters
+    ----------
+        val : array_like or callable
+            The value to promote.  Can either be a function, array_like
+            (vector), or a scalar (constant).
+        var_name : str, optional
+            Name of the variable attempting to be promoted.  Useful for error
+            messages. Default: empty string.
+        type : str, optional
+            The arguments of the lambda function we are creating.  If `Rt`,
+            the lambda function returned has ``(R, t)`` as its arguments.  If
+            `t`, it has only `t` as its arguments.  Default: `Rt`.
+
+
+    Returns
+    -------
+        func : callable
+            lambda function created by this function
+        sig : string
+            Either `(R,t)` or `(t)`
+    """
+    if type == 'Rt':
         if not callable(val):
             if isinstance(val, list) or isinstance(val, np.ndarray):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: return_constant_vector(R, t, val)
@@ -58,12 +82,15 @@ def promote_to_lambda(val, var_name=None, type='Rt'):
             elif ('(R, t)' in sig or '(r, t)' in sig or '(x, t)' in sig):
                 func = lambda R=np.array([0., 0., 0.]), t=0.: val(R, t)
                 sig = '(R, t)'
+            elif '(t)' in sig:
+                func = lambda R=np.array([0., 0., 0.]), t=0.: val(t)
+                sig = '(R, t)'
             else:
                 raise TypeError('Signature [%s] of function %s not'+
                                 'understood.'% (sig, var_name))
 
         return func, sig
-    elif type is 't':
+    elif type == 't':
         if not callable(val):
             func = lambda t=0.: return_constant_val_t(t, val)
             sig = '()'

@@ -11,7 +11,8 @@ setup(
     install_requires=["docutils>=0.3",
                       "numpy>=1.18",
                       "numba>=0.48",
-                      "scipy>=1.4.1"],
+                      "scipy>=1.4.1",
+                      "sympy>=1.6"],
     python_requires=">=3.6, <4",
     package_data={
         # If any package contains *.txt or *.rst files, include them:

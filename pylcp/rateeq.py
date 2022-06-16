@@ -485,6 +485,12 @@ class rateeq(governingeq):
             :math:`n` elements, where :math:`n` is the total number of states
             in the system.
         """
+        if len(N0) != self.hamiltonian.n:
+            raise ValueError('Npop has only %d entries for %d states.' %
+                             (len(N0), self.hamiltonian.n))
+        if np.any(np.isnan(N0)) or np.any(np.isinf(N0)):
+            raise ValueError('Npop has NaNs or Infs!')
+
         self.N0 = N0
 
     def set_initial_pop_from_equilibrium(self):
@@ -501,7 +507,7 @@ class rateeq(governingeq):
 
         This function integrates the rate equations to determine how the
         populations evolve in time.  Any initial velocity is kept constant.
-        It is analogous to obe.evolve_densityv().
+        It is analogous to obe.evolve_density().
 
         Parameters
         ----------

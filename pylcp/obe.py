@@ -1072,10 +1072,13 @@ class obe(governingeq):
         ii : int
             Number of iterations needed to converge.
         """
-        if initial_rho is 'rateeq':
+        if initial_rho == 'rateeq':
             self.set_initial_rho_from_rateeq()
-        elif initial_rho is 'equally':
+        elif initial_rho == 'equally':
             self.set_initial_rho_equally()
+        elif initial_rho == 'frompops':
+            Npop = kwargs.pop('init_pop', None)
+            self.set_initial_rho_from_populations(Npop)
         else:
             raise ValueError('Argument initial_rho=%s not understood'%initial_rho)
 
