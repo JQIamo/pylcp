@@ -39,7 +39,7 @@ def __isunitary(A):
 
 
 def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
-           gS=cts.value('electron g factor'), gI=cts.value('proton g factor'),
+           gS=-cts.value('electron g factor'), gI=cts.value('proton g factor'),
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            return_basis=False):
@@ -261,7 +261,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
 
 
 def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
-           gS=2.002, gL=1, gl=0, glprime=0, gr=0, greprime=0, gN=0,
+           gS=-cts.value('electron g factor'), gL=1, gl=0, glprime=0, gr=0, greprime=0, gN=0,
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            return_basis=False):
@@ -301,7 +301,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
         muN : float
             Nuclear Magneton.  Default value is the CODATA value in MHz/G.
         gS : float
-            Electron spin g-factor. Default: :math:`g_S = 2.002`.
+            Electron spin g-factor. Default: CODATA value.
         gL : float
             Orbital g-factor. Note that it may deviate slightly from 1 due to
             relativistic, diamagnetic, and non-adiabatic contributions.
