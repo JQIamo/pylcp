@@ -390,7 +390,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
 
     # Brown and Carrington 8.506.  This ignores eQq2, which couples states with \Delta\Omega = \pm 2, see Brown and Carrington 8.382
     def quadrupole(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
-        return -(-1)**(Jp+I+F)*__wig6j(I, J, F, Jp, I, 2)/__wig3j(I, 2, I, -I, 0, I)*(-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
+        return (-1)**(Jp+I+F)*__wig6j(I, J, F, Jp, I, 2)/__wig3j(I, 2, I, -I, 0, I)*(-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
         (L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         eQq0/4*__wig3j(J, 2, Jp, -O, 0, Op)
 
@@ -418,12 +418,11 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
         reduced_matrix_elements += -muB*(gl)*(O-L)*(-1)**(Fp+J+I+1+J-O)*__wig6j(J,F,I, Fp,Jp,1)* __wig3j(J,1,Jp, -O,0,Op)* np.sqrt((2*F+1)*(2*Fp+1)*(2*J+1)*(2*Jp+1))*(L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(P==Pp)
 
         #cf 9.70,9.71 parity-dependent Zeeman terms:
-        reduced_matrix_elements += -muB*(glprime-greprime)*(-1)**(Fp+J+I+1+J-O)*__wig6j(J,F,I, Fp,Jp,1)* __wig3j(J,1,Jp, -O,0,Op)* np.sqrt((2*F+1)*(2*Fp+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
+        reduced_matrix_elements +=-muB*(glprime-greprime)*(-1)**(Fp+J+I+1+J-O+S-(O-L))*__wig6j(J,F,I, Fp,Jp,1)*np.sqrt((2*F+1)*(2*Fp+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
         0.5*(
         __wig3j(J, 1, Jp, -O, +1, Op)*__wig3j(S, 1, Sp, -(O-L),-1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, +1, Op)*__wig3j(S, 1, Sp, +(O-L),-1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, +1, -Op)*__wig3j(S, 1, Sp, -(O-L),-1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, +1, -Op)*__wig3j(S, 1, Sp, +(O-L),-1, -(Op-Lp))+\
         __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),+1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),+1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),+1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),+1, -(Op-Lp))
         )
-
         # In essence, apply Wigner-Eckart Theorem:
         mu_q = np.zeros((3,))
         for kk, p in enumerate([-1, 0, 1]):
