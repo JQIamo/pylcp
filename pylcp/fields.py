@@ -502,7 +502,7 @@ class laserBeam(object):
         self.eps = eps
 
     def __parse_constant_polarization(self, pol, pol_coord):
-        if isinstance(pol, float) or isinstance(pol, int):
+        if isinstance(pol, (float, np.floating)) or isinstance(pol, (int, np.integer)):
             # If the polarization is defined by just a single number (+/-1),
             # we assume that the polarization is defined as sigma^+ or sigma^-
             # using the k-vector of the light as the axis defining z.  In this
