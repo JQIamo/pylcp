@@ -595,6 +595,53 @@ class hamiltonian():
         return self.rotated_hamiltonian
 
 
+    def diag_static_fields_and_sort(self, B):
+        """
+        Diagonalize and sort does what you would expect.
+        """
+        Vecs = np.empty((self.blocks.shape[0],), dtype='object')
+        Es = np.empty((self.blocks.shape[0],), dtype='object')
+
+        # Determine the components of Bq based on the direction:
+        for ii, Bi in enumerate(B):
+            # Diagonalize the Hamiltonian:
+            if Bi==0.:
+                diag_hamiltonian = self.diag_static_field(1e-9)
+            else:
+                diag_hamiltonian = self.diag_static_field(Bi)
+
+            # Now, we want to sort the values according to the low field groupings.
+            # B=0 is like a diabolic point, in that it is really difficult to track
+            # the eigenvectors around B=0.  So we must start at small, non-zero
+            # field.
+            if ii > 0:
+                for jj in range((np.diag(self.blocks)).size):
+                    # Go through each vector:
+                    sortedind = np.zeros(self.U[jj].shape[1], dtype=int)
+                    for kk in range(Vecs[jj].shape[2]):
+                        Vecdiff = np.array(
+                            [np.sum((np.abs(self.U[jj][:, ll])**2 -
+                                     np.abs(Vecs[jj][ii-1, :, kk])**2)**2)
+                             for ll in range(Vecs[jj].shape[2])])
+
+                        sortedind[kk] = np.argmin(Vecdiff)
+
+                    if np.unique(sortedind).size != sortedind.size:
+                        raise ValueError("Could not find 1 to 1 sorting for " +
+                                         " iteration {0:d}".format(ii))
+
+                    Es[jj][ii, :] = np.diag(self.rotated_hamiltonian.blocks[jj, jj].matrix)[sortedind]
+                    Vecs[jj][ii, :, :] = self.U[jj][:, sortedind]
+            else:
+                for jj in range((np.diag(self.blocks)).size):
+                    Vecs[jj] = np.zeros((B.size,) + self.U[jj].shape, dtype=np.complex128)
+                    Vecs[jj][ii, :, :] = self.U[jj]
+
+                    Es[jj] = np.zeros((B.size,) + (self.ns[jj],), dtype=np.complex128)
+                    Es[jj][ii, :] = np.diag(self.rotated_hamiltonian.blocks[jj, jj].matrix)
+
+        return Es, Vecs
+
     def diag_H_0(self, B0):
         pass
 
