@@ -240,7 +240,7 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
 
     num_of_states = int((2*J+1)*(2*I+1))
     H_0 = np.zeros((num_of_states, num_of_states))
-    H_Bq = np.zeros((3,num_of_states, num_of_states))
+    mu_q = np.zeros((3,num_of_states, num_of_states))
 
     # Start with the magnetic field dependent matrices:
     for kk, q in enumerate([-1, 0, 1]):
@@ -336,9 +336,9 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
             for mI in range(-I,I+1):
                 basis[index(J, I, mJ, mI)] = np.array([J, I, mJ, mI])
 
-        return H_0, H_Bq, basis
+        return H_0, mu_q, basis
     else:
-        return H_0, H_Bq
+        return H_0, mu_q
 
 
 def coupled_index(F, mF, Fmin):
