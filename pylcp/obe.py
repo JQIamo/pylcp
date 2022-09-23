@@ -1,4 +1,4 @@
-hamiltonian"""
+"""
 Tools for solving the OBE for laser cooling
 author: spe
 """
