@@ -106,13 +106,13 @@ class rateeq(governingeq):
     v0 : array_like, shape (3,), optional
         Initial velocity.  Default: [0., 0., 0.]
     """
-    def __init__(self, laserBeams, magField, hamitlonian,
+    def __init__(self, laserBeams, magField, hamiltonian,
                  a=np.array([0., 0., 0.]), include_mag_forces=True,
                  svd_eps=1e-10, r0=np.array([0., 0., 0.]),
                  v0=np.array([0., 0., 0.])):
         # First step is to save the imported laserBeams, magField, and
         # hamiltonian.
-        super().__init__(laserBeams, magField, hamitlonian,
+        super().__init__(laserBeams, magField, hamiltonian,
                          a=a, r0=r0, v0=v0)
 
         self.include_mag_forces = include_mag_forces
