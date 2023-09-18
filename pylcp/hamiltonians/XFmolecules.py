@@ -594,8 +594,7 @@ def dipoleXandAstates(xbasis, abasis, I=1/2, S=1/2, UX=None,
     else:
         return dijq
 
-def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
-                      return_intermediate=False):
+def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None):
     """
     Calculate the oscillator strengths between the X and A states.
 
@@ -623,71 +622,24 @@ def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
     ----
     Both the X and B states are assumed to be Hund's case (b).
     """
-    dijq = np.zeros((3, xbasis.shape[0], bbasis.shape[0]))
-
-    def dipole_matrix_element(L, Sig, O, J, F, mF,
-                              Lp, Sigp, Op, Jp, Fp, mFp, q):
+    def dipole_matrix_element(L, N, J, F, mF, P,
+                              Lp, Np, Jp, Fp, mFp, Pp, q):
         """
         The dipole matrix element, less the reduced matrix element between the X
         and A states.  Shorthand: L=Lambda, O=Omega, P=parity.
         """
-        return (-1)**(F-mF)*__wig3j(F, 1, Fp, -mF, q, mFp)*(-1)**(Fp+J+I+1)*\
-            np.sqrt((2*F+1)*(2*Fp+1))*__wig6j(Jp, Fp, I, F, J, 1)*\
-            (-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
-            (__wig3j(J, 1, Jp, -O, -1, Op) + __wig3j(J, 1, Jp, -O, +1, Op))
+        return (-1)**(F-mF)*__wig3j(F, 1, Fp, -mF, q, mFp)*\
+            (-1)**(Fp+J+I+1)*np.sqrt((2*F+1)*(2*Fp+1))*__wig6j(Jp, Fp, I, F, J, 1)*\
+            (-1)**(Jp+N+S+1)*np.sqrt((2*J+1)*(2*Jp+1))*__wig6j(Np, Jp, S, J, N, 1)*\
+            (-1)**(N-L)*np.sqrt((2*N+1)*(2*Np+1))*__wig3j(N, 1, Np, -Lp, 0, L)*(P!=Pp)
 
-    def elements_transform_a_to_b(L, Sig, O, J, F, mF,
-                                  Lp, Np, Jp, Fp, mFp, Pp):
-        """
-        Matrix elements to transform for Hund's case (a) to (b) (Norrgard thesis, pg.)
-        """
-        return (-1)**(J+Sig+L)*np.sqrt(2*Np+1)*__wig3j(S, Np, J, Sig, L, -O)*\
-            (L == Lp)*(J == Jp)*(F == Fp)*(mF == mFp)
-   
-    def make_a_to_b_transfom_matrix(basis):
-        # Make the intermediate basos:
-        intbasis_ba = np.empty((0, ),
-                               dtype=[('Lambda', 'i4'), ('Sigma', 'f4'),
-                                      ('Omega', 'f4'), ('J', 'f4'), ('F', 'f4'),
-                                      ('mF', 'f4')])
-
-        Lambda = basis['Lambda'][0]
-        Ns = np.unique(basis['N'])
-        for N in Ns:
-            for Omega in np.arange(-S, S+1, 1):
-                for J in np.arange(np.abs(N-S), np.abs(N+S)+1, 1):
-                    for F in np.arange(np.abs(J-I), np.abs(J+I)+1, 1):
-                        for mF in np.arange(-F, F+1, 1):
-                            intbasis_ba = np.append(
-                                intbasis_ba, np.array([(Lambda, Omega, Omega,
-                                                        J, F, mF)],
-                                                      dtype=intbasis_ba.dtype))
-
-        # Make the transformation array to transform from Hund's case (b) to
-        # Hund's case (a):
-        T_ba = np.zeros((basis.shape[0], intbasis_ba.shape[0]))
-        for ii, basis_i in enumerate(basis):
-            for jj, intbasis_ba_i in enumerate(intbasis_ba):
-                T_ba[ii, jj] = elements_transform_a_to_b(
-                    *(tuple(intbasis_ba_i) + tuple(basis_i))
-                    )
-                
-        return T_ba, intbasis_ba
-
-    # ###############################################
-    # Transform the basis from case (b) to case (a)
-    # for both X and B states
-    # ###############################################
-    T_ba_X, intbasis_ba_X = make_a_to_b_transfom_matrix(xbasis)
-    T_ba_B, intbasis_ba_B = make_a_to_b_transfom_matrix(bbasis)
-
-    # Make the dipole matrix element operator in this intermediate basis:
-    intdijq = np.zeros((3, intbasis_ba_X.shape[0], intbasis_ba_B.shape[0]))
+    # Now transform in Hund's case A basis
+    dijq = np.zeros((3, xbasis.shape[0], bbasis.shape[0]))
     for ii, q in enumerate(np.arange(-1, 2, 1)):
-        for jj, intbasis_ba_X_i in enumerate(intbasis_ba_X):
-            for kk, intbasis_ba_B_i in enumerate(intbasis_ba_B):
-                intdijq[ii, jj, kk] = dipole_matrix_element(
-                    *(tuple(intbasis_ba_X_i) + tuple(intbasis_ba_B_i) + (q,))
+        for jj, xbasis_i in enumerate(xbasis):
+            for kk, bbasis_i in enumerate(bbasis):
+                dijq[ii,jj,kk] = dipole_matrix_element(
+                    *(tuple(xbasis_i) + tuple(bbasis_i) + (q,))
                     )
 
     # Finally, did the user pass to us a rotation matrix for case (b) into the
@@ -698,15 +650,10 @@ def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
     if UB is None:
         UB = np.identity(bbasis.shape[0])
 
-    # Now transform in Hund's case A basis
-    dijq = np.zeros((3, xbasis.shape[0], bbasis.shape[0]))
-    for ii in range(3):
-        dijq[ii] = UX.T @ T_ba_X @ intdijq[ii] @ T_ba_B.T @ UB
+    # Rotate into the field-free eigenbasis:
+    dijq = UX.T @ dijq @ UB
 
-    if return_intermediate:
-        return dijq, T_ba_X, T_ba_B, intdijq, intbasis_ba_X, intbasis_ba_B
-    else:
-        return dijq
+    return dijq
 
 # %% Run some tests if we are in the main namespace:
 if __name__ == '__main__':
@@ -845,13 +792,9 @@ if __name__ == '__main__':
     Now let's focus on the dipole matrix elements between X and B:
     """
     np.set_printoptions(precision=4, suppress=True)
-    
-    print(Xbasis)
-    print(Bbasis)
-    print(U_B)
-    print(U_X)
-    dijq, T_ba_X, T_ba_B, intdijq, intbasis_ba_X, intbasis_ba_B = dipoleXandBstates(
-        Xbasis, Bbasis, I=1/2, S=1/2, UX=U_X, UB=U_B, return_intermediate=True
+
+    dijq = dipoleXandBstates(
+        Xbasis, Bbasis, I=1/2, S=1/2, UX=U_X, UB=U_B
     )
 
      # Try to reproduce Fig. 5 rates; Tarbutt, PRA 92, 053401 (2015)
