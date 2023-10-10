@@ -42,7 +42,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
            gS=-cts.value('electron g factor'), gI=cts.value('proton g factor'),
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
-           return_basis=False):
+           return_basis=False, diagonalize=True):
 
     """
     Defines the field-free and magnetic field-dependent components of the
@@ -224,7 +224,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
 
 
     # Check to see if H0 is diagonal.  If not, diagonalize it:
-    if np.count_nonzero(H0 - np.diag(np.diagonal(H0))) > 0:
+    if np.count_nonzero(H0 - np.diag(np.diagonal(H0))) > 0 and diagonalize:
         if not __ishermitian(H0):
             raise ValueError("H0 is not hermitian.")
 
