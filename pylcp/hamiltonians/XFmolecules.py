@@ -260,7 +260,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
         return H0, mu_p, U
 
 
-def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
+def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., d=0., eQq0=0., p=0., q=0.,
            gS=-cts.value('electron g factor'), gL=1, gl=0, glprime=0, gr=0, greprime=0, gN=0,
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
@@ -379,20 +379,31 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
         (L==Lp)*(S==Sp)*(I==Ip)*(F==Fp)*(P==Pp)*(mF==mFp)
 
     # Brwon and Carrington 8.374, Using Omega = Lambda + Sigma, or Sigma = Omega-Labmda
+
     def fermicontact(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
         return (b+c/3)*(-1)**(Jp+F+I+J-O+S-(O-L))*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
-        (S==Sp)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*(-1)**(J+S-2*O+L)*\
+        (S==Sp)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         0.5*(
         __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),-1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),-1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),-1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),-1, -(Op-Lp))+\
         __wig3j(J, 1, Jp, -O,  0, Op)*__wig3j(S, 1, Sp, -(O-L), 0, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  0, Op)*__wig3j(S, 1, Sp, +(O-L), 0, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  0, -Op)*__wig3j(S, 1, Sp, -(O-L), 0, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  0, -Op)*__wig3j(S, 1, Sp, +(O-L), 0, -(Op-Lp))+\
         __wig3j(J, 1, Jp, -O,  1, Op)*__wig3j(S, 1, Sp, -(O-L), 1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  1, Op)*__wig3j(S, 1, Sp, +(O-L), 1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  1, -Op)*__wig3j(S, 1, Sp, -(O-L), 1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  1, -Op)*__wig3j(S, 1, Sp, +(O-L), 1, -(Op-Lp))
         )
 
+
     # Brown and Carrington 8.506.  This ignores eQq2, which couples states with \Delta\Omega = \pm 2, see Brown and Carrington 8.382
     def quadrupole(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
         return -(-1)**(Jp+I+F)*__wig6j(I, J, F, Jp, I, 2)/__wig3j(I, 2, I, -I, 0, I)*(-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
         (L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         eQq0/4*__wig3j(J, 2, Jp, -O, 0, Op)
+
+    def dipoledipole_d(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
+
+        return d*(-1)**(Jp+I+F)*(-1)**(J-O)*(-1)**(S-(L-O)+1)*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
+        (L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
+        0.5*(
+        __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),  1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),  1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),  1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),  1, -(Op-Lp))+\
+        __wig3j(J, 1, Jp, -O,  1, Op)*__wig3j(S, 1, Sp, -(O-L), -1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  1, Op)*__wig3j(S, 1, Sp, +(O-L), -1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  1, -Op)*__wig3j(S, 1, Sp, -(O-L), -1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  1, -Op)*__wig3j(S, 1, Sp, +(O-L), -1, -(Op-Lp))
+        )
 
     def zeeman(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
         reduced_matrix_elements = 0
@@ -434,7 +445,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
     for ii, basis_i in enumerate(basis):
         for jj, basis_j in enumerate(basis):
             args = tuple(basis_i) + tuple(basis_j)
-            H_0[ii, jj] = nuclearspinorbit(*args) +fermicontact(*args)
+            H_0[ii, jj] = nuclearspinorbit(*args) +fermicontact(*args) +dipoledipole_d(*args)
             if Ps.size !=1:
                 H_0[ii,jj]+= lambda_doubling(*args)
             if I >= 1:
@@ -643,7 +654,7 @@ def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
         """
         return (-1)**(J+Sig+L)*np.sqrt(2*Np+1)*__wig3j(S, Np, J, Sig, L, -O)*\
             (L == Lp)*(J == Jp)*(F == Fp)*(mF == mFp)
-   
+
     def make_a_to_b_transfom_matrix(basis):
         # Make the intermediate basos:
         intbasis_ba = np.empty((0, ),
@@ -671,7 +682,7 @@ def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
                 T_ba[ii, jj] = elements_transform_a_to_b(
                     *(tuple(intbasis_ba_i) + tuple(basis_i))
                     )
-                
+
         return T_ba, intbasis_ba
 
     # ###############################################
@@ -694,7 +705,7 @@ def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None,
     # eigenbasis?:
     if UX is None:
         UX = np.identity(xbasis.shape[0])
-        
+
     if UB is None:
         UB = np.identity(bbasis.shape[0])
 
@@ -839,13 +850,13 @@ if __name__ == '__main__':
           np.sum(dijq[qind, 4:7, 0]**2), np.sum(dijq[qind, 4:7, 1::]**2)))
     print('F_g = 2: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
           np.sum(dijq[qind, 7::, 0]**2), np.sum(dijq[qind, 7::, 1::]**2)))
-    
+
     # %%
     """
     Now let's focus on the dipole matrix elements between X and B:
     """
     np.set_printoptions(precision=4, suppress=True)
-    
+
     print(Xbasis)
     print(Bbasis)
     print(U_B)
