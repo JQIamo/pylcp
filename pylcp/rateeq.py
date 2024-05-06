@@ -375,7 +375,7 @@ class rateeq(governingeq):
         # Find the singular values:
         U, S, VH = np.linalg.svd(Rev)
 
-        Neq = np.compress(S <= self.svd_eps, VH, axis=0).T
+        Neq = np.compress(S/S.max() <= self.svd_eps, VH, axis=0).T
         Neq /= np.sum(Neq)
 
         if Neq.shape[1] > 1:
