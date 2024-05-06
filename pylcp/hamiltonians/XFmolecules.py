@@ -38,7 +38,7 @@ def __isunitary(A):
     return np.allclose(np.identity(A.shape[0]), A.T @ A, atol=1e-10)
 
 
-def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
+def Xstate(N, I, B=0., D=0, gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
            gS=-cts.value('electron g factor'), gI=cts.value('proton g factor'),
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
@@ -169,7 +169,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
 
     #Brown and Carrington 9.88; rotattion
     def rotation(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
-        return B*NN*(NN + 1)*\
+        return NN*(NN + 1)*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)*(P == Pp)
 
     #Brown and Carrington 9.53, adapted to Hund's case b
@@ -211,7 +211,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
             if I >=1:
                  H0[ii, jj] += electricquadrupole(*args)
             if Ns.size >= 2:
-                H0[ii,jj] +=  rotation(*args)
+                H0[ii,jj] +=  B*rotation(*args) + D*rotation(*args)**2
 
     mu_p = np.zeros((3, basis.shape[0], basis.shape[0]))
     qs = [-1, 0, 1]
