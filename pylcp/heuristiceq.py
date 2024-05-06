@@ -257,7 +257,7 @@ class heuristiceq(governingeq):
             num_of_scatters = 0
             for kvec in kvecs[np.random.rand(len(R))<R*dt]:
                 y[-6:-3] += kvec/self.mass
-                y[-6:-3] += self.k/self.mass*random_vector(free_axes)
+                y[-6:-3] += self.k/self.mass*random_vector(rng, free_axes)
 
                 num_of_scatters += 1
 
