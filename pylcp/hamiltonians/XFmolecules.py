@@ -380,8 +380,8 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., d=0., eQq0=0., p=0., q=0
 
     # Brwon and Carrington 8.374, Using Omega = Lambda + Sigma, or Sigma = Omega-Labmda
 
-    def fermicontact(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
-        return (b+c/3)*(-1)**(Jp+F+I+J-O+S-(O-L))*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
+    def IzSz(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
+        return (b+c)*(-1)**(Jp+F+I+J-O+S-(O-L))*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
         (S==Sp)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         0.5*(
         __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),-1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),-1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),-1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),-1, -(Op-Lp))+\
