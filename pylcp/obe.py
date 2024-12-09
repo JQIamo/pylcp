@@ -1162,6 +1162,29 @@ class obe(governingeq):
         -------
         profile : pylcp.obe.force_profile
             Resulting force profile.
+
+        Notes
+        -----
+        `generate_force_profile` repeatedly calls the function `find_equilibrium_force`,
+        to determine the equilibrium force at all R and V.  For this process, the 
+        selection of the keyword argument `deltat` for `find_equilbirbium_force` 
+        is paramount.  The best way to pick `deltat` is to provide a function 
+        using the `deltat_func` keyword argument that takes arguments `r` and `v`,
+        corresponding to the initial position and velocity, respectively, and 
+        computes the relevant deltat to be fed into `find_equilibrium_force`.
+
+        By default, such a function is provided.  In addition to the initial position
+        and velocity, it takes in three additional arguments: `deltat_v`, `deltat_r`
+        and `deltat_max`, all specified by keywork arguments to `generate_force_profile`. 
+        This default function assigns deltat as either deltat_r/|r| or deltat_v/|v|, 
+        depending on whether `delta_r` or `delta_v` is provided, up to the specified
+        maximum `deltat_max`.  Use of `deltat_max` is motivated by the fact that you 
+        might have an initial v or r magnitude that is effectively zero, making 
+        `deltat` larger than what is necessary for convergence.
+
+        Another option is to bypass the function entirely by setting `deltat_func=None`
+        and passing they keyword argument `deltat`, which will set `deltat` equally
+        for all calls to `find_equilibrium_force`. 
         """
         def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
             deltat = None
