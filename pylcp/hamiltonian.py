@@ -328,7 +328,7 @@ class hamiltonian():
         if ind1>ind2:
             (label1, label2) = (label2, label1)
             ind = ind[::-1]
-            d_q = d_q.conj().T
+            d_q = np.einsum("ijk->ikj",d_q.conj())
 
         # Store the matrix d_q:
         label = self.__make_elem_label('d_q', [label1, label2])
