@@ -444,7 +444,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., d=0., eQq0=0., p=0., q=0
     for ii, basis_i in enumerate(basis):
         for jj, basis_j in enumerate(basis):
             args = tuple(basis_i) + tuple(basis_j)
-            H_0[ii, jj] = nuclearspinorbit(*args) +fermicontact(*args) +dipoledipole_d(*args)
+            H_0[ii, jj] = nuclearspinorbit(*args) +IzSz(*args) +dipoledipole_d(*args)
             if Ps.size !=1:
                 H_0[ii,jj]+= lambda_doubling(*args)
             if I >= 1:
