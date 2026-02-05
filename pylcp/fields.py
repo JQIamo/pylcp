@@ -714,7 +714,7 @@ class laserBeam(object):
              cosbeta,
              -sinbeta/np.sqrt(2)*np.exp(-1j*gamma)],
             [(1-cosbeta)/2*np.exp(1j*alpha+1j*gamma),
-             sinbeta/np.sqrt(2),
+             sinbeta/np.sqrt(2)*np.exp(1j*alpha),
              (1+cosbeta)/2*np.exp(1j*alpha-1j*gamma)]
              ])
 
