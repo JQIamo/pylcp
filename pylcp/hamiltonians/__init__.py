@@ -1,13 +1,26 @@
 import numpy as np
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
+from sympy import sympify
 import scipy.constants as cts
 from . import XFmolecules
 
 def wig3j(j1, j2, j3, m1, m2, m3):
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    m1 = sympify(m1)
+    m2 = sympify(m2)
+    m3 = sympify(m3)
     return float(wigner_3j(j1, j2, j3, m1, m2, m3))
 
 
 def wig6j(j1, j2, j3, m1, m2, m3):
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    m1 = sympify(m1)
+    m2 = sympify(m2)
+    m3 = sympify(m3)
     return float(wigner_6j(j1, j2, j3, m1, m2, m3))
 
 
