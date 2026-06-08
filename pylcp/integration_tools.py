@@ -4,7 +4,7 @@ import numpy as np
 from inspect import signature
 from scipy.integrate._ivp.bdf import BDF
 from scipy.integrate._ivp.radau import Radau
-from scipy.integrate._ivp.rk import RK23, RK45
+from scipy.integrate._ivp.rk import RK23, RK45, DOP853
 from scipy.integrate._ivp.lsoda import LSODA
 from scipy.optimize import OptimizeResult
 from scipy.integrate._ivp.common import EPS, OdeSolution
@@ -16,6 +16,7 @@ from .common import progressBar
 
 METHODS = {'RK23': RK23,
            'RK45': RK45,
+           'DOP853': DOP853,
            'Radau': Radau,
            'BDF': BDF,
            'LSODA': LSODA}
@@ -47,7 +48,7 @@ class parallelIntegrator(object):
 
     method : string, optional
         Integration method to use:
-            * 'RK45' (default): Explicit Runge-Kutta method of order 5(4) [1]_.
+            * 'RK45': Explicit Runge-Kutta method of order 5(4) [1]_.
               The error is controlled assuming accuracy of the fourth-order
               method, but steps are taken using the fifth-order accurate
               formula (local extrapolation is done). A quartic interpolation
@@ -58,7 +59,7 @@ class parallelIntegrator(object):
               steps are taken using the third-order accurate formula (local
               extrapolation is done). A cubic Hermite polynomial is used for the
               dense output. Can be applied in the complex domain.
-            * 'DOP853': Explicit Runge-Kutta method of order 8 [13]_.
+            * 'DOP853' (default): Explicit Runge-Kutta method of order 8 [13]_.
               Python implementation of the "DOP853" algorithm originally
               written in Fortran [14]_. A 7-th order interpolation polynomial
               accurate to 7-th order is used for the dense output.
@@ -88,7 +89,7 @@ class parallelIntegrator(object):
     direction : direction of the integrator
     tmax : maximium value of integrator
     """
-    def __init__(self, func, y0=[0.], method='RK45', tmax=1e9, **kwargs):
+    def __init__(self, func, y0=[0.], method='DOP853', tmax=1e9, **kwargs):
         if '(t, y' in str(signature(func)):
             self.func = func
         elif '(t' in str(signature(func)):
@@ -192,7 +193,7 @@ class parallelIntegrator(object):
             self.interpolants.append(sol)
             self.ts.append(self.integrator.t)
 
-def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
+def solve_ivp_random(fun, random_func, t_span, y0,  method='DOP853', t_eval=None,
                      dense_output=False, events=None, vectorized=False,
                      args=None, **options):
     """Solve an initial value problem for a system of ODEs.
@@ -231,7 +232,7 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
         complex data type (even if the initial value is purely real).
     method : string or `OdeSolver`, optional
         Integration method to use:
-            * 'RK45' (default): Explicit Runge-Kutta method of order 5(4) [1]_.
+            * 'RK45': Explicit Runge-Kutta method of order 5(4) [1]_.
               The error is controlled assuming accuracy of the fourth-order
               method, but steps are taken using the fifth-order accurate
               formula (local extrapolation is done). A quartic interpolation
@@ -242,7 +243,7 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='RK45', t_eval=None,
               steps are taken using the third-order accurate formula (local
               extrapolation is done). A cubic Hermite polynomial is used for the
               dense output. Can be applied in the complex domain.
-            * 'DOP853': Explicit Runge-Kutta method of order 8 [13]_.
+            * 'DOP853' (default): Explicit Runge-Kutta method of order 8 [13]_.
               Python implementation of the "DOP853" algorithm originally
               written in Fortran [14]_. A 7-th order interpolation polynomial
               accurate to 7-th order is used for the dense output.
@@ -711,7 +712,7 @@ if __name__ == '__main__':
             return (False, max(0.1, y[1]))
 
     sol = solve_ivp_random(dydt, func2, [0, 2*np.pi], [0, 1],
-                           max_step=0.1, method='RK45')
+                           max_step=0.1, method='DOP853')
 
     plt.figure()
     plt.plot(sol.t, sol.y.T)

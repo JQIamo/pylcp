@@ -1,11 +1,18 @@
 import numpy as np
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
+from sympy import sympify
 import scipy.constants as cts
 
 def __wig3j(j1, j2, j3, m1, m2, m3):
     """
     This function redefines the wig3jj in terms of things that I like:
     """
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    m1 = sympify(m1)
+    m2 = sympify(m2)
+    m3 = sympify(m3)
     return float(wigner_3j(j1, j2, j3, m1, m2, m3))
 
 
@@ -13,6 +20,12 @@ def __wig6j(j1, j2, j3, l1, l2, l3):
     """
     This function redefines the wig6jj in terms of things that I like:
     """
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    l1 = sympify(l1)
+    l2 = sympify(l2)
+    l3 = sympify(l3)
     return float(wigner_6j(j1, j2, j3, l1, l2, l3))
 
 
@@ -21,6 +34,15 @@ def __wig9j(j1, j2, j3, l1, l2, l3, n1, n2, n3):
     """
     This function redefines the wig9jj in terms of things that I like:
     """
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    l1 = sympify(l1)
+    l2 = sympify(l2)
+    l3 = sympify(l3)
+    n1 = sympify(n1)
+    n2 = sympify(n2)
+    n3 = sympify(n3)
     return float(wigner_9j(j1, j2, j3, l1, l2, l3, n1, n2, n3))
 
 
@@ -38,11 +60,11 @@ def __isunitary(A):
     return np.allclose(np.identity(A.shape[0]), A.T @ A, atol=1e-10)
 
 
-def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
+def Xstate(N, I, B=0., D=0, gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
            gS=-cts.value('electron g factor'), gI=cts.value('proton g factor'),
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
-           return_basis=False):
+           return_basis=False, diagonalize=True):
 
     """
     Defines the field-free and magnetic field-dependent components of the
@@ -169,7 +191,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
 
     #Brown and Carrington 9.88; rotattion
     def rotation(l, NN, J, F, m, P, lp, NNp, Jp, Fp, mp, Pp):
-        return B*NN*(NN + 1)*\
+        return NN*(NN + 1)*\
             (NN == NNp)*(J == Jp)*(F == Fp)*(m == mp)*(P == Pp)
 
     #Brown and Carrington 9.53, adapted to Hund's case b
@@ -211,7 +233,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
             if I >=1:
                  H0[ii, jj] += electricquadrupole(*args)
             if Ns.size >= 2:
-                H0[ii,jj] +=  rotation(*args)
+                H0[ii,jj] +=  B*rotation(*args) + D*rotation(*args)**2
 
     mu_p = np.zeros((3, basis.shape[0], basis.shape[0]))
     qs = [-1, 0, 1]
@@ -224,7 +246,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
 
 
     # Check to see if H0 is diagonal.  If not, diagonalize it:
-    if np.count_nonzero(H0 - np.diag(np.diagonal(H0))) > 0:
+    if np.count_nonzero(H0 - np.diag(np.diagonal(H0))) > 0 and diagonalize:
         if not __ishermitian(H0):
             raise ValueError("H0 is not hermitian.")
 
@@ -260,7 +282,7 @@ def Xstate(N, I, B=0., gamma=0., b=0., c=0., CI=0., q0=0, q2=0,
         return H0, mu_p, U
 
 
-def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
+def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., d=0., eQq0=0., p=0., q=0.,
            gS=-cts.value('electron g factor'), gL=1, gl=0, glprime=0, gr=0, greprime=0, gN=0,
            muB=cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
            muN=cts.m_e/cts.m_p*cts.value('Bohr magneton in Hz/T')*1e-4*1e-6,
@@ -379,20 +401,31 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
         (L==Lp)*(S==Sp)*(I==Ip)*(F==Fp)*(P==Pp)*(mF==mFp)
 
     # Brwon and Carrington 8.374, Using Omega = Lambda + Sigma, or Sigma = Omega-Labmda
-    def fermicontact(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
-        return (b+c/3)*(-1)**(Jp+F+I+J-O+S-(O-L))*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
-        (S==Sp)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*(-1)**(J+S-2*O+L)*\
+
+    def IzSz(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
+        return (b+c)*(-1)**(Jp+F+I+J-O+S-(O-L))*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
+        (S==Sp)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         0.5*(
         __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),-1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),-1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),-1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),-1, -(Op-Lp))+\
         __wig3j(J, 1, Jp, -O,  0, Op)*__wig3j(S, 1, Sp, -(O-L), 0, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  0, Op)*__wig3j(S, 1, Sp, +(O-L), 0, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  0, -Op)*__wig3j(S, 1, Sp, -(O-L), 0, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  0, -Op)*__wig3j(S, 1, Sp, +(O-L), 0, -(Op-Lp))+\
         __wig3j(J, 1, Jp, -O,  1, Op)*__wig3j(S, 1, Sp, -(O-L), 1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  1, Op)*__wig3j(S, 1, Sp, +(O-L), 1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  1, -Op)*__wig3j(S, 1, Sp, -(O-L), 1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  1, -Op)*__wig3j(S, 1, Sp, +(O-L), 1, -(Op-Lp))
         )
 
+
     # Brown and Carrington 8.506.  This ignores eQq2, which couples states with \Delta\Omega = \pm 2, see Brown and Carrington 8.382
     def quadrupole(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
         return (-1)**(Jp+I+F)*__wig6j(I, J, F, Jp, I, 2)/__wig3j(I, 2, I, -I, 0, I)*(-1)**(J-O)*np.sqrt((2*J+1)*(2*Jp+1))*\
         (L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
         eQq0/4*__wig3j(J, 2, Jp, -O, 0, Op)
+
+    def dipoledipole_d(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
+
+        return d*(-1)**(Jp+I+F)*(-1)**(J-O)*(-1)**(S-(L-O)+1)*__wig6j(I, Jp, F, J, I, 1)*np.sqrt(I*(I+1)*(2*I+1)*(2*J+1)*(2*Jp+1)*S*(S+1)*(2*S+1))*\
+        (L==Lp)*(S==Sp)*(O==Op)*(I==Ip)*(F==Fp)*(mF==mFp)*(P==Pp)*\
+        0.5*(
+        __wig3j(J, 1, Jp, -O, -1, Op)*__wig3j(S, 1, Sp, -(O-L),  1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O, -1, Op)*__wig3j(S, 1, Sp, +(O-L),  1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O, -1, -Op)*__wig3j(S, 1, Sp, -(O-L),  1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O, -1, -Op)*__wig3j(S, 1, Sp, +(O-L),  1, -(Op-Lp))+\
+        __wig3j(J, 1, Jp, -O,  1, Op)*__wig3j(S, 1, Sp, -(O-L), -1, (Op-Lp))  +  P*(-1)**(J-S)*__wig3j(J, 1, Jp, +O,  1, Op)*__wig3j(S, 1, Sp, +(O-L), -1, (Op-Lp))  + Pp*(-1)**(Jp-Sp)*__wig3j(J, 1, Jp, -O,  1, -Op)*__wig3j(S, 1, Sp, -(O-L), -1, -(Op-Lp))  + P*Pp*(-1)**(J-S+Jp-Sp)*__wig3j(J, 1, Jp, +O,  1, -Op)*__wig3j(S, 1, Sp, +(O-L), -1, -(Op-Lp))
+        )
 
     def zeeman(L, S, J, O, I, F, mF, P, Lp, Sp, Jp, Op, Ip, Fp, mFp, Pp):
         reduced_matrix_elements = 0
@@ -433,7 +466,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
     for ii, basis_i in enumerate(basis):
         for jj, basis_j in enumerate(basis):
             args = tuple(basis_i) + tuple(basis_j)
-            H_0[ii, jj] = nuclearspinorbit(*args) +fermicontact(*args)
+            H_0[ii, jj] = nuclearspinorbit(*args) +IzSz(*args) +dipoledipole_d(*args)
             if Ps.size !=1:
                 H_0[ii,jj]+= lambda_doubling(*args)
             if I >= 1:
@@ -453,7 +486,7 @@ def Astate(J, I, P, B=0., D=0., H=0., a=0., b=0., c=0., eQq0=0., p=0., q=0.,
         return H_0, mu_p
 
 
-def dipoleXandAstates(xbasis, abasis, I=1/2, S=1/2, UX=[],
+def dipoleXandAstates(xbasis, abasis, I=1/2, S=1/2, UX=None,
                       return_intermediate=False):
     """
     Calculate the oscillator strengths between the X and A states.
@@ -580,7 +613,7 @@ def dipoleXandAstates(xbasis, abasis, I=1/2, S=1/2, UX=[],
 
     # Finally, did the user pass to us a rotation matrix for case (b) into the
     # eignebasis:
-    if UX == []:
+    if UX is None:
         UX = np.identity(xbasis.shape[0])
 
     # Now transform in Hund's case A basis
@@ -593,6 +626,66 @@ def dipoleXandAstates(xbasis, abasis, I=1/2, S=1/2, UX=[],
     else:
         return dijq
 
+def dipoleXandBstates(xbasis, bbasis, I=1/2, S=1/2, UX=None, UB=None):
+    """
+    Calculate the oscillator strengths between the X and A states.
+
+    Parameters
+    ----------
+        xbasis : list or array_like
+            List of basis vectors for the X state
+        bbasis : list or array_like
+            List of basis vectors for the A state
+        I : int or float
+            Nuclear spin angular momentum.  Default: 1/2.
+        S : int or float
+            :math:`\\Sigma` quantum number.  Default: 1/2.
+        UX : two-dimensional array, optional
+            a rotation matrix for case (b) into the intermediate eigenbasis.
+            Default: empty
+        UB : two-dimensional array, optional
+            a rotation matrix for case (b) into the intermediate eigenbasis.
+            Default: empty
+        return_intermediate : boolean, optional
+            Argument to return the intermediate bases and transformation
+            matrices.
+
+    Notes
+    ----
+    Both the X and B states are assumed to be Hund's case (b).
+    """
+    def dipole_matrix_element(L, N, J, F, mF, P,
+                              Lp, Np, Jp, Fp, mFp, Pp, q):
+        """
+        The dipole matrix element, less the reduced matrix element between the X
+        and A states.  Shorthand: L=Lambda, O=Omega, P=parity.
+        """
+        return (-1)**(F-mF)*__wig3j(F, 1, Fp, -mF, q, mFp)*\
+            (-1)**(Fp+J+I+1)*np.sqrt((2*F+1)*(2*Fp+1))*__wig6j(Jp, Fp, I, F, J, 1)*\
+            (-1)**(Jp+N+S+1)*np.sqrt((2*J+1)*(2*Jp+1))*__wig6j(Np, Jp, S, J, N, 1)*\
+            (-1)**(N-L)*np.sqrt((2*N+1)*(2*Np+1))*__wig3j(N, 1, Np, -Lp, 0, L)*(P!=Pp)
+
+    # Now transform in Hund's case A basis
+    dijq = np.zeros((3, xbasis.shape[0], bbasis.shape[0]))
+    for ii, q in enumerate(np.arange(-1, 2, 1)):
+        for jj, xbasis_i in enumerate(xbasis):
+            for kk, bbasis_i in enumerate(bbasis):
+                dijq[ii,jj,kk] = dipole_matrix_element(
+                    *(tuple(xbasis_i) + tuple(bbasis_i) + (q,))
+                    )
+
+    # Finally, did the user pass to us a rotation matrix for case (b) into the
+    # eigenbasis?:
+    if UX is None:
+        UX = np.identity(xbasis.shape[0])
+
+    if UB is None:
+        UB = np.identity(bbasis.shape[0])
+
+    # Rotate into the field-free eigenbasis:
+    dijq = UX.T @ dijq @ UB
+
+    return dijq
 
 # %% Run some tests if we are in the main namespace:
 if __name__ == '__main__':
@@ -611,7 +704,7 @@ if __name__ == '__main__':
 
     # CaF numbers: Journal of Molecular Spectroscopy, 86 (2), 365 (1981)
     H0_X, Bq_X, U_X, Xbasis = Xstate(
-        N=1, Lambda=0, S=1/2, I=1/2, return_basis=True, B=10303.98670, b=109.1893, c=40.1190,
+        N=1, I=1/2, return_basis=True, B=10303.98670, b=109.1893, c=40.1190,
         CI=2.876e-2, gamma=39.65891        )
 
     B = np.linspace(0, 20, 101)
@@ -660,6 +753,30 @@ if __name__ == '__main__':
     ax.set_xlabel('$B$ (G)')
     ax.set_ylabel('$E$ (MHz)')
 
+    # CaF numbers: https://journals.aps.org/pra/pdf/10.1103/PhysRevA.92.053401
+    H0_B, Bq_B, U_B, Bbasis = Xstate(
+        N=0, I=1/2, return_basis=True, B=0, b=20-50/3, c=50,
+        CI=0, gamma=0)
+
+    B = np.linspace(0, 20, 101)
+    Es_B = np.zeros((B.size, H0_B.shape[0]))
+    for ii, B_i in enumerate(B):
+        Es_B[ii, :], Us = np.linalg.eig(H0_B+Bq_B[1]*B_i)
+        Es_B[ii, :] = np.sort(Es_B[ii, :])
+
+    fig, ax = plt.subplots(1, 1, num="Ground state Zeeman effect")
+    ax.plot(B, Es_B, '-', color='C0')
+
+    # Let's see if I get the same thing putitng it in the x-direction:
+    for ii, B_i in enumerate(B):
+        Es_B[ii, :], Us = np.linalg.eig(H0_B - Bq_B[0]/np.sqrt(2)*B_i +
+                                        Bq_B[2]/np.sqrt(2)*B_i)
+        Es_B[ii, :] = np.sort(Es_B[ii, :])
+
+    ax.plot(B, Es_B, linewidth=0.75, color='C1')
+    ax.set_xlabel('$B$ (G)')
+    ax.set_ylabel('$E$ (MHz)')
+
     # %%
     """
     Let's check the projections:
@@ -692,7 +809,7 @@ if __name__ == '__main__':
     # print(dijq[0,:,:]**2)
 
     # Try to reproduce Fig. 3 rates; Tarbutt, PRA 92, 053401 (2015)
-    qind = 2
+    qind = 1
     print('F_g = 1: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
           np.sum(dijq[qind, 0:3, 0]**2), np.sum(dijq[qind, 0:3, 1::]**2)))
     print('F_g = 0: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
@@ -701,3 +818,26 @@ if __name__ == '__main__':
           np.sum(dijq[qind, 4:7, 0]**2), np.sum(dijq[qind, 4:7, 1::]**2)))
     print('F_g = 2: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
           np.sum(dijq[qind, 7::, 0]**2), np.sum(dijq[qind, 7::, 1::]**2)))
+
+    # %%
+    """
+    Now let's focus on the dipole matrix elements between X and B:
+    """
+    np.set_printoptions(precision=4, suppress=True)
+
+    dijq = dipoleXandBstates(
+        Xbasis, Bbasis, I=1/2, S=1/2, UX=U_X, UB=U_B
+    )
+
+     # Try to reproduce Fig. 5 rates; Tarbutt, PRA 92, 053401 (2015)
+    qind = 1
+    print('F_g = 1: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
+          np.sum(dijq[qind, 0:3, 0]**2), np.sum(dijq[qind, 0:3, 1::]**2)))
+    print('F_g = 0: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
+          np.sum(dijq[qind, 3, 0]**2), np.sum(dijq[qind, 3, 1::]**2)))
+    print('F_g = 1: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
+          np.sum(dijq[qind, 4:7, 0]**2), np.sum(dijq[qind, 4:7, 1::]**2)))
+    print('F_g = 2: F_e = 0: {0:.3f} F_e = 1: {1:.3f}'.format(
+          np.sum(dijq[qind, 7::, 0]**2), np.sum(dijq[qind, 7::, 1::]**2)))
+
+# %%

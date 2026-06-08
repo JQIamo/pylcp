@@ -63,7 +63,8 @@ class infiniteGratingMOTBeams(laserBeams):
                  pol=np.array([-1/np.sqrt(2), 1j/np.sqrt(2), 0]),
                  reflected_pol=np.array([np.pi, 0]),
                  reflected_pol_basis='poincare',
-                 eta=None, grating_angle=0, **kwargs):
+                 eta=None, grating_angle=0,
+                 input_phase=0.0, diff_phases=None, **kwargs):
         """
         Creates beams that would be made from a grating.
         Parameters:
@@ -88,6 +89,9 @@ class infiniteGratingMOTBeams(laserBeams):
                 phase delay.
             eta: diffraction efficiency of each of the reflected beams
             grating_angle: overall azimuthal rotation of the grating
+            input_phase: Phase of input beam.
+            diff_phases: List or numpy array containing phases of diffracted
+            beams.
         """
 
         # Turn on a bunch of stuff for making this laser beam collection:
@@ -96,6 +100,9 @@ class infiniteGratingMOTBeams(laserBeams):
         self.nr = nr
         self.thd = thd
         self.grating_angle = grating_angle
+        
+        if diff_phases is None:
+            diff_phases = np.zeros(self.nr)
 
         if eta is None:
             self.eta = 1/nr
@@ -104,7 +111,8 @@ class infiniteGratingMOTBeams(laserBeams):
 
         self.add_laser(infinitePlaneWaveBeam(kvec=np.array([0., 0., 1.]),
                                              pol=pol, s=s, delta=delta,
-                                             pol_coord='cartesian', **kwargs))
+                                             pol_coord='cartesian', phase=input_phase,
+                                             **kwargs))
 
         # Store the input polarization as a Carterian coordiante:
         self.input_pol = self.beam_vector[0].cartesian_pol()
@@ -120,6 +128,7 @@ class infiniteGratingMOTBeams(laserBeams):
                                                  s=self.eta*s/np.cos(self.thd),
                                                  delta=delta,
                                                  pol_coord='cartesian',
+                                                 phase=diff_phases[ii],
                                                  **kwargs))
 
     def _calculate_reflected_kvecs_and_pol(self, reflected_pol,

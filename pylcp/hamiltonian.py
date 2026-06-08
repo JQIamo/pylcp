@@ -514,7 +514,9 @@ class hamiltonian():
                             self.rotated_hamiltonian.add_d_q_block(
                                 self.state_labels[ii], self.state_labels[jj],
                                 block.matrix,
-                                )
+                                k=block.parameters['k'],
+                                gamma=block.parameters['gamma'],
+                            )
 
         # Have we previously generated a set of transformation matrices?
         if not hasattr(self, 'U'):
