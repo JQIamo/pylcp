@@ -567,9 +567,8 @@ def solve_ivp_random(fun, random_func, t_span, y0,  method='DOP853', t_eval=None
 
     interpolants = []
 
-    events, is_terminal, event_dir = prepare_events(events)
-
     if events is not None:
+        events, is_terminal, event_dir = prepare_events(events)
         if args is not None:
             # Wrap user functions in lambdas to hide the additional parameters.
             # The original event function is passed as a keyword argument to the
