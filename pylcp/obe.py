@@ -1157,6 +1157,9 @@ class obe(governingeq):
             the name.
         progress_bar : boolean, optional
             Displays a progress bar as the proceeds.  Default: False
+        deltat_func : function, optional
+            A function to compute the `deltat` argument passed to 
+            `find_equilibrium_force`. See notes below.
 
         Returns
         -------
@@ -1166,21 +1169,65 @@ class obe(governingeq):
         Notes
         -----
         `generate_force_profile` repeatedly calls the function `find_equilibrium_force`,
-        to determine the equilibrium force at all R and V.  For this process, the 
-        selection of the keyword argument `deltat` for `find_equilbirbium_force` 
-        is paramount.  The best way to pick `deltat` is to provide a function 
-        using the `deltat_func` keyword argument that takes arguments `r` and `v`,
-        corresponding to the initial position and velocity, respectively, and 
-        computes the relevant deltat to be fed into `find_equilibrium_force`.
+        to determine the equilibrium force at all `R` and `V`. For this process, the 
+        selection of the keyword argument `deltat` for `find_equilibrium_force` 
+        is paramount. Often, the solutions to the OBE oscillate in time and to
+        get `find_equilibrium_force` to converge, the `deltat` keyword argument
+        must be chosen to average over a sufficient number of those oscillations.
+        In practice, these oscillations depend on the total detuning of the light 
+        field that the atoms are moving in. Thus, the oscillation period can
+        depend easily depend on the position and velocity.
+        
+        Thus, the best solution will have `deltat` computed at each individual 
+        call of `generate_force_profile` based on the specific position and velocity,
+        `r` and `v`, which set the overall detuning. To do this, the user may
+        specify such a function using the `deltat_func` keyword argument. The 
+        function the user supplies should take two arguments, `r` and `v`. This user
+        supplied function will then be used to calculate `deltat` for each new call 
+        of `find_equilibrium_force`.
 
-        By default, such a function is provided.  In addition to the initial position
-        and velocity, it takes in three additional arguments: `deltat_v`, `deltat_r`
-        and `deltat_max`, all specified by keywork arguments to `generate_force_profile`. 
-        This default function assigns deltat as either deltat_r/|r| or deltat_v/|v|, 
-        depending on whether `delta_r` or `delta_v` is provided, up to the specified
-        maximum `deltat_max`.  Use of `deltat_max` is motivated by the fact that you 
-        might have an initial v or r magnitude that is effectively zero, making 
-        `deltat` larger than what is necessary for convergence.
+        For example, the user could supply a function like:
+        ```
+        def deltat(r, v):
+            vabs = np.sqrt(np.sum(v**2))
+            return 2*np.pi*10/vabs
+        ```
+        This user-supplied function would decrease the `deltat` averaging time in
+        `find_equilibrium_force` as the velocity increases. This choice is physically
+        motivated by the fact that the OBE solution will oscillate faster at higher
+        velocities because the atoms will be further detuned. The factor of 
+        :math:`2\\pi\\times10` attempts to capture roughly 10 oscillations of the 
+        OBE solutions, no matter the overall detuning. One potential improvement 
+        the user can supply is the contribution to the oscillation of the detuning
+        of the lasers.
+
+        By default, such the following function is used:
+        ```
+         def default_deltat(r, v, deltat_v, deltat_r, deltat_tmax):
+            deltat = None
+            if deltat_v is not None:
+                vabs = np.sqrt(np.sum(v**2))
+                if vabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_v/vabs, deltat_tmax])
+
+            if deltat_r is not None:
+                rabs = np.sqrt(np.sum(r**2))
+                if rabs==0.:
+                    deltat = deltat_tmax
+                else:
+                    deltat = np.min([2*np.pi*deltat_r/rabs, deltat_tmax])
+
+            return deltat
+        ```
+        This default function takes in three additional arguments `deltat_v`, `deltat_r`
+        and `deltat_max`, all specified by keyword arguments to `generate_force_profile`.
+        `deltat_v` and `deltat_r` attempt to specify the number of oscillations that 
+        will be averaged over, assuming the overall detuning is set by the velocity and
+        the Zeeman shift. `deltat_max` prevents an error if the initial `v` or `r` 
+        magnitude that is effectively zero, making `deltat` larger than what is necessary 
+        for convergence.
 
         Another option is to bypass the function entirely by setting `deltat_func=None`
         and passing they keyword argument `deltat`, which will set `deltat` equally
