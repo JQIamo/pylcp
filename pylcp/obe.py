@@ -141,12 +141,12 @@ class obe(governingeq):
     Methods
     -------
     """
-    def __init__(self, laserBeams, magField, hamitlonian,
+    def __init__(self, laserBeams, magField, hamiltonian,
                  a=np.array([0., 0., 0.]), transform_into_re_im=True,
                  use_sparse_matrices=None, include_mag_forces=True,
                  r0=np.array([0., 0., 0.]), v0=np.array([0., 0., 0.])):
 
-        super().__init__(laserBeams, magField, hamitlonian, a=a,
+        super().__init__(laserBeams, magField, hamiltonian, a=a,
                          r0=r0, v0=v0)
 
         # Save the optional arguments:
