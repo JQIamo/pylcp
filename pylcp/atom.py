@@ -290,15 +290,19 @@ class atom():
 
             # Ground state:
             self.state.append(state(n=5, L=0, J=1/2, lam=np.inf, tau=np.inf,
-                                    gJ=2.0023010, Ahfs=1.0119108130e9, S=1/2))
+                                    gJ=2.0023010, Ahfs=1.0119108149406e9, S=1/2))
+                                #Ahfs uncertainty is 0.1 mHz.
             # D1 line (2P_{1/2})
             self.state.append(state(n=5, L=1, J=1/2, lam=780.241e-9,
-                                    tau=27.679e-9, gJ=0.6668, Ahfs=120.527e6,
+                                    tau=27.679e-9, gJ=0.6668, Ahfs=120.605e6,
                                     S=1/2))
+                                #Ahfs uncertainty is 29 kHz.
             # D2 line (2P_{1/2})
             self.state.append(state(n=5, L=1, J=3/2, lam=780.241e-9,
-                                    tau=26.2348e-9, gJ=1.335, Ahfs=25.0020e6,
-                                    Bhfs=25.79e6, S=1/2))
+                                    tau=26.2348e-9, gJ=1.335, Ahfs=25.0401e6,
+                                    Bhfs=26.000e6, S=1/2))
+                                #Ahfs uncertainty is 1.1 kHz.
+                                #Bhfs uncertainty is 22 kHz.
 
         elif species == "87Rb" or species == "Rb87":
             self.I = 3/2  # nuclear spin
@@ -307,16 +311,21 @@ class atom():
 
             # Ground state:
             self.state.append(state(n=5, L=0, J=1/2, lam=np.inf, tau=np.inf,
-                                    gJ=2.00233113, Ahfs=3.417341305452145e9,
+                                    gJ=2.00233113, Ahfs=3.4173413054521548e9,
                                     S=1/2))
+                                #Ahfs uncertainty is 1.5 uHz.
             # D1 line (5P_{1/2})
             self.state.append(state(n=5, L=1, J=1/2, lam=794.978851156e-9,
-                                    tau=27.679e-9, gJ=0.666, Ahfs=407.24e6,
+                                    tau=27.679e-9, gJ=0.666, Ahfs=406.48e6,
                                     S=1/2))
+                                #Ahfs uncertainty is 0.33 MHz.
             # D2 line (5P_{3/2})
             self.state.append(state(n=5, L=1, J=3/2, lam=780.241209686e-9,
-                                    tau=26.2348e-9, gJ=1.3362, Ahfs=84.7185e6,
-                                    Bhfs=12.4965e6, S=1/2))
+                                    tau=26.2348e-9, gJ=1.3362, Ahfs=84.720e6,
+                                    Bhfs=12.497e6, Chfs=-0.12e3, S=1/2))
+                                #Ahfs uncertainty is 3 kHz.
+                                #Bhfs uncertainty is 2 kHz.
+                                #Chfs uncertainty is 90 Hz.
 
         elif species == "133Cs" or species == "Cs133":
             self.I = 7/2  # nuclear spin
@@ -329,12 +338,16 @@ class atom():
                                     S=1/2))
             # D1 line (6P_{1/2})
             self.state.append(state(n=6, L=1, J=1/2, lam=894.59295986e-9,
-                                    tau=34.791e-9, gJ=0.665900, Ahfs=291.9201e6,
+                                    tau=34.791e-9, gJ=0.665900, Ahfs=291.9263e6,
                                     S=1/2))
+                                #Ahfs uncertainty is 2.5 kHz.
             # D2 line (6P_{3/2})
             self.state.append(state(n=6, L=1, J=3/2, lam=852.34727582e-9,
-                                    tau=30.405e-9, gJ=1.33400, Ahfs=50.28827e6,
-                                    Bhfs=-0.4934e6, Chfs=0.560e3, S=1/2))
+                                    tau=30.405e-9, gJ=1.33400, Ahfs=50.2878e6,
+                                    Bhfs=-0.496e6, Chfs=0.560e3, S=1/2))
+                                #Ahfs uncertainty is 1.1 kHz.
+                                #Bhfs uncertainty is 6 kHz.
+                                #Chfs uncertainty is 70 Hz.
 
         else:
             raise ValueError("Atom {0:s} not recognized.".format(species))

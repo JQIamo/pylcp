@@ -1,13 +1,26 @@
 import numpy as np
 from sympy.physics.wigner import wigner_3j, wigner_6j, wigner_9j
+from sympy import sympify
 import scipy.constants as cts
 from . import XFmolecules
 
 def wig3j(j1, j2, j3, m1, m2, m3):
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    m1 = sympify(m1)
+    m2 = sympify(m2)
+    m3 = sympify(m3)
     return float(wigner_3j(j1, j2, j3, m1, m2, m3))
 
 
 def wig6j(j1, j2, j3, m1, m2, m3):
+    j1 = sympify(j1)
+    j2 = sympify(j2)
+    j3 = sympify(j3)
+    m1 = sympify(m1)
+    m2 = sympify(m2)
+    m3 = sympify(m3)
     return float(wigner_6j(j1, j2, j3, m1, m2, m3))
 
 
@@ -240,7 +253,7 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
 
     num_of_states = int((2*J+1)*(2*I+1))
     H_0 = np.zeros((num_of_states, num_of_states))
-    H_Bq = np.zeros((3,num_of_states, num_of_states))
+    mu_q = np.zeros((3,num_of_states, num_of_states))
 
     # Start with the magnetic field dependent matrices:
     for kk, q in enumerate([-1, 0, 1]):
@@ -336,9 +349,9 @@ def hyperfine_uncoupled(J, I, gJ, gI, Ahfs, Bhfs=0, Chfs=0,
             for mI in range(-I,I+1):
                 basis[index(J, I, mJ, mI)] = np.array([J, I, mJ, mI])
 
-        return H_0, H_Bq, basis
+        return H_0, mu_q, basis
     else:
-        return H_0, H_Bq
+        return H_0, mu_q
 
 
 def coupled_index(F, mF, Fmin):
